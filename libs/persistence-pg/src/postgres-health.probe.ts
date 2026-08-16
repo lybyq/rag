@@ -5,22 +5,30 @@
  * @requirement BASE-009
  */
 import { Inject, Injectable, type OnModuleDestroy } from '@nestjs/common';
-import { APP_CONFIG, type AppConfig } from '@rag/config';
+import type { AppConfig } from '@rag/config';
 import type { DependencyHealth, HealthProbe } from '@rag/contracts';
 import { Pool } from 'pg';
+import { POSTGRES_POOL } from './postgres.tokens';
 
 /** PostgreSQL 就绪探针。 */
 @Injectable()
 export class PostgresHealthProbe implements HealthProbe, OnModuleDestroy {
   public readonly name = 'postgresql';
   private readonly pool: Pool;
+  private readonly ownsPool: boolean;
 
-  public constructor(@Inject(APP_CONFIG) config: AppConfig) {
+  public constructor(@Inject(POSTGRES_POOL) poolOrConfig: Pool | AppConfig) {
+    if (poolOrConfig instanceof Pool) {
+      this.pool = poolOrConfig;
+      this.ownsPool = false;
+      return;
+    }
     this.pool = new Pool({
-      connectionString: config.databaseUrl,
-      connectionTimeoutMillis: config.dependencyHealthTimeoutMs,
+      connectionString: poolOrConfig.databaseUrl,
+      connectionTimeoutMillis: poolOrConfig.dependencyHealthTimeoutMs,
       max: 2,
     });
+    this.ownsPool = true;
   }
 
   /** 执行不会修改数据的 `SELECT 1` 并记录真实协议耗时。 */
@@ -39,8 +47,8 @@ export class PostgresHealthProbe implements HealthProbe, OnModuleDestroy {
     }
   }
 
-  /** 关闭连接池，避免测试和优雅退出时遗留连接。 */
+  /** 直接用于脚本/集成测试时自行关闭连接；Nest 共享池由生命周期 Provider 关闭。 */
   public async onModuleDestroy(): Promise<void> {
-    await this.pool.end();
+    if (this.ownsPool) await this.pool.end();
   }
 }

@@ -6,3 +6,4 @@
  * @requirement BASE-004
  */
 export const DOMAIN_BOUNDARY = 'domain' as const;
+export * from './authorization';

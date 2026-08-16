@@ -1,6 +1,12 @@
 import FoundationOverviewView from '@/views/FoundationOverviewView.vue';
-import PlaceholderView from '@/views/PlaceholderView.vue';
+import type { Component } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
+
+const KnowledgeSpacesView = (): Promise<{ default: Component }> =>
+  import('@/views/KnowledgeSpacesView.vue');
+const PlaceholderView = (): Promise<{ default: Component }> =>
+  import('@/views/PlaceholderView.vue');
+const SettingsView = (): Promise<{ default: Component }> => import('@/views/SettingsView.vue');
 
 /** 路由 meta 作为导航和页面说明的单一来源。 */
 export const router = createRouter({
@@ -10,7 +16,7 @@ export const router = createRouter({
     {
       path: '/knowledge',
       name: 'knowledge',
-      component: PlaceholderView,
+      component: KnowledgeSpacesView,
       meta: { title: '知识空间', module: 'M01～M05' },
     },
     {
@@ -34,7 +40,7 @@ export const router = createRouter({
     {
       path: '/settings',
       name: 'settings',
-      component: PlaceholderView,
+      component: SettingsView,
       meta: { title: '平台设置', module: 'M01、M09' },
     },
   ],

@@ -1,9 +1,11 @@
 /** Prometheus 抓取入口。生产环境应由网络策略限制为监控系统可访问。 */
-import { Controller, Get, Header, Inject, Res } from '@nestjs/common';
+import { Controller, Get, Header, Inject, Res, SetMetadata } from '@nestjs/common';
+import { PUBLIC_ROUTE_METADATA } from '@rag/contracts';
 import type { Response } from 'express';
 import { MetricsService } from './metrics.service';
 
 @Controller('metrics')
+@SetMetadata(PUBLIC_ROUTE_METADATA, true)
 export class MetricsController {
   public constructor(@Inject(MetricsService) private readonly metrics: MetricsService) {}
 

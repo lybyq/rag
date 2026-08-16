@@ -38,6 +38,12 @@ module.exports = {
       to: { pathNot: '^libs/contracts/' },
     },
     {
+      name: 'trusted-user-context-factory-is-adapter-only',
+      severity: 'error',
+      from: { pathNot: '^libs/(auth|testing)/' },
+      to: { path: '^libs/contracts/src/internal/user-context\\.ts$' },
+    },
+    {
       name: 'domain-only-depends-on-contracts-or-domain',
       severity: 'error',
       from: { path: '^libs/domain/' },

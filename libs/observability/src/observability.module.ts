@@ -40,6 +40,12 @@ const redactionPaths = [
   '*.token',
 ];
 
+/**
+ * NestJS 11 使用 path-to-regexp v8，匿名 `*` 已经废弃，通配路由必须命名。
+ * 显式传给 nestjs-pino，避免依赖包为了兼容旧 NestJS 而使用的默认 `*` 触发迁移警告。
+ */
+const ALL_ROUTES = [{ path: '{*splat}', method: RequestMethod.ALL }];
+
 @Global()
 @Module({
   imports: [
@@ -47,6 +53,7 @@ const redactionPaths = [
     LoggerModule.forRootAsync({
       inject: [APP_CONFIG],
       useFactory: (config: AppConfig) => ({
+        forRoutes: ALL_ROUTES,
         pinoHttp: {
           level: config.logLevel,
           genReqId: (request, response) => {
@@ -67,7 +74,16 @@ const redactionPaths = [
               ...(traceId ? { traceId } : {}),
             };
           },
-          redact: { paths: redactionPaths, censor: '[REDACTED]' },
+          redact: {
+            paths: [
+              ...redactionPaths,
+              `req.headers.${config.auth.mock.selectionHeader}`,
+              `req.headers.${config.auth.trustedHeader.userHeader}`,
+              `req.headers.${config.auth.trustedHeader.rolesHeader}`,
+              `req.headers.${config.auth.trustedHeader.signatureHeader}`,
+            ],
+            censor: '[REDACTED]',
+          },
           quietReqLogger: true,
           autoLogging: {
             ignore: (request) => request.url === '/api/v1/health/live',
@@ -90,8 +106,6 @@ const redactionPaths = [
 })
 export class ObservabilityModule implements NestModule {
   public configure(consumer: MiddlewareConsumer): void {
-    consumer
-      .apply(RequestContextMiddleware)
-      .forRoutes({ path: '{*splat}', method: RequestMethod.ALL });
+    consumer.apply(RequestContextMiddleware).forRoutes(...ALL_ROUTES);
   }
 }

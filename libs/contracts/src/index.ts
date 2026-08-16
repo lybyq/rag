@@ -3,6 +3,8 @@
  * 只能导出不依赖框架和基础设施 SDK 的 Schema、类型与 Port。
  */
 export * from './api-envelope';
+export * from './auth';
 export * from './event-envelope';
 export * from './health';
+export * from './knowledge-space';
 export * from './openapi';

@@ -1,4 +1,4 @@
-# M00 本地开发与故障排查
+# M00～M01 本地开发与故障排查
 
 ## 1. 前置条件
 
@@ -13,12 +13,13 @@
 pnpm install --frozen-lockfile
 Copy-Item .env.example .env
 pnpm dev:infra
+pnpm db:migrate
 pnpm health:deep
 pnpm seed:dev
 pnpm dev:services
 ```
 
-也可运行 `pnpm dev:all`，它依次启动基础设施、创建开发 Bucket，再并行启动四个后端和 Web。
+也可运行 `pnpm dev:all`，它依次启动基础设施、等待并迁移 PostgreSQL、创建开发 Bucket，再并行启动四个后端和 Web。
 
 ## 3. 入口
 
@@ -26,6 +27,8 @@ pnpm dev:services
 | --------------------- | ------------------------------------------ |
 | Web Console           | `http://localhost:5173`                    |
 | Platform API liveness | `http://localhost:3000/api/v1/health/live` |
+| 当前身份              | `http://localhost:3000/api/v1/auth/me`     |
+| 知识空间 API          | `http://localhost:3000/api/v1/spaces`      |
 | Query API liveness    | `http://localhost:3001/api/v1/health/live` |
 | Ingestion probe       | `http://localhost:3002/api/v1/health/live` |
 | Scheduler probe       | `http://localhost:3003/api/v1/health/live` |
@@ -39,10 +42,22 @@ pnpm dev:services
 pnpm check             # 全量质量门禁
 pnpm health:deep       # 真实协议健康检查
 pnpm openapi:generate  # 重建契约文档
+pnpm db:migrate        # 校验 checksum 后执行尚未应用的 migration
 pnpm stop:infra        # 停止但保留数据
 ```
 
-## 5. 常见故障
+## 5. M01 开发身份演练
+
+默认身份为 `dev-admin`。Web 右上角进入“身份与接入”可切换服务端预置；也可直接调用：
+
+```powershell
+curl.exe http://localhost:3000/api/v1/auth/me -H "X-RAG-Mock-User: knowledge-reader"
+curl.exe http://localhost:3000/api/v1/spaces -H "X-RAG-Mock-User: dev-admin"
+```
+
+浏览器/curl 只能提交 presetId。`X-Authenticated-Roles` 在 Mock 模式不会被读取。生产设置 `AUTH_MODE=mock` 会在启动配置校验和 Adapter 构造两处失败。
+
+## 6. 常见故障
 
 ### Docker Registry TLS reset / EOF
 
@@ -60,6 +75,14 @@ pnpm stop:infra        # 停止但保留数据
 
 错误只显示字段名与原因，不显示密钥值。对照 `.env.example`。生产模式禁止默认口令，并要求 PostgreSQL URL 包含 SSL 配置。
 
-## 6. 清空本地数据
+### M01 表不存在
+
+先运行 `pnpm db:migrate`。迁移器使用 advisory lock 防止多实例同时执行，并在 `schema_migrations` 保存 SHA-256；已执行 SQL 被修改会拒绝继续，应该新增 migration 而不是改历史文件。
+
+### 401 / 403
+
+401 先检查 AUTH_MODE 和凭证来源；403 再检查 `/auth/me` 返回的映射后角色、空间 ACL 和所需权限。不要通过给浏览器加 roles Header 排障，它不是可信来源。
+
+## 7. 清空本地数据
 
 只有确认不需要本地数据时，才可对 `deploy/docker/docker-compose.yml` 执行 `down --volumes`。它会永久删除本项目命名卷中的 PostgreSQL、Redis、MinIO、etcd 和 Milvus 数据；日常停止请用 `pnpm stop:infra`。

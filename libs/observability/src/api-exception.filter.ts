@@ -20,7 +20,7 @@ import { PinoLogger } from 'nestjs-pino';
 import { RequestContextService } from './request-context';
 
 interface ErrorMapping {
-  code: BaseErrorCode;
+  code: BaseErrorCode | string;
   message: string;
   retryable: boolean;
 }
@@ -42,6 +42,30 @@ function mapStatus(status: number): ErrorMapping {
   return { code: 'INTERNAL_ERROR', message: '服务内部错误', retryable: false };
 }
 
+/** 只接受本进程应用错误约定的公开字段，不读取底层 SDK message。 */
+function mapPublicError(exception: unknown): (ErrorMapping & { status: number }) | undefined {
+  if (
+    typeof exception !== 'object' ||
+    exception === null ||
+    !('code' in exception) ||
+    !('httpStatus' in exception) ||
+    !('retryable' in exception) ||
+    !('message' in exception)
+  ) {
+    return undefined;
+  }
+  const { code, httpStatus, retryable, message } = exception as Record<string, unknown>;
+  if (
+    typeof code !== 'string' ||
+    typeof httpStatus !== 'number' ||
+    typeof retryable !== 'boolean' ||
+    typeof message !== 'string'
+  ) {
+    return undefined;
+  }
+  return { code, status: httpStatus, retryable, message };
+}
+
 /** 应用于全部 HTTP 路由的最后一道异常边界。 */
 @Catch()
 @Injectable()
@@ -55,8 +79,12 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
   public catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
-    const status = exception instanceof HttpException ? exception.getStatus() : 500;
-    const mapping = mapStatus(status);
+    const publicError = mapPublicError(exception);
+    const status =
+      publicError?.status ?? (exception instanceof HttpException ? exception.getStatus() : 500);
+    const mapping: ErrorMapping = publicError
+      ? { code: publicError.code, message: publicError.message, retryable: publicError.retryable }
+      : mapStatus(status);
     const context = this.requestContext.get();
     const body: ApiError = {
       requestId: context?.requestId ?? this.requestContext.getRequestId(),

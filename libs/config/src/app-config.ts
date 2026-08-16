@@ -8,6 +8,29 @@
 import { z } from 'zod';
 
 const logLevels = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
+const authModes = ['mock', 'trusted-header', 'jwt'] as const;
+
+/** 开发身份预置的默认值；选择的是 presetId，而不是让浏览器提交任意角色。 */
+const defaultMockPresets = JSON.stringify([
+  {
+    presetId: 'dev-admin',
+    label: '研发管理员',
+    userId: 'dev-admin',
+    roles: ['SYSTEM_ADMIN'],
+  },
+  {
+    presetId: 'knowledge-editor',
+    label: '知识维护者',
+    userId: 'knowledge-editor',
+    roles: ['KNOWLEDGE_EDITOR'],
+  },
+  {
+    presetId: 'knowledge-reader',
+    label: '普通阅读者',
+    userId: 'knowledge-reader',
+    roles: ['KNOWLEDGE_READER'],
+  },
+]);
 
 /** 将逗号分隔值转换为去空白后的字符串数组。 */
 const CsvSchema = z
@@ -18,6 +41,44 @@ const CsvSchema = z
       .split(',')
       .map((item) => item.trim())
       .filter(Boolean),
+  );
+
+/** 为不同配置项创建独立的 CSV Schema，避免复用 CORS 默认值。 */
+function csvSchema(
+  defaultValue: string,
+): z.ZodPipe<z.ZodDefault<z.ZodString>, z.ZodTransform<string[], string>> {
+  return z
+    .string()
+    .default(defaultValue)
+    .transform((value) =>
+      value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    );
+}
+
+/** 把 JSON 环境变量解析为 Mock 身份预置，并把语法错误纳入统一配置失败。 */
+const MockPresetsSchema = z
+  .string()
+  .default(defaultMockPresets)
+  .transform((value, context): unknown => {
+    try {
+      return JSON.parse(value) as unknown;
+    } catch {
+      context.addIssue({ code: 'custom', message: '必须是合法 JSON' });
+      return z.NEVER;
+    }
+  })
+  .pipe(
+    z.array(
+      z.object({
+        presetId: z.string().trim().min(1).max(64),
+        label: z.string().trim().min(1).max(40),
+        userId: z.string().trim().min(1).max(128),
+        roles: z.array(z.string().trim().min(1).max(128)).min(1),
+      }),
+    ),
   );
 
 /** 应用配置的原始环境变量 Schema。 */
@@ -47,8 +108,86 @@ export const AppEnvironmentSchema = z
     OTEL_TRACES_ENABLED: z.enum(['true', 'false']).default('false'),
 
     CORS_ALLOWED_ORIGINS: CsvSchema,
+
+    AUTH_MODE: z.enum(authModes).default('mock'),
+    AUTH_ROLE_MAPPING_FILE: z.string().min(1).default('config/role-mapping.yaml'),
+    AUTH_MOCK_PRESET_ID: z.string().min(1).default('dev-admin'),
+    AUTH_MOCK_SELECTION_HEADER: z.string().min(1).default('X-RAG-Mock-User'),
+    AUTH_MOCK_PRESETS_JSON: MockPresetsSchema,
+
+    AUTH_USER_HEADER: z.string().min(1).default('X-Authenticated-User'),
+    AUTH_ROLES_HEADER: z.string().min(1).default('X-Authenticated-Roles'),
+    AUTH_ROLES_SEPARATOR: z.string().min(1).max(4).default(','),
+    AUTH_TRUSTED_PROXY_CIDRS: csvSchema('127.0.0.1/32,::1/128'),
+    AUTH_HEADER_SIGNATURE_ENABLED: z.enum(['true', 'false']).default('false'),
+    AUTH_HEADER_SIGNATURE_SECRET: z.string().default(''),
+    AUTH_HEADER_SIGNATURE_HEADER: z.string().min(1).default('X-Auth-Signature'),
+    AUTH_HEADER_TIMESTAMP_HEADER: z.string().min(1).default('X-Auth-Timestamp'),
+    AUTH_HEADER_MAX_SKEW_SECONDS: z.coerce.number().int().min(5).max(300).default(60),
+
+    AUTH_JWT_JWKS_URL: z.string().default(''),
+    AUTH_JWT_ISSUER: z.string().default(''),
+    AUTH_JWT_AUDIENCE: z.string().default(''),
+    AUTH_JWT_USER_ID_CLAIM: z.string().min(1).default('sub'),
+    AUTH_JWT_ROLES_CLAIM: z.string().min(1).default('roles'),
+    AUTH_JWT_ALLOWED_ALGORITHMS: csvSchema('RS256'),
   })
   .superRefine((value, context) => {
+    if (value.AUTH_MODE === 'mock' && value.APP_ENV === 'production') {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_MODE'],
+        message: 'production 禁止启用 mock 认证',
+      });
+    }
+
+    if (value.AUTH_MODE === 'trusted-header') {
+      if (value.AUTH_TRUSTED_PROXY_CIDRS.length === 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['AUTH_TRUSTED_PROXY_CIDRS'],
+          message: 'Trusted Header 必须声明受信代理网段',
+        });
+      }
+      if (
+        value.AUTH_HEADER_SIGNATURE_ENABLED === 'true' &&
+        value.AUTH_HEADER_SIGNATURE_SECRET.length < 32
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['AUTH_HEADER_SIGNATURE_SECRET'],
+          message: '启用 Header 签名时密钥至少 32 个字符',
+        });
+      }
+    }
+
+    if (value.AUTH_MODE === 'jwt') {
+      const requiredJwtFields = [
+        ['AUTH_JWT_JWKS_URL', value.AUTH_JWT_JWKS_URL],
+        ['AUTH_JWT_ISSUER', value.AUTH_JWT_ISSUER],
+        ['AUTH_JWT_AUDIENCE', value.AUTH_JWT_AUDIENCE],
+      ] as const;
+      for (const [field, fieldValue] of requiredJwtFields) {
+        if (!fieldValue) {
+          context.addIssue({ code: 'custom', path: [field], message: 'JWT 模式必须配置' });
+        }
+      }
+      if (value.AUTH_JWT_JWKS_URL && !URL.canParse(value.AUTH_JWT_JWKS_URL)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['AUTH_JWT_JWKS_URL'],
+          message: '必须是合法 URL',
+        });
+      }
+      if (value.AUTH_JWT_ALLOWED_ALGORITHMS.length === 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['AUTH_JWT_ALLOWED_ALGORITHMS'],
+          message: '至少允许一种明确算法',
+        });
+      }
+    }
+
     if (value.APP_ENV !== 'production') return;
 
     const insecureReasons: string[] = [];
@@ -93,6 +232,39 @@ export interface AppConfig {
     tracesEnabled: boolean;
   };
   corsAllowedOrigins: readonly string[];
+  auth: {
+    mode: (typeof authModes)[number];
+    roleMappingFile: string;
+    mock: {
+      defaultPresetId: string;
+      selectionHeader: string;
+      presets: readonly {
+        presetId: string;
+        label: string;
+        userId: string;
+        roles: readonly string[];
+      }[];
+    };
+    trustedHeader: {
+      userHeader: string;
+      rolesHeader: string;
+      rolesSeparator: string;
+      trustedProxyCidrs: readonly string[];
+      signatureEnabled: boolean;
+      signatureSecret?: string;
+      signatureHeader: string;
+      timestampHeader: string;
+      maxSkewSeconds: number;
+    };
+    jwt: {
+      jwksUrl?: string;
+      issuer?: string;
+      audience?: string;
+      userIdClaim: string;
+      rolesClaim: string;
+      allowedAlgorithms: readonly string[];
+    };
+  };
 }
 
 /** 配置校验失败时使用的稳定错误，不包含环境变量的实际值。 */
@@ -142,5 +314,39 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       tracesEnabled: value.OTEL_TRACES_ENABLED === 'true',
     }),
     corsAllowedOrigins: Object.freeze([...value.CORS_ALLOWED_ORIGINS]),
+    auth: Object.freeze({
+      mode: value.AUTH_MODE,
+      roleMappingFile: value.AUTH_ROLE_MAPPING_FILE,
+      mock: Object.freeze({
+        defaultPresetId: value.AUTH_MOCK_PRESET_ID,
+        selectionHeader: value.AUTH_MOCK_SELECTION_HEADER.toLowerCase(),
+        presets: Object.freeze(
+          value.AUTH_MOCK_PRESETS_JSON.map((preset) =>
+            Object.freeze({ ...preset, roles: Object.freeze([...preset.roles]) }),
+          ),
+        ),
+      }),
+      trustedHeader: Object.freeze({
+        userHeader: value.AUTH_USER_HEADER.toLowerCase(),
+        rolesHeader: value.AUTH_ROLES_HEADER.toLowerCase(),
+        rolesSeparator: value.AUTH_ROLES_SEPARATOR,
+        trustedProxyCidrs: Object.freeze([...value.AUTH_TRUSTED_PROXY_CIDRS]),
+        signatureEnabled: value.AUTH_HEADER_SIGNATURE_ENABLED === 'true',
+        ...(value.AUTH_HEADER_SIGNATURE_SECRET
+          ? { signatureSecret: value.AUTH_HEADER_SIGNATURE_SECRET }
+          : {}),
+        signatureHeader: value.AUTH_HEADER_SIGNATURE_HEADER.toLowerCase(),
+        timestampHeader: value.AUTH_HEADER_TIMESTAMP_HEADER.toLowerCase(),
+        maxSkewSeconds: value.AUTH_HEADER_MAX_SKEW_SECONDS,
+      }),
+      jwt: Object.freeze({
+        ...(value.AUTH_JWT_JWKS_URL ? { jwksUrl: value.AUTH_JWT_JWKS_URL } : {}),
+        ...(value.AUTH_JWT_ISSUER ? { issuer: value.AUTH_JWT_ISSUER } : {}),
+        ...(value.AUTH_JWT_AUDIENCE ? { audience: value.AUTH_JWT_AUDIENCE } : {}),
+        userIdClaim: value.AUTH_JWT_USER_ID_CLAIM,
+        rolesClaim: value.AUTH_JWT_ROLES_CLAIM,
+        allowedAlgorithms: Object.freeze([...value.AUTH_JWT_ALLOWED_ALGORITHMS]),
+      }),
+    }),
   });
 }

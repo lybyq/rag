@@ -88,21 +88,21 @@ docs/adr
 
 ### 需求清单
 
-- [ ] `AUTH-001` 定义可信 `UserContext { userId, roles, authzVersion, resolvedAt }`，只允许 Auth Adapter 创建。
-- [ ] `AUTH-002` 定义 `AuthPort`，实现 `mock`、`trusted-header`、`jwt` 三种可配置 Adapter。
-- [ ] `AUTH-003` Mock 模式支持选择预置用户和角色，仅允许在非生产环境启用。
-- [ ] `AUTH-004` Trusted Header 模式验证请求来自受信代理，并配置 Header 名、角色分隔符和签名/来源校验策略。
-- [ ] `AUTH-005` JWT 模式验证签名、Issuer、Audience、过期时间、允许算法和 Claim 映射。
-- [ ] `AUTH-006` 实现内网角色到系统语义角色的配置映射；未知角色默认不赋权。
-- [ ] `AUTH-007` 建立 `knowledge_spaces`、`knowledge_space_policies`、`resource_acl` 和审计相关数据模型。
-- [ ] `AUTH-008` ACL 支持 `USER` 与 `ROLE` 两类主体，以及 READ、WRITE、REVIEW、ADMIN 权限。
-- [ ] `AUTH-009` 创建知识空间的创建、查询、更新、停用、授权和策略版本 API。
-- [ ] `AUTH-010` 所有 Repository 方法必须显式接收 User/Access Context，禁止隐式全局用户。
-- [ ] `AUTH-011` 客户端提交的 `requestedSpaceIds` 只能缩小服务端权限，不能扩大。
-- [ ] `AUTH-012` 缓存 Key 包含用户、角色集合 Hash 与授权版本；授权变化主动失效。
-- [ ] `AUTH-013` 文档、引用、历史消息、检索候选和导出分别执行当前权限检查。
-- [ ] `AUTH-014` 认证信息缺失、非法或无法验证时 fail-closed，并返回稳定错误码。
-- [ ] `AUTH-015` 管理、授权和拒绝访问操作写审计日志，不记录原始 Token。
+- [x] `AUTH-001` 定义可信 `UserContext { userId, roles, authzVersion, resolvedAt }`，只允许 Auth Adapter 创建。
+- [x] `AUTH-002` 定义 `AuthPort`，实现 `mock`、`trusted-header`、`jwt` 三种可配置 Adapter。
+- [x] `AUTH-003` Mock 模式支持选择预置用户和角色，仅允许在非生产环境启用。
+- [x] `AUTH-004` Trusted Header 模式验证请求来自受信代理，并配置 Header 名、角色分隔符和签名/来源校验策略。
+- [x] `AUTH-005` JWT 模式验证签名、Issuer、Audience、过期时间、允许算法和 Claim 映射。
+- [x] `AUTH-006` 实现内网角色到系统语义角色的配置映射；未知角色默认不赋权。
+- [x] `AUTH-007` 建立 `knowledge_spaces`、`knowledge_space_policies`、`resource_acl` 和审计相关数据模型。
+- [x] `AUTH-008` ACL 支持 `USER` 与 `ROLE` 两类主体，以及 READ、WRITE、REVIEW、ADMIN 权限。
+- [x] `AUTH-009` 创建知识空间的创建、查询、更新、停用、授权和策略版本 API。
+- [x] `AUTH-010` 所有 Repository 方法必须显式接收 User/Access Context，禁止隐式全局用户。
+- [x] `AUTH-011` 客户端提交的 `requestedSpaceIds` 只能缩小服务端权限，不能扩大。
+- [x] `AUTH-012` 缓存 Key 包含用户、角色集合 Hash 与授权版本；授权变化主动失效。
+- [x] `AUTH-013` 文档、引用、历史消息、检索候选和导出分别执行当前权限检查。
+- [x] `AUTH-014` 认证信息缺失、非法或无法验证时 fail-closed，并返回稳定错误码。
+- [x] `AUTH-015` 管理、授权和拒绝访问操作写审计日志，不记录原始 Token。
 
 ### 数据对象
 
@@ -119,6 +119,10 @@ audit_logs
 - Mock、Header、JWT 三套认证契约测试通过。
 - 伪造角色、伪造 Header、无权 Space、撤权后缓存、引用重鉴权测试通过。
 - 权限泄漏测试结果为 0；认证故障不返回内部知识。
+
+### 2026-08-16 实施证据
+
+需求到源码、自动化测试和浏览器验收的映射见 [M01 实施与验收证据](./M01_IMPLEMENTATION_EVIDENCE.md)。
 
 ---
 
@@ -451,9 +455,9 @@ POST /v1/jobs/{jobId}/cancel
 - [ ] `WEB-002` Element Plus 按需导入并使用主题 Token；支持桌面优先和基础响应式布局。
 - [ ] `WEB-003` Element Plus X 经项目 Adapter 封装 BubbleList、Conversations、Sender/XSender、Thinking 等能力。
 - [ ] `WEB-004` 固定 Element Plus X 版本并建立 Adapter 组件测试，避免上游 breaking change 泄漏到业务页面。
-- [ ] `WEB-005` 提供开发环境身份/角色切换页；生产环境不展示 Mock 登录入口。
+- [x] `WEB-005` 提供开发环境身份/角色切换页；生产环境不展示 Mock 登录入口。
 - [ ] `WEB-006` 总览展示空间、文档、处理任务、失败、待审核、已发布、问答和质量趋势。
-- [ ] `WEB-007` 知识空间列表支持搜索、状态、负责人、文档量和更新时间；操作受权限控制。
+- [x] `WEB-007` 知识空间列表支持搜索、状态、负责人、文档量和更新时间；操作受权限控制。
 - [ ] `WEB-008` 知识空间详情支持基本信息、角色/用户授权、质量策略、检索 Profile 和版本历史。
 - [ ] `WEB-009` 文档列表支持批量上传、搜索、格式/状态/版本筛选、排序、分页和批量操作。
 - [ ] `WEB-010` 上传中心展示每个文件的网络上传进度、速度、剩余时间、取消、失败分片重试和完成确认。

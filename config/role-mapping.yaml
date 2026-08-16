@@ -1,0 +1,15 @@
+# 内网角色名到系统语义角色的显式映射。
+# 未出现在这里的角色会被忽略；生产环境按企业 IdP 的实际角色名修改左侧键。
+mappings:
+  SYSTEM_ADMIN: [SYSTEM_ADMIN]
+  KNOWLEDGE_ADMIN: [KNOWLEDGE_ADMIN]
+  KNOWLEDGE_EDITOR: [KNOWLEDGE_EDITOR]
+  KNOWLEDGE_REVIEWER: [KNOWLEDGE_REVIEWER]
+  KNOWLEDGE_READER: [KNOWLEDGE_READER]
+  AUDITOR: [AUDITOR]
+  platform_admin: [SYSTEM_ADMIN]
+  knowledge_admin: [KNOWLEDGE_ADMIN]
+  knowledge_editor: [KNOWLEDGE_EDITOR]
+  knowledge_reviewer: [KNOWLEDGE_REVIEWER]
+  knowledge_reader: [KNOWLEDGE_READER]
+  auditor: [AUDITOR]

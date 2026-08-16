@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, shallowRef } from 'vue';
+import { onMounted } from 'vue';
 import { RouterLink, RouterView, useRoute } from 'vue-router';
+import { useIdentityStore } from '@/features/identity/stores/useIdentityStore';
 
 interface NavigationItem {
   label: string;
@@ -10,6 +12,7 @@ interface NavigationItem {
 }
 
 const route = useRoute();
+const identity = useIdentityStore();
 const mobileNavigationOpen = shallowRef(false);
 const navigation: readonly NavigationItem[] = [
   { label: '工程总览', caption: 'FOUNDATION', path: '/', mark: '01' },
@@ -19,6 +22,11 @@ const navigation: readonly NavigationItem[] = [
   { label: '评测观测', caption: 'OPERATIONS', path: '/evaluation', mark: '05' },
 ];
 const currentTitle = computed(() => String(route.meta.title ?? 'RAG Console'));
+const currentUserId = computed(() => identity.session?.user.userId ?? '身份解析中');
+const currentRoles = computed(() => identity.session?.user.roles.join(', ') || 'default deny');
+const userAvatar = computed(() => currentUserId.value.slice(0, 2).toUpperCase());
+
+onMounted(() => void identity.initialize());
 
 /** 移动端完成导航后立即收起侧栏，避免遮挡新页面。 */
 function closeMobileNavigation(): void {
@@ -55,7 +63,7 @@ function closeMobileNavigation(): void {
 
       <div class="rail-footer">
         <span class="environment-dot" />
-        <div><strong>外网开发环境</strong><small>development / M00</small></div>
+        <div><strong>外网开发环境</strong><small>development / M01</small></div>
       </div>
     </aside>
 
@@ -74,8 +82,11 @@ function closeMobileNavigation(): void {
           <strong>{{ currentTitle }}</strong>
         </div>
         <RouterLink class="user-chip" to="/settings">
-          <span class="user-avatar">LY</span>
-          <span><strong>研发管理员</strong><small>roles: platform_admin</small></span>
+          <span class="user-avatar">{{ userAvatar }}</span>
+          <div class="user-meta">
+            <strong>{{ currentUserId }}</strong>
+            <small>roles: {{ currentRoles }}</small>
+          </div>
         </RouterLink>
       </header>
 

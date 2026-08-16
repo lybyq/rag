@@ -3,8 +3,9 @@ import { Module } from '@nestjs/common';
 import { RuntimeConfigModule } from '@rag/config';
 import { HealthModule } from '@rag/health';
 import { ObservabilityModule } from '@rag/observability';
+import { M01Module } from './m01/m01.module';
 
 @Module({
-  imports: [RuntimeConfigModule, ObservabilityModule, HealthModule],
+  imports: [RuntimeConfigModule, ObservabilityModule, HealthModule, M01Module],
 })
 export class PlatformApiModule {}

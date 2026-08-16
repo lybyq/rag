@@ -2,7 +2,7 @@
 
 这是一个面向单一企业内网的生产级 RAG 知识库项目。系统将覆盖文档上传、安全解析、OCR、结构化 Chunk、质量审核、Dense/Sparse 混合检索、证据构建、答案校验、引用、评测和生产运维。
 
-当前已进入 M00 工程与决策基线：四个 NestJS 进程、Vue 3 控制台、共享 Zod 契约、统一配置/日志/Trace/指标/健康检查、Docker 基础设施与 CI 门禁已经落入代码。
+当前已完成 M00 工程基线与 M01 身份/角色/知识空间：支持 Mock、可信 Header、JWT 三种认证适配，USER/ROLE 空间 ACL、策略版本、撤权缓存失效、审计、管理 API 和 Vue 治理工作台已经落入代码。
 
 ## 从这里开始
 
@@ -13,6 +13,7 @@
 - [教学型代码与学习标准](./docs/requirements/03_LEARNING_AND_CODE_STANDARD.md)
 - [M00 本地启动与故障排查](./docs/runbooks/local-development.md)
 - [M00 七份学习资料](./docs/learning/M00-工程与决策基线/01-concepts.md)
+- [M01 七份学习资料](./docs/learning/M01-身份角色与知识空间/01-concepts.md)
 - [架构决策 ADR](./docs/adr/README.md)
 
 ## 快速验证
@@ -21,6 +22,7 @@
 pnpm install --frozen-lockfile
 pnpm check
 pnpm dev:infra
+pnpm db:migrate
 pnpm health:deep
 pnpm seed:dev
 pnpm dev:services

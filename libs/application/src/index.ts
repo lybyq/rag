@@ -5,3 +5,7 @@
  * @requirement BASE-004
  */
 export const APPLICATION_BOUNDARY = 'application' as const;
+export * from './application.error';
+export * from './authorization.service';
+export * from './knowledge-space.service';
+export * from './ports';

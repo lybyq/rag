@@ -53,6 +53,8 @@ export class RequestContextMiddleware implements NestMiddleware {
       ...(activeTraceId ? { traceId: activeTraceId } : {}),
     };
 
+    // 无论本中间件和 Pino 谁先执行，都把第一个生成的 ID 写回请求对象供后者复用。
+    request.headers['x-request-id'] = requestId;
     response.setHeader('x-request-id', requestId);
     if (activeTraceId) response.setHeader('x-trace-id', activeTraceId);
     requestContextStorage.run(context, next);

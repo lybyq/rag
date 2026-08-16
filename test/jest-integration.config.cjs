@@ -7,6 +7,7 @@ module.exports = {
     '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/tsconfig.check.json' }],
   },
   moduleNameMapper: {
+    '^@rag/contracts-internal/(.+)$': '<rootDir>/libs/contracts/src/internal/$1',
     '^@rag/(.+)$': '<rootDir>/libs/$1/src',
     '^uuid$': '<rootDir>/test/mocks/uuid.cjs',
   },

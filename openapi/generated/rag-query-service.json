@@ -54,6 +54,23 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "trustedUserHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Authenticated-User"
+      },
+      "mockPreset": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-RAG-Mock-User"
+      }
+    },
     "schemas": {
       "ApiError": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

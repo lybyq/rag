@@ -21,6 +21,7 @@
       "@rag/chunking": ["libs/chunking/src"],
       "@rag/config": ["libs/config/src"],
       "@rag/contracts": ["libs/contracts/src"],
+      "@rag/contracts-internal/*": ["libs/contracts/src/internal/*"],
       "@rag/domain": ["libs/domain/src"],
       "@rag/evidence": ["libs/evidence/src"],
       "@rag/health": ["libs/health/src"],

@@ -1,12 +1,13 @@
 /** HTTP 应用健康端点；Worker 使用独立的轻量 Probe Server 复用同一 HealthService。 */
-import { Controller, Get, Inject, Res } from '@nestjs/common';
-import type { ApiEnvelope, ServiceHealthData } from '@rag/contracts';
+import { Controller, Get, Inject, Res, SetMetadata } from '@nestjs/common';
+import { PUBLIC_ROUTE_METADATA, type ApiEnvelope, type ServiceHealthData } from '@rag/contracts';
 import { RequestContextService } from '@rag/observability';
 import type { Response } from 'express';
 import { HealthService } from './health.service';
 
 /** 对外提供 Kubernetes/负载均衡器可消费的存活和就绪接口。 */
 @Controller('health')
+@SetMetadata(PUBLIC_ROUTE_METADATA, true)
 export class HealthController {
   public constructor(
     @Inject(HealthService) private readonly healthService: HealthService,
