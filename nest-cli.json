@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "monorepo": true,
+  "root": "apps/platform-api",
+  "sourceRoot": "apps/platform-api/src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "webpack": true,
+    "tsConfigPath": "apps/platform-api/tsconfig.app.json"
+  },
+  "projects": {
+    "platform-api": {
+      "type": "application",
+      "root": "apps/platform-api",
+      "entryFile": "main",
+      "sourceRoot": "apps/platform-api/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/platform-api/tsconfig.app.json"
+      }
+    },
+    "rag-query-service": {
+      "type": "application",
+      "root": "apps/rag-query-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/rag-query-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/rag-query-service/tsconfig.app.json"
+      }
+    },
+    "ingestion-worker": {
+      "type": "application",
+      "root": "apps/ingestion-worker",
+      "entryFile": "main",
+      "sourceRoot": "apps/ingestion-worker/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/ingestion-worker/tsconfig.app.json"
+      }
+    },
+    "scheduler-worker": {
+      "type": "application",
+      "root": "apps/scheduler-worker",
+      "entryFile": "main",
+      "sourceRoot": "apps/scheduler-worker/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/scheduler-worker/tsconfig.app.json"
+      }
+    }
+  }
+}

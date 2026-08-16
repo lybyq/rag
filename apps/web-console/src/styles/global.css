@@ -1,0 +1,28 @@
+* {
+  box-sizing: border-box;
+}
+html {
+  min-width: 320px;
+  background: var(--surface-canvas);
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+button,
+input,
+textarea {
+  font: inherit;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 3px;
+}
+::selection {
+  color: var(--ink-950);
+  background: var(--accent-200);
+}

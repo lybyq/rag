@@ -1,0 +1,78 @@
+name: quality-gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm boundary
+      - run: pnpm test
+      - run: pnpm migration:check
+      - run: pnpm build
+      - run: pnpm openapi:generate
+      - run: git diff --exit-code -- openapi/generated
+      - run: pnpm docker:check
+      - run: pnpm security:audit
+
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@v0.20.5
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          upload-artifact: true
+
+      - name: Scan filesystem
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true
+
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm dev:infra
+      - name: Wait for protocol health
+        run: |
+          for attempt in $(seq 1 30); do
+            pnpm health:deep && exit 0
+            sleep 10
+          done
+          exit 1
+      - run: pnpm seed:dev
+      - run: pnpm test:integration
+      - if: always()
+        run: pnpm stop:infra

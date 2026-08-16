@@ -1,0 +1,136 @@
+name: enterprise-rag-local
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?POSTGRES_IMAGE must be set}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rag
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag-local-only
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rag -d rag']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [rag-infra]
+
+  redis-cache:
+    image: ${REDIS_IMAGE:?REDIS_IMAGE must be set}
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--save', '60', '1']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-cache-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [rag-infra]
+
+  redis-bullmq:
+    image: ${REDIS_IMAGE:?REDIS_IMAGE must be set}
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '6380:6379'
+    volumes:
+      - redis-bullmq-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [rag-infra]
+
+  minio:
+    image: ${MINIO_IMAGE:?MINIO_IMAGE must be set}
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: rag-local
+      MINIO_ROOT_PASSWORD: rag-local-secret
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [rag-infra]
+
+  etcd:
+    image: ${ETCD_IMAGE:?ETCD_IMAGE must be set}
+    restart: unless-stopped
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: '1000'
+      ETCD_QUOTA_BACKEND_BYTES: '4294967296'
+      ETCD_SNAPSHOT_COUNT: '50000'
+    command:
+      [
+        'etcd',
+        '--advertise-client-urls=http://127.0.0.1:2379',
+        '--listen-client-urls=http://0.0.0.0:2379',
+        '--data-dir=/etcd',
+      ]
+    volumes:
+      - etcd-data:/etcd
+    healthcheck:
+      test: ['CMD', 'etcdctl', 'endpoint', 'health']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [rag-infra]
+
+  milvus:
+    image: ${MILVUS_IMAGE:?MILVUS_IMAGE must be set}
+    restart: unless-stopped
+    command: ['milvus', 'run', 'standalone']
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MINIO_ACCESS_KEY_ID: rag-local
+      MINIO_SECRET_ACCESS_KEY: rag-local-secret
+      MINIO_USE_SSL: 'false'
+    ports:
+      - '19530:19530'
+      - '9091:9091'
+    volumes:
+      - milvus-data:/var/lib/milvus
+    depends_on:
+      etcd:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9091/healthz']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks: [rag-infra]
+
+networks:
+  rag-infra:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-cache-data:
+  redis-bullmq-data:
+  minio-data:
+  etcd-data:
+  milvus-data:

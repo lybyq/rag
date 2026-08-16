@@ -1,0 +1,16 @@
+packages:
+  - 'apps/web-console'
+allowBuilds:
+  '@scarf/scarf': false
+  esbuild: true
+  protobufjs: true
+  vue-demi: false
+minimumReleaseAgeExclude:
+  - '@nestjs/common@11.2.1'
+  - '@nestjs/core@11.2.1'
+  - '@nestjs/platform-express@11.2.1'
+  - '@nestjs/testing@11.2.1'
+overrides:
+  'ansi-regex@>=4.0.0 <4.1.1': 4.1.1
+  'ansi-regex@>=5.0.0 <5.0.1': 5.0.1
+  'js-yaml@>=5.0.0 <=5.2.1': 5.2.2

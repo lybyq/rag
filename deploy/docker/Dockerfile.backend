@@ -1,0 +1,20 @@
+ARG NODE_IMAGE=node:22.20.0-bookworm-slim@sha256:b21fe589dfbe5cc39365d0544b9be3f1f33f55f3c86c87a76ff65a02f8f5848e
+FROM ${NODE_IMAGE} AS builder
+
+WORKDIR /workspace
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web-console/package.json apps/web-console/package.json
+RUN pnpm install --frozen-lockfile
+COPY . .
+ARG APP_NAME=platform-api
+RUN pnpm exec nest build ${APP_NAME}
+
+FROM ${NODE_IMAGE} AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+ARG APP_NAME=platform-api
+COPY --from=builder /workspace/node_modules ./node_modules
+COPY --from=builder /workspace/dist/apps/${APP_NAME} ./dist
+USER node
+CMD ["node", "dist/main.js"]

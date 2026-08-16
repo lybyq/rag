@@ -1,0 +1,7 @@
+dist
+coverage
+node_modules
+pnpm-lock.yaml
+openapi/generated
+apps/web-console/auto-imports.d.ts
+apps/web-console/components.d.ts

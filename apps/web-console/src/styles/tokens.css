@@ -1,0 +1,30 @@
+:root {
+  --ink-950: #121b21;
+  --ink-900: #18242b;
+  --ink-500: #78858b;
+  --ink-400: #9aa4a8;
+  --ink-300: #bac1c2;
+  --ink-200: #d5dad8;
+  --surface-canvas: #f2efe8;
+  --surface-elevated: #faf8f2;
+  --accent-050: #fff1e5;
+  --accent-200: #f2c49e;
+  --accent-400: #f09a5f;
+  --accent-500: #e87e37;
+  --accent-600: #c85e19;
+  --accent-700: #9d4511;
+  --success-400: #5ec69a;
+  --success-500: #3da779;
+  --warning-400: #e8b34d;
+  --danger-400: #df6a5e;
+  --text-primary: #172128;
+  --text-secondary: #556168;
+  --text-tertiary: #828b8e;
+  --line-subtle: #dedbd3;
+  --line-strong: #b9b7b0;
+  --font-sans: Inter, 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-editorial: 'Noto Serif SC', 'Songti SC', SimSun, serif;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --el-color-primary: #c85e19;
+  --el-border-radius-base: 2px;
+}

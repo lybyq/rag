@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "declaration": false,
+    "incremental": false,
+    "noEmit": true
+  },
+  "include": ["apps/*/src/**/*.ts", "libs/*/src/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"],
+  "exclude": ["apps/web-console", "node_modules", "dist"]
+}

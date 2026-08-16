@@ -1,0 +1,32 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "preserve",
+    "types": ["vite/client", "vitest/globals"],
+    "rootDir": "../..",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@rag/contracts": ["../../libs/contracts/src"]
+    },
+    "allowImportingTsExtensions": true,
+    "declaration": true,
+    "emitDecoratorMetadata": false,
+    "experimentalDecorators": false,
+    "noEmit": true,
+    "useDefineForClassFields": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "src/**/*.d.ts",
+    "auto-imports.d.ts",
+    "components.d.ts",
+    "../../libs/contracts/src/**/*.ts"
+  ]
+}
