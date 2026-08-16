@@ -134,24 +134,24 @@ audit_logs
 
 ### 需求清单
 
-- [ ] `DOC-001` 定义 Document、DocumentVersion、DocumentFile、IngestionJob、JobStep 和 Outbox 领域契约。
-- [ ] `DOC-002` 实现文档版本状态机和乐观锁，拒绝非法跳转及并发覆盖。
-- [ ] `DOC-003` 创建上传会话 API，由服务端生成隔离对象路径和短时预签名 URL。
-- [ ] `DOC-004` 支持单文件和最多 100 文件的批量上传，数量与大小上限配置化。
-- [ ] `DOC-005` 大文件使用 MinIO Multipart Upload；支持前端取消、失败分片重试和会话过期。
-- [ ] `DOC-006` 完成上传时执行 MinIO HEAD，核对对象存在性、大小、类型约束和可用 Hash。
-- [ ] `DOC-007` 原始文件名只作为净化后的元数据保存，不参与对象路径生成。
-- [ ] `DOC-008` 上传完成、文件事实、入库任务和 Outbox Event 在同一 PG 事务中提交。
-- [ ] `DOC-009` Outbox Publisher 使用 `FOR UPDATE SKIP LOCKED` 领取，重复投递时 Consumer 幂等。
-- [ ] `DOC-010` 稳定 Job ID 包含文档版本、内容修订、步骤和步骤版本。
-- [ ] `DOC-011` 实现文档/版本/任务详情、分页列表、过滤、重处理、取消和步骤事件 API。
-- [ ] `DOC-012` 每个步骤记录 queued、running、waiting、succeeded、failed、cancelled、rejected 状态和时间。
-- [ ] `DOC-013` 步骤进度记录 `processedUnits`、`totalUnits`、`stagePercent`、`overallPercent` 和可公开消息。
-- [ ] `DOC-014` `overallPercent` 由服务端基于真实步骤权重计算；未知总量时展示不确定进度而非伪造数字。
-- [ ] `DOC-015` 任务事件支持 SSE `Last-Event-ID` 续传，连接失败时提供带 ETag/游标的轮询 API。
-- [ ] `DOC-016` 卡住任务能够被 Lease/Heartbeat 检测，并由 scheduler 安全重试或转人工处理。
-- [ ] `DOC-017` 重处理创建新的 content revision，不覆盖原有解析事实。
-- [ ] `DOC-018` 上传、取消、重处理和状态迁移写入审计日志。
+- [x] `DOC-001` 定义 Document、DocumentVersion、DocumentFile、IngestionJob、JobStep 和 Outbox 领域契约。
+- [x] `DOC-002` 实现文档版本状态机和乐观锁，拒绝非法跳转及并发覆盖。
+- [x] `DOC-003` 创建上传会话 API，由服务端生成隔离对象路径和短时预签名 URL。
+- [x] `DOC-004` 支持单文件和最多 100 文件的批量上传，数量与大小上限配置化。
+- [x] `DOC-005` 大文件使用 MinIO Multipart Upload；支持前端取消、失败分片重试和会话过期。
+- [x] `DOC-006` 完成上传时执行 MinIO HEAD，核对对象存在性、大小、类型约束和可用 Hash。
+- [x] `DOC-007` 原始文件名只作为净化后的元数据保存，不参与对象路径生成。
+- [x] `DOC-008` 上传完成、文件事实、入库任务和 Outbox Event 在同一 PG 事务中提交。
+- [x] `DOC-009` Outbox Publisher 使用 `FOR UPDATE SKIP LOCKED` 领取，重复投递时 Consumer 幂等。
+- [x] `DOC-010` 稳定 Job ID 包含文档版本、内容修订、步骤和步骤版本。
+- [x] `DOC-011` 实现文档/版本/任务详情、分页列表、过滤、重处理、取消和步骤事件 API。
+- [x] `DOC-012` 每个步骤记录 queued、running、waiting、succeeded、failed、cancelled、rejected 状态和时间。
+- [x] `DOC-013` 步骤进度记录 `processedUnits`、`totalUnits`、`stagePercent`、`overallPercent` 和可公开消息。
+- [x] `DOC-014` `overallPercent` 由服务端基于真实步骤权重计算；未知总量时展示不确定进度而非伪造数字。
+- [x] `DOC-015` 任务事件支持 SSE `Last-Event-ID` 续传，连接失败时提供带 ETag/游标的轮询 API。
+- [x] `DOC-016` 卡住任务能够被 Lease/Heartbeat 检测，并由 scheduler 安全重试或转人工处理。
+- [x] `DOC-017` 重处理创建新的 content revision，不覆盖原有解析事实。
+- [x] `DOC-018` 上传、取消、重处理和状态迁移写入审计日志。
 
 ### 数据对象与 API
 
@@ -182,6 +182,10 @@ POST /v1/jobs/{jobId}/cancel
 - 200 MiB 文件不经过 API 进程转发字节。
 - 重复 Complete、API 事务中断、Outbox 重投和 Worker 重启不丢任务、不重复创建事实。
 - 页面刷新后能够恢复上传及后端任务状态。
+
+### 2026-08-16 实施证据
+
+需求到源码、自动化测试、故障注入和浏览器验收的映射见 [M02 实施与验收证据](./M02_IMPLEMENTATION_EVIDENCE.md)。真实 MinIO 镜像因本机 Docker Registry 超时未完成环境联调，已在证据与 Runbook 中明确保留补跑项；代码、契约和其余门禁不以 Fake 结果冒充该项环境证据。
 
 ---
 

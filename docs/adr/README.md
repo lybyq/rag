@@ -11,3 +11,4 @@ ADR 记录“当时为什么这样选”，避免半年后只剩代码、没人�
 | [004](./004-sse-run-events.md)                       | SSE 只传递已持久化 Run 事件    | Accepted |
 | [005](./005-publish-manifest-and-versioning.md)      | 发布 Manifest 与版本化         | Accepted |
 | [006](./006-m01-authorization-and-policy-version.md) | 空间 ACL、语义角色与授权版本   | Accepted |
+| [007](./007-document-upload-outbox-and-recovery.md)  | 直传、Outbox 与任务恢复        | Accepted |

@@ -98,6 +98,29 @@ export const AppEnvironmentSchema = z
     MINIO_ENDPOINT: z.string().url().default('http://localhost:9000'),
     MINIO_ACCESS_KEY: z.string().min(1).default('rag-local'),
     MINIO_SECRET_KEY: z.string().min(8).default('rag-local-secret'),
+    MINIO_UPLOAD_BUCKET: z.string().min(3).max(63).default('rag-quarantine'),
+    UPLOAD_SESSION_TTL_SECONDS: z.coerce.number().int().min(300).max(86_400).default(3_600),
+    UPLOAD_PRESIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(60).max(3_600).default(900),
+    UPLOAD_MAX_FILES_PER_SESSION: z.coerce.number().int().min(1).max(100).default(100),
+    UPLOAD_MAX_FILE_BYTES: z.coerce
+      .number()
+      .int()
+      .min(5 * 1024 * 1024)
+      .max(5 * 1024 * 1024 * 1024)
+      .default(2 * 1024 * 1024 * 1024),
+    UPLOAD_MULTIPART_THRESHOLD_BYTES: z.coerce
+      .number()
+      .int()
+      .min(5 * 1024 * 1024)
+      .max(5 * 1024 * 1024 * 1024)
+      .default(16 * 1024 * 1024),
+    UPLOAD_PART_SIZE_BYTES: z.coerce
+      .number()
+      .int()
+      .min(5 * 1024 * 1024)
+      .max(5 * 1024 * 1024 * 1024)
+      .default(8 * 1024 * 1024),
+    INGESTION_LEASE_SECONDS: z.coerce.number().int().min(30).max(3_600).default(120),
 
     MILVUS_ADDRESS: z.string().min(1).default('localhost:19530'),
     MILVUS_USERNAME: z.string().default(''),
@@ -220,6 +243,16 @@ export interface AppConfig {
     endpoint: string;
     accessKey: string;
     secretKey: string;
+    uploadBucket: string;
+  };
+  upload: {
+    sessionTtlSeconds: number;
+    presignedUrlTtlSeconds: number;
+    maxFilesPerSession: number;
+    maxFileBytes: number;
+    multipartThresholdBytes: number;
+    partSizeBytes: number;
+    ingestionLeaseSeconds: number;
   };
   milvus: {
     address: string;
@@ -302,6 +335,16 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       endpoint: value.MINIO_ENDPOINT,
       accessKey: value.MINIO_ACCESS_KEY,
       secretKey: value.MINIO_SECRET_KEY,
+      uploadBucket: value.MINIO_UPLOAD_BUCKET,
+    }),
+    upload: Object.freeze({
+      sessionTtlSeconds: value.UPLOAD_SESSION_TTL_SECONDS,
+      presignedUrlTtlSeconds: value.UPLOAD_PRESIGNED_URL_TTL_SECONDS,
+      maxFilesPerSession: value.UPLOAD_MAX_FILES_PER_SESSION,
+      maxFileBytes: value.UPLOAD_MAX_FILE_BYTES,
+      multipartThresholdBytes: value.UPLOAD_MULTIPART_THRESHOLD_BYTES,
+      partSizeBytes: value.UPLOAD_PART_SIZE_BYTES,
+      ingestionLeaseSeconds: value.INGESTION_LEASE_SECONDS,
     }),
     milvus: Object.freeze({
       address: value.MILVUS_ADDRESS,

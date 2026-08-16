@@ -13,7 +13,7 @@ const client = new Client({
 });
 
 async function main(): Promise<void> {
-  for (const bucket of ['rag-documents', 'rag-artifacts']) {
+  for (const bucket of ['rag-documents', 'rag-artifacts', config.minio.uploadBucket]) {
     if (!(await client.bucketExists(bucket))) await client.makeBucket(bucket);
     process.stdout.write(`READY ${bucket}\n`);
   }

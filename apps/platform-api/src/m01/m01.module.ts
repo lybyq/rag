@@ -100,5 +100,6 @@ import { KnowledgeSpacesController } from './knowledge-spaces.controller';
     AuthenticationGuard,
     { provide: APP_GUARD, useExisting: AuthenticationGuard },
   ],
+  exports: [AuthorizationService],
 })
 export class M01Module {}

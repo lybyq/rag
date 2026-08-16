@@ -1,4 +1,4 @@
-# M00～M01 本地开发与故障排查
+# M00～M02 本地开发与故障排查
 
 ## 1. 前置条件
 
@@ -33,6 +33,7 @@ pnpm dev:services
 | Ingestion probe       | `http://localhost:3002/api/v1/health/live` |
 | Scheduler probe       | `http://localhost:3003/api/v1/health/live` |
 | MinIO Console         | `http://localhost:9001`                    |
+| 文档接入与任务中心    | `http://localhost:5173/tasks`              |
 
 `/health/live` 只看进程；`/health/ready` 会真实访问 PostgreSQL、两个 Redis、MinIO 和 Milvus；`/metrics` 输出 Prometheus 指标。
 
@@ -78,6 +79,28 @@ curl.exe http://localhost:3000/api/v1/spaces -H "X-RAG-Mock-User: dev-admin"
 ### M01 表不存在
 
 先运行 `pnpm db:migrate`。迁移器使用 advisory lock 防止多实例同时执行，并在 `schema_migrations` 保存 SHA-256；已执行 SQL 被修改会拒绝继续，应该新增 migration 而不是改历史文件。
+
+### M02 上传流程演练
+
+1. 先用 M01 创建或选择一个具备 `WRITE` 权限的活动知识空间。
+2. 打开 `/tasks`，选择文件。小文件使用单 PUT，大于 `UPLOAD_MULTIPART_THRESHOLD_BYTES` 的文件自动切片。
+3. 浏览器请求 Platform API 创建会话；文件字节随后直接 PUT 到 MinIO 的短时预签名 URL。
+4. 上传完成后 Platform API 执行 HEAD，再用一个 PG 事务写入 Document、Version、File、Job、10 个 Step 和 Outbox。
+5. Scheduler 把 Outbox 投递到独立的 BullMQ Redis；M02 Consumer 会把任务置为 `WAITING`，明确等待 M03 文件安全处理器。
+
+本地 Compose 通过 `MINIO_API_CORS_ALLOW_ORIGIN=http://localhost:5173` 允许浏览器直传。部署到其他前端域名时必须同步修改对象存储 CORS，且至少暴露 Multipart 所需的 `ETag` 响应头。
+
+### Multipart 上传后提示 ETag 缺失
+
+先在浏览器 Network 中确认分片 PUT 成功，再检查 MinIO/S3 CORS 是否允许当前 Origin 并暴露 `ETag`。不要在前端伪造 ETag；服务端需要真实 ETag 完成 Multipart 合并。
+
+### 上传完成但接口返回 409 OBJECT_MISMATCH
+
+依次检查对象 HEAD 的 `size`、`Content-Type` 和可用 SHA-256 是否与会话计划一致。原始文件名不会参与对象路径，路径形如 `spaces/{spaceId}/uploads/{uploadId}/files/{fileId}`。
+
+### 任务长期 RUNNING
+
+查询 `ingestion_jobs.lease_owner/lease_expires_at/heartbeat_at` 和当前步骤。Scheduler 会把过期 lease 重排队；达到最大尝试次数后转为 `WAITING`，需要人工判断文件问题、基础设施故障还是代码缺陷。
 
 ### 401 / 403
 

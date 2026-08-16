@@ -8,6 +8,23 @@ import { z } from 'zod';
 import { ApiErrorSchema } from './api-envelope';
 import { ServiceHealthEnvelopeSchema } from './health';
 import {
+  CancelIngestionJobRequestSchema,
+  CompleteUploadEnvelopeSchema,
+  CompleteUploadRequestSchema,
+  CreateUploadPartsRequestSchema,
+  CreateSpaceDocumentUploadRequestSchema,
+  CreateUploadSessionRequestSchema,
+  DocumentEnvelopeSchema,
+  DocumentListEnvelopeSchema,
+  DocumentVersionEnvelopeSchema,
+  IngestionJobEnvelopeSchema,
+  IngestionJobEventListEnvelopeSchema,
+  IngestionJobListEnvelopeSchema,
+  ReprocessDocumentVersionRequestSchema,
+  UploadPartListEnvelopeSchema,
+  UploadSessionEnvelopeSchema,
+} from './document-ingestion';
+import {
   CreateKnowledgeSpaceRequestSchema,
   DeactivateKnowledgeSpaceRequestSchema,
   DevelopmentIdentityPresetListEnvelopeSchema,
@@ -30,6 +47,8 @@ export interface OpenApiDocumentOptions {
   version: string;
   /** Platform API 才注册 M01 管理路径；Query 服务只保留自己的模块。 */
   includeM01?: boolean;
+  /** Platform API 注册 M02 文档接入和任务中心路径。 */
+  includeM02?: boolean;
 }
 
 /** OpenAPI 文档使用普通 JSON 对象表示，便于 NestJS 和生成脚本共同消费。 */
@@ -58,6 +77,25 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
     required: true,
     schema: { type: 'string', format: 'uuid' },
   };
+  const uuidPathParameter = (name: string): Record<string, unknown> => ({
+    name,
+    in: 'path',
+    required: true,
+    schema: { type: 'string', format: 'uuid' },
+  });
+  const textPathParameter = (name: string): Record<string, unknown> => ({
+    name,
+    in: 'path',
+    required: true,
+    schema: { type: 'string', minLength: 1, maxLength: 300 },
+  });
+  const documentListParameters = [
+    { name: 'spaceId', in: 'query', schema: { type: 'string', format: 'uuid' } },
+    { name: 'status', in: 'query', schema: { enum: ['ACTIVE', 'ARCHIVED'] } },
+    { name: 'search', in: 'query', schema: { type: 'string', maxLength: 100 } },
+    { name: 'cursor', in: 'query', schema: { type: 'string' } },
+    { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
+  ];
   const securedResponses = {
     '401': errorResponse('身份缺失或无法验证'),
     '403': errorResponse('当前身份无权执行操作'),
@@ -199,6 +237,186 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
+  const m02Paths: Record<string, unknown> = options.includeM02
+    ? {
+        '/api/v1/uploads': {
+          post: {
+            operationId: 'createUploadSession',
+            summary: '创建浏览器直传会话',
+            requestBody: jsonBody('CreateUploadSessionRequest'),
+            responses: {
+              '201': jsonResponse('上传会话和短时预签名 URL', 'UploadSessionEnvelope'),
+              '413': errorResponse('文件数量或大小超过配置上限'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/spaces/{spaceId}/documents': {
+          post: {
+            operationId: 'createSpaceDocumentUpload',
+            summary: '在指定空间创建文档直传会话',
+            parameters: [spaceIdParameter],
+            requestBody: jsonBody('CreateSpaceDocumentUploadRequest'),
+            responses: {
+              '201': jsonResponse('上传会话', 'UploadSessionEnvelope'),
+              '413': errorResponse('文件数量或大小超过配置上限'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/uploads/{uploadId}': {
+          get: {
+            operationId: 'getUploadSession',
+            summary: '恢复上传会话',
+            parameters: [uuidPathParameter('uploadId')],
+            responses: {
+              '200': jsonResponse('上传会话', 'UploadSessionEnvelope'),
+              ...securedResponses,
+            },
+          },
+          delete: {
+            operationId: 'cancelUploadSession',
+            summary: '取消上传会话',
+            parameters: [uuidPathParameter('uploadId')],
+            responses: { '200': { description: '已取消' }, ...securedResponses },
+          },
+        },
+        '/api/v1/uploads/{uploadId}/parts': {
+          post: {
+            operationId: 'createUploadParts',
+            summary: '按需签发 Multipart 分片 URL',
+            parameters: [uuidPathParameter('uploadId')],
+            requestBody: jsonBody('CreateUploadPartsRequest'),
+            responses: {
+              '201': jsonResponse('分片上传指令', 'UploadPartListEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/uploads/{uploadId}/complete': {
+          post: {
+            operationId: 'completeUpload',
+            summary: 'HEAD 验证对象并原子创建文档与任务事实',
+            parameters: [uuidPathParameter('uploadId')],
+            requestBody: jsonBody('CompleteUploadRequest'),
+            responses: {
+              '201': jsonResponse('文档、版本、文件和任务', 'CompleteUploadEnvelope'),
+              '409': errorResponse('对象事实不匹配'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/documents': {
+          get: {
+            operationId: 'listDocuments',
+            summary: '按权限游标分页列出文档',
+            parameters: documentListParameters,
+            responses: {
+              '200': jsonResponse('文档列表', 'DocumentListEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/documents/{documentId}': {
+          get: {
+            operationId: 'getDocument',
+            summary: '读取文档和版本列表',
+            parameters: [uuidPathParameter('documentId')],
+            responses: {
+              '200': jsonResponse('文档详情', 'DocumentEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/document-versions/{versionId}': {
+          get: {
+            operationId: 'getDocumentVersion',
+            summary: '读取文档版本和文件事实',
+            parameters: [uuidPathParameter('versionId')],
+            responses: {
+              '200': jsonResponse('版本详情', 'DocumentVersionEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/document-versions/{versionId}/reprocess': {
+          post: {
+            operationId: 'reprocessDocumentVersion',
+            summary: '创建新的内容修订和任务',
+            parameters: [uuidPathParameter('versionId')],
+            requestBody: jsonBody('ReprocessDocumentVersionRequest'),
+            responses: {
+              '201': jsonResponse('新修订任务', 'IngestionJobEnvelope'),
+              '409': errorResponse('乐观锁或状态冲突'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/jobs': {
+          get: {
+            operationId: 'listIngestionJobs',
+            summary: '按权限游标分页列出入库任务',
+            responses: {
+              '200': jsonResponse('任务列表', 'IngestionJobListEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/jobs/{jobId}': {
+          get: {
+            operationId: 'getIngestionJob',
+            summary: '读取任务与步骤进度',
+            parameters: [textPathParameter('jobId')],
+            responses: {
+              '200': jsonResponse('任务详情', 'IngestionJobEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/jobs/{jobId}/cancel': {
+          post: {
+            operationId: 'cancelIngestionJob',
+            summary: '取消非终态任务',
+            parameters: [textPathParameter('jobId')],
+            requestBody: jsonBody('CancelIngestionJobRequest'),
+            responses: {
+              '201': jsonResponse('已取消任务', 'IngestionJobEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/jobs/{jobId}/events': {
+          get: {
+            operationId: 'streamIngestionJobEvents',
+            summary: '使用 SSE 和 Last-Event-ID 续传任务事件',
+            parameters: [
+              textPathParameter('jobId'),
+              { name: 'Last-Event-ID', in: 'header', schema: { type: 'integer', minimum: 0 } },
+            ],
+            responses: {
+              '200': { description: 'text/event-stream 任务事件' },
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/jobs/{jobId}/events/poll': {
+          get: {
+            operationId: 'pollIngestionJobEvents',
+            summary: '使用 ETag 和游标轮询任务事件',
+            parameters: [
+              textPathParameter('jobId'),
+              { name: 'after', in: 'query', schema: { type: 'integer', minimum: 0 } },
+              { name: 'If-None-Match', in: 'header', schema: { type: 'string' } },
+            ],
+            responses: {
+              '200': jsonResponse('任务事件', 'IngestionJobEventListEnvelope'),
+              '304': { description: '没有新事件' },
+              ...securedResponses,
+            },
+          },
+        },
+      }
+    : {};
 
   return {
     openapi: '3.1.0',
@@ -249,6 +467,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       },
       ...m01Paths,
+      ...m02Paths,
     },
     components: {
       securitySchemes: {
@@ -278,6 +497,29 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               SpaceGrantListEnvelope: z.toJSONSchema(SpaceGrantListEnvelopeSchema),
               RevokeSpaceGrantEnvelope: z.toJSONSchema(RevokeSpaceGrantEnvelopeSchema),
               PolicyVersionListEnvelope: z.toJSONSchema(PolicyVersionListEnvelopeSchema),
+            }
+          : {}),
+        ...(options.includeM02
+          ? {
+              CreateUploadSessionRequest: z.toJSONSchema(CreateUploadSessionRequestSchema),
+              CreateSpaceDocumentUploadRequest: z.toJSONSchema(
+                CreateSpaceDocumentUploadRequestSchema,
+              ),
+              CreateUploadPartsRequest: z.toJSONSchema(CreateUploadPartsRequestSchema),
+              CompleteUploadRequest: z.toJSONSchema(CompleteUploadRequestSchema),
+              ReprocessDocumentVersionRequest: z.toJSONSchema(
+                ReprocessDocumentVersionRequestSchema,
+              ),
+              CancelIngestionJobRequest: z.toJSONSchema(CancelIngestionJobRequestSchema),
+              UploadSessionEnvelope: z.toJSONSchema(UploadSessionEnvelopeSchema),
+              UploadPartListEnvelope: z.toJSONSchema(UploadPartListEnvelopeSchema),
+              CompleteUploadEnvelope: z.toJSONSchema(CompleteUploadEnvelopeSchema),
+              DocumentEnvelope: z.toJSONSchema(DocumentEnvelopeSchema),
+              DocumentVersionEnvelope: z.toJSONSchema(DocumentVersionEnvelopeSchema),
+              DocumentListEnvelope: z.toJSONSchema(DocumentListEnvelopeSchema),
+              IngestionJobEnvelope: z.toJSONSchema(IngestionJobEnvelopeSchema),
+              IngestionJobListEnvelope: z.toJSONSchema(IngestionJobListEnvelopeSchema),
+              IngestionJobEventListEnvelope: z.toJSONSchema(IngestionJobEventListEnvelopeSchema),
             }
           : {}),
       },

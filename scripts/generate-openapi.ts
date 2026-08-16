@@ -13,6 +13,7 @@ const documents = [
       description: '知识空间、文档接入和平台治理 API',
       version: '0.1.0',
       includeM01: true,
+      includeM02: true,
     }),
   },
   {

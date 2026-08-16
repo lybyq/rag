@@ -5,7 +5,7 @@
  * @requirement BASE-008
  */
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
-import { collectDefaultMetrics, Histogram, Registry } from 'prom-client';
+import { collectDefaultMetrics, Counter, Histogram, Registry } from 'prom-client';
 
 /** 为单个进程维护独立注册表，便于测试隔离和 worker 暴露指标。 */
 @Injectable()
@@ -16,6 +16,19 @@ export class MetricsService implements OnModuleDestroy {
     help: 'RAG 服务 HTTP 请求耗时（秒）',
     labelNames: ['method', 'route', 'status_code'] as const,
     buckets: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+    registers: [this.registry],
+  });
+
+  /**
+   * M02 关键业务动作计数器。
+   *
+   * 这里只允许使用固定枚举值作为标签，绝不能放入 userId、documentId、jobId 等高基数字段，
+   * 否则每个文档都会创建一条新的 Prometheus 时间序列，最终可能拖垮监控系统。
+   */
+  public readonly m02OperationsTotal = new Counter({
+    name: 'rag_m02_operations_total',
+    help: 'M02 文档接入关键业务动作累计次数',
+    labelNames: ['operation', 'result'] as const,
     registers: [this.registry],
   });
 

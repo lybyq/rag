@@ -7,5 +7,8 @@
 export const APPLICATION_BOUNDARY = 'application' as const;
 export * from './application.error';
 export * from './authorization.service';
+export * from './document-ingestion.service';
+export * from './ingestion.ports';
 export * from './knowledge-space.service';
+export * from './outbox-publisher.service';
 export * from './ports';

@@ -4,6 +4,7 @@
  */
 export * from './api-envelope';
 export * from './auth';
+export * from './document-ingestion';
 export * from './event-envelope';
 export * from './health';
 export * from './knowledge-space';

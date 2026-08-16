@@ -63,7 +63,7 @@ function closeMobileNavigation(): void {
 
       <div class="rail-footer">
         <span class="environment-dot" />
-        <div><strong>外网开发环境</strong><small>development / M01</small></div>
+        <div><strong>外网开发环境</strong><small>development / M02</small></div>
       </div>
     </aside>
 

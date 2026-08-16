@@ -30,20 +30,27 @@ export function setSelectedDevelopmentPreset(presetId: string): void {
   window.localStorage.setItem(selectedPresetStorageKey, presetId);
 }
 
-/** 发送请求并使用给定 Zod Schema 校验服务端响应。 */
-export async function platformApiFetch<TSchema extends z.ZodType>(
-  path: string,
-  schema: TSchema,
-  init: RequestInit = {},
-): Promise<z.infer<TSchema>> {
+/**
+ * 发送带当前认证上下文的原始请求。
+ * SSE 降级轮询需要读取 304/ETag，因此不能一律在这里解析 JSON。
+ */
+export async function platformApiRawFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   headers.set('accept', 'application/json');
   if (init.body !== undefined) headers.set('content-type', 'application/json');
 
   const selectedPreset = getSelectedDevelopmentPreset();
   if (selectedPreset) headers.set('x-rag-mock-user', selectedPreset);
+  return fetch(path, { ...init, headers });
+}
 
-  const response = await fetch(path, { ...init, headers });
+/** 发送请求并使用给定 Zod Schema 校验服务端响应。 */
+export async function platformApiFetch<TSchema extends z.ZodType>(
+  path: string,
+  schema: TSchema,
+  init: RequestInit = {},
+): Promise<z.infer<TSchema>> {
+  const response = await platformApiRawFetch(path, init);
   const payload = (await response.json()) as unknown;
   if (!response.ok) {
     const error = ApiErrorSchema.safeParse(payload);

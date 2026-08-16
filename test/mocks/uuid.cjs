@@ -1,4 +1,12 @@
-/** Jest 29 不能加载 uuid 13 的 ESM；该替身只实现 Thrift 导入时需要的同步编解码。 */
+/**
+ * Jest 29 不能加载 Thrift 间接依赖的 uuid 13 ESM。
+ * 同一模块映射也会被 BullMQ 的 uuid 9 命中，因此替身必须同时实现 BullMQ 使用的 v4。
+ */
+const { randomUUID } = require('node:crypto');
+
+function v4() {
+  return randomUUID();
+}
 function parse(value) {
   const hex = value.replaceAll('-', '');
   if (!/^[0-9a-fA-F]{32}$/.test(hex)) throw new TypeError('Invalid UUID');
@@ -11,4 +19,4 @@ function stringify(bytes) {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-module.exports = { parse, stringify };
+module.exports = { parse, stringify, v4 };

@@ -132,10 +132,18 @@ REDIS_BULLMQ_URL=redis://localhost:6380/0
 MINIO_ENDPOINT=http://localhost:9000
 MINIO_ACCESS_KEY=
 MINIO_SECRET_KEY=
-MINIO_QUARANTINE_BUCKET=rag-quarantine
+MINIO_UPLOAD_BUCKET=rag-quarantine
 MINIO_SOURCE_BUCKET=rag-source
 MINIO_DERIVED_BUCKET=rag-derived
 MINIO_EXPORT_BUCKET=rag-export
+
+UPLOAD_SESSION_TTL_SECONDS=3600
+UPLOAD_PRESIGNED_URL_TTL_SECONDS=900
+UPLOAD_MAX_FILES_PER_SESSION=100
+UPLOAD_MAX_FILE_BYTES=2147483648
+UPLOAD_MULTIPART_THRESHOLD_BYTES=16777216
+UPLOAD_PART_SIZE_BYTES=8388608
+INGESTION_LEASE_SECONDS=120
 
 MILVUS_ADDRESS=localhost:19530
 MILVUS_USERNAME=
@@ -179,6 +187,23 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 ```
 
 `.env.example` 只放空值或非敏感示例；真实 `.env` 必须被 Git 忽略。
+
+### 6.1 M02 上传与执行配置说明
+
+M02 参数在进程启动时由 Zod 校验并固化，当前均不支持热更新。调整后应滚动重启 API、Ingestion Worker 和 Scheduler；若新值引发异常，恢复上一个部署版本的环境变量并再次滚动重启。
+
+| 环境变量                           | 默认值           | 合法范围/约束                          | 敏感 | 热更新 | 回退方式                                        |
+| ---------------------------------- | ---------------- | -------------------------------------- | ---- | ------ | ----------------------------------------------- |
+| `MINIO_UPLOAD_BUCKET`              | `rag-quarantine` | 非空 bucket 名；生产应配置生命周期清理 | 否   | 否     | 恢复原 bucket；迁移期间保留旧 bucket 读权限     |
+| `UPLOAD_SESSION_TTL_SECONDS`       | `3600`           | `300..86400` 秒                        | 否   | 否     | 恢复原 TTL；已创建会话仍使用数据库中的过期时间  |
+| `UPLOAD_PRESIGNED_URL_TTL_SECONDS` | `900`            | `60..3600` 秒，且不应大于会话 TTL      | 否   | 否     | 恢复原 TTL；客户端重新读取会话获取新 URL        |
+| `UPLOAD_MAX_FILES_PER_SESSION`     | `100`            | `1..100`                               | 否   | 否     | 恢复原上限；不影响已创建会话                    |
+| `UPLOAD_MAX_FILE_BYTES`            | `2147483648`     | `1..5368709120` 字节                   | 否   | 否     | 恢复原上限；不影响已创建文件计划                |
+| `UPLOAD_MULTIPART_THRESHOLD_BYTES` | `16777216`       | `5242880..5368709120` 字节             | 否   | 否     | 恢复原阈值；已签发上传方式不变化                |
+| `UPLOAD_PART_SIZE_BYTES`           | `8388608`        | `5242880..5368709120` 字节             | 否   | 否     | 恢复原分片；已创建 multipart 继续使用会话快照   |
+| `INGESTION_LEASE_SECONDS`          | `120`            | `30..3600` 秒                          | 否   | 否     | 恢复原租约；等待旧租约过期后由 Scheduler 重排队 |
+
+MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI Secret 或内网 Secret Manager 注入；轮换时应先让新旧凭据短暂并存，再滚动切换并撤销旧凭据。
 
 ## 7. Profile Registry
 
@@ -238,4 +263,4 @@ export interface EmbeddingProviderMetadata extends ProviderMetadata {
 - [ ] `CFG-007` 每个 Run/Job 保存实际使用的 Profile 与 revision。
 - [ ] `CFG-008` Provider 切换、灰度和回退均有审计记录。
 - [ ] `CFG-009` Feature Flag 按系统/知识空间配置并进入 Run 快照。
-- [ ] `CFG-010` 配置文档包含默认值、范围、敏感性、是否热更新和回退方式。
+- [x] `CFG-010` M02 配置文档包含默认值、范围、敏感性、是否热更新和回退方式；后续 Provider 模块按同一表格补齐。

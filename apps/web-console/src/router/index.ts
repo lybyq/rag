@@ -6,6 +6,8 @@ const KnowledgeSpacesView = (): Promise<{ default: Component }> =>
   import('@/views/KnowledgeSpacesView.vue');
 const PlaceholderView = (): Promise<{ default: Component }> =>
   import('@/views/PlaceholderView.vue');
+const DocumentIngestionView = (): Promise<{ default: Component }> =>
+  import('@/views/DocumentIngestionView.vue');
 const SettingsView = (): Promise<{ default: Component }> => import('@/views/SettingsView.vue');
 
 /** 路由 meta 作为导航和页面说明的单一来源。 */
@@ -22,7 +24,7 @@ export const router = createRouter({
     {
       path: '/tasks',
       name: 'tasks',
-      component: PlaceholderView,
+      component: DocumentIngestionView,
       meta: { title: '任务中心', module: 'M02～M05' },
     },
     {
