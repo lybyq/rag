@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import {
   AUTHORIZATION_VERSION_PROVIDER,
   DOCUMENT_INGESTION_REPOSITORY,
+  DOCUMENT_PROCESSING_REPOSITORY,
   KNOWLEDGE_SPACE_REPOSITORY,
   SECURITY_AUDIT,
 } from '@rag/application';
@@ -14,6 +15,7 @@ import { PostgresPoolLifecycle } from './postgres-pool.lifecycle';
 import { PostgresSecurityAuditAdapter } from './postgres-security-audit.adapter';
 import { PostgresHealthProbe } from './postgres-health.probe';
 import { PostgresDocumentIngestionRepository } from './postgres-document-ingestion.repository';
+import { PostgresDocumentProcessingRepository } from './postgres-document-processing.repository';
 import { POSTGRES_POOL } from './postgres.tokens';
 
 @Module({
@@ -33,11 +35,13 @@ import { POSTGRES_POOL } from './postgres.tokens';
     PostgresAuthorizationVersionProvider,
     PostgresKnowledgeSpaceRepository,
     PostgresDocumentIngestionRepository,
+    PostgresDocumentProcessingRepository,
     PostgresSecurityAuditAdapter,
     { provide: AUTHORIZATION_VERSION_PROVIDER, useExisting: PostgresAuthorizationVersionProvider },
     { provide: KNOWLEDGE_SPACE_REPOSITORY, useExisting: PostgresKnowledgeSpaceRepository },
     { provide: SECURITY_AUDIT, useExisting: PostgresSecurityAuditAdapter },
     { provide: DOCUMENT_INGESTION_REPOSITORY, useExisting: PostgresDocumentIngestionRepository },
+    { provide: DOCUMENT_PROCESSING_REPOSITORY, useExisting: PostgresDocumentProcessingRepository },
   ],
   exports: [
     POSTGRES_POOL,
@@ -46,6 +50,7 @@ import { POSTGRES_POOL } from './postgres.tokens';
     KNOWLEDGE_SPACE_REPOSITORY,
     SECURITY_AUDIT,
     DOCUMENT_INGESTION_REPOSITORY,
+    DOCUMENT_PROCESSING_REPOSITORY,
   ],
 })
 export class PostgresPersistenceModule {}

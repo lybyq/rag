@@ -9,6 +9,9 @@ import { z } from 'zod';
 
 const logLevels = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
 const authModes = ['mock', 'trusted-header', 'jwt'] as const;
+const scannerAdapters = ['clamd', 'fixture'] as const;
+const parserAdapters = ['docling', 'http', 'fixture'] as const;
+const ocrAdapters = ['http', 'docling', 'fixture'] as const;
 
 /** 开发身份预置的默认值；选择的是 presetId，而不是让浏览器提交任意角色。 */
 const defaultMockPresets = JSON.stringify([
@@ -122,6 +125,52 @@ export const AppEnvironmentSchema = z
       .default(8 * 1024 * 1024),
     INGESTION_LEASE_SECONDS: z.coerce.number().int().min(30).max(3_600).default(120),
 
+    MINIO_DERIVED_BUCKET: z.string().min(3).max(63).default('rag-derived'),
+    FILE_STREAM_TIMEOUT_MS: z.coerce.number().int().min(10_000).max(3_600_000).default(600_000),
+    SCANNER_ADAPTER: z.enum(scannerAdapters).default('clamd'),
+    SCANNER_PROFILE_ID: z.string().min(1).max(100).default('clamav-dev-v1'),
+    SCANNER_REVISION: z.string().min(1).max(100).default('ClamAV 1.4.3'),
+    CLAMD_HOST: z.string().min(1).default('localhost'),
+    CLAMD_PORT: z.coerce.number().int().min(1).max(65_535).default(3310),
+    SCANNER_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(300_000).default(60_000),
+
+    PARSER_ADAPTER: z.enum(parserAdapters).default('docling'),
+    PARSER_BASE_URL: z.string().url().default('http://localhost:8104'),
+    PARSER_API_KEY: z.string().default(''),
+    PARSER_PROFILE_ID: z.string().min(1).max(100).default('docling-standard-dev-v1'),
+    PARSER_REVISION: z.string().min(1).max(100).default('docling-serve-v1'),
+    PARSER_PROTOCOL_VERSION: z.string().min(1).max(40).default('1'),
+    PARSER_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(900_000).default(180_000),
+    PARSER_MAX_RESPONSE_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1_048_576)
+      .max(536_870_912)
+      .default(104_857_600),
+    PARSER_TEMP_ROOT: z.string().min(1).default('.data/parser-runtime'),
+
+    OCR_ADAPTER: z.enum(ocrAdapters).default('docling'),
+    OCR_BASE_URL: z.string().url().default('http://localhost:8103'),
+    OCR_API_KEY: z.string().default(''),
+    OCR_PROFILE_ID: z.string().min(1).max(100).default('docling-ocr-dev-v1'),
+    OCR_REVISION: z.string().min(1).max(100).default('docling-serve-v1'),
+    OCR_PROTOCOL_VERSION: z.string().min(1).max(40).default('1'),
+    OCR_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(900_000).default(180_000),
+
+    FILE_MAX_ARCHIVE_DEPTH: z.coerce.number().int().min(1).max(20).default(3),
+    FILE_MAX_COMPRESSION_RATIO: z.coerce.number().min(1).max(10_000).default(100),
+    FILE_MAX_PAGES: z.coerce.number().int().min(1).max(20_000).default(2_000),
+    FILE_MAX_TOTAL_PIXELS: z.coerce
+      .number()
+      .int()
+      .min(1_000_000)
+      .max(100_000_000_000)
+      .default(500_000_000),
+    FILE_MAX_TABLE_CELLS: z.coerce.number().int().min(1_000).max(100_000_000).default(5_000_000),
+    OCR_TEXT_COVERAGE_THRESHOLD: z.coerce.number().min(0).max(1).default(0.02),
+    OCR_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.75),
+    PROCESSING_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+
     MILVUS_ADDRESS: z.string().min(1).default('localhost:19530'),
     MILVUS_USERNAME: z.string().default(''),
     MILVUS_PASSWORD: z.string().default(''),
@@ -211,6 +260,14 @@ export const AppEnvironmentSchema = z
       }
     }
 
+    if (value.UPLOAD_PRESIGNED_URL_TTL_SECONDS > value.UPLOAD_SESSION_TTL_SECONDS) {
+      context.addIssue({
+        code: 'custom',
+        path: ['UPLOAD_PRESIGNED_URL_TTL_SECONDS'],
+        message: '预签名 URL 有效期不能超过上传会话有效期',
+      });
+    }
+
     if (value.APP_ENV !== 'production') return;
 
     const insecureReasons: string[] = [];
@@ -218,6 +275,10 @@ export const AppEnvironmentSchema = z
     if (value.MINIO_ACCESS_KEY === 'rag-local') insecureReasons.push('MINIO_ACCESS_KEY');
     if (value.MINIO_SECRET_KEY === 'rag-local-secret') insecureReasons.push('MINIO_SECRET_KEY');
     if (!value.DATABASE_URL.includes('sslmode=')) insecureReasons.push('DATABASE_URL_SSL');
+    if (value.SCANNER_ADAPTER === 'fixture') insecureReasons.push('SCANNER_ADAPTER');
+    if (value.PARSER_ADAPTER === 'fixture') insecureReasons.push('PARSER_ADAPTER');
+    if (value.PARSER_ADAPTER === 'docling') insecureReasons.push('PARSER_ADAPTER_STRUCTURE_SCAN');
+    if (value.OCR_ADAPTER === 'fixture') insecureReasons.push('OCR_ADAPTER');
 
     if (insecureReasons.length > 0) {
       context.addIssue({
@@ -253,6 +314,48 @@ export interface AppConfig {
     multipartThresholdBytes: number;
     partSizeBytes: number;
     ingestionLeaseSeconds: number;
+  };
+  fileProcessing: {
+    derivedBucket: string;
+    streamTimeoutMs: number;
+    scanner: {
+      adapter: (typeof scannerAdapters)[number];
+      profileId: string;
+      revision: string;
+      host: string;
+      port: number;
+      timeoutMs: number;
+    };
+    parser: {
+      adapter: (typeof parserAdapters)[number];
+      baseUrl: string;
+      apiKey?: string;
+      profileId: string;
+      revision: string;
+      protocolVersion: string;
+      timeoutMs: number;
+      maxResponseBytes: number;
+      tempRoot: string;
+    };
+    ocr: {
+      adapter: (typeof ocrAdapters)[number];
+      baseUrl: string;
+      apiKey?: string;
+      profileId: string;
+      revision: string;
+      protocolVersion: string;
+      timeoutMs: number;
+    };
+    limits: {
+      maxArchiveDepth: number;
+      maxCompressionRatio: number;
+      maxPages: number;
+      maxTotalPixels: number;
+      maxTableCells: number;
+      ocrTextCoverageThreshold: number;
+      ocrMinConfidence: number;
+      maxAttempts: number;
+    };
   };
   milvus: {
     address: string;
@@ -345,6 +448,48 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       multipartThresholdBytes: value.UPLOAD_MULTIPART_THRESHOLD_BYTES,
       partSizeBytes: value.UPLOAD_PART_SIZE_BYTES,
       ingestionLeaseSeconds: value.INGESTION_LEASE_SECONDS,
+    }),
+    fileProcessing: Object.freeze({
+      derivedBucket: value.MINIO_DERIVED_BUCKET,
+      streamTimeoutMs: value.FILE_STREAM_TIMEOUT_MS,
+      scanner: Object.freeze({
+        adapter: value.SCANNER_ADAPTER,
+        profileId: value.SCANNER_PROFILE_ID,
+        revision: value.SCANNER_REVISION,
+        host: value.CLAMD_HOST,
+        port: value.CLAMD_PORT,
+        timeoutMs: value.SCANNER_REQUEST_TIMEOUT_MS,
+      }),
+      parser: Object.freeze({
+        adapter: value.PARSER_ADAPTER,
+        baseUrl: value.PARSER_BASE_URL,
+        ...(value.PARSER_API_KEY ? { apiKey: value.PARSER_API_KEY } : {}),
+        profileId: value.PARSER_PROFILE_ID,
+        revision: value.PARSER_REVISION,
+        protocolVersion: value.PARSER_PROTOCOL_VERSION,
+        timeoutMs: value.PARSER_REQUEST_TIMEOUT_MS,
+        maxResponseBytes: value.PARSER_MAX_RESPONSE_BYTES,
+        tempRoot: value.PARSER_TEMP_ROOT,
+      }),
+      ocr: Object.freeze({
+        adapter: value.OCR_ADAPTER,
+        baseUrl: value.OCR_BASE_URL,
+        ...(value.OCR_API_KEY ? { apiKey: value.OCR_API_KEY } : {}),
+        profileId: value.OCR_PROFILE_ID,
+        revision: value.OCR_REVISION,
+        protocolVersion: value.OCR_PROTOCOL_VERSION,
+        timeoutMs: value.OCR_REQUEST_TIMEOUT_MS,
+      }),
+      limits: Object.freeze({
+        maxArchiveDepth: value.FILE_MAX_ARCHIVE_DEPTH,
+        maxCompressionRatio: value.FILE_MAX_COMPRESSION_RATIO,
+        maxPages: value.FILE_MAX_PAGES,
+        maxTotalPixels: value.FILE_MAX_TOTAL_PIXELS,
+        maxTableCells: value.FILE_MAX_TABLE_CELLS,
+        ocrTextCoverageThreshold: value.OCR_TEXT_COVERAGE_THRESHOLD,
+        ocrMinConfidence: value.OCR_MIN_CONFIDENCE,
+        maxAttempts: value.PROCESSING_MAX_ATTEMPTS,
+      }),
     }),
     milvus: Object.freeze({
       address: value.MILVUS_ADDRESS,

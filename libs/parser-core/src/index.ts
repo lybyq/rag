@@ -1,2 +1,4 @@
-/** 文件解析、OCR 路由和统一 Block 边界；具体能力在 M03 实现。 */
-export const PARSER_BOUNDARY = 'parser-core' as const;
+/** M03 Parser 纯领域规则公共出口；外部 Provider Adapter 不得放入本库。 */
+export * from './block-normalization';
+export * from './file-detection';
+export * from './security-policy';

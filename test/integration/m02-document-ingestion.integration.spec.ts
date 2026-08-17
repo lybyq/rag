@@ -170,7 +170,7 @@ describeWithInfra('[DOC-008][DOC-009][DOC-017] M02 PostgreSQL transaction', () =
     expect(facts.rows[0]).toEqual({ documents: '1', jobs: '1', outbox: '1' });
   });
 
-  it('Outbox 领取有 lease，Consumer 重投只处理一次', async () => {
+  it('Outbox 领取有 lease，Inbox 重投只写一次收据但任务仍可领取', async () => {
     const claimed = await repository.claimOutboxBatch(`publisher-${suffix}`, 10, 30);
     expect(claimed).toHaveLength(1);
     await expect(repository.claimOutboxBatch('another-publisher', 10, 30)).resolves.toHaveLength(0);
@@ -185,12 +185,12 @@ describeWithInfra('[DOC-008][DOC-009][DOC-017] M02 PostgreSQL transaction', () =
     await repository.markOutboxPublished(event.id);
 
     const job = await repository.getJob(context, event.aggregateId);
-    expect(job?.status).toBe('WAITING');
-    expect(job?.steps[0]?.status).toBe('WAITING');
+    expect(job?.status).toBe('QUEUED');
+    expect(job?.steps[0]?.status).toBe('QUEUED');
     const events = await repository.listJobEvents(context, event.aggregateId, 0, 100);
     expect(events.items.map((item) => item.eventType)).toEqual([
       'ingestion.queued',
-      'ingestion.waiting',
+      'ingestion.message_received',
     ]);
 
     const cancelled = await repository.cancelJob(

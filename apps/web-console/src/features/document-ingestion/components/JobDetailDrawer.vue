@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /** 任务详情侧栏：只展示后端权重计算结果，未知总量显示不确定进度。 */
 import type { IngestionJob, IngestionJobEvent } from '@rag/contracts';
+import ParseInspectionPanel from './ParseInspectionPanel.vue';
 
 defineProps<{
   job?: IngestionJob;
@@ -68,6 +69,8 @@ function canCancel(job: IngestionJob): boolean {
         </div>
       </article>
     </div>
+
+    <ParseInspectionPanel :document-version-id="job.documentVersionId" />
 
     <section class="event-log">
       <h4>事件续传记录</h4>

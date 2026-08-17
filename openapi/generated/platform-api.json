@@ -1520,6 +1520,208 @@
           }
         }
       }
+    },
+    "/api/v1/document-versions/{versionId}/parse-runs": {
+      "get": {
+        "operationId": "listDocumentVersionParseRuns",
+        "summary": "列出文档版本的解析运行历史",
+        "parameters": [
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "解析运行列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseRunListEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "身份缺失或无法验证",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "当前身份无权执行操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/parse-runs/{parseRunId}": {
+      "get": {
+        "operationId": "getParseRun",
+        "summary": "读取解析运行、安全事实、耗时与问题",
+        "parameters": [
+          {
+            "name": "parseRunId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "解析运行详情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseRunDetailEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "身份缺失或无法验证",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "当前身份无权执行操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/parse-runs/{parseRunId}/blocks": {
+      "get": {
+        "operationId": "listDocumentBlocks",
+        "summary": "按稳定 ordinal 分页预览统一 DocumentBlock",
+        "parameters": [
+          {
+            "name": "parseRunId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "afterOrdinal",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "DocumentBlock 页面",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBlockListEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "身份缺失或无法验证",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "当前身份无权执行操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/parsing/profiles": {
+      "get": {
+        "operationId": "listProcessingProviderProfiles",
+        "summary": "列出当前生效的扫描、Parser 与 OCR Profile",
+        "responses": {
+          "200": {
+            "description": "Provider Profile 列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessingProviderProfileListEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "身份缺失或无法验证",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "当前身份无权执行操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5060,6 +5262,1225 @@
             "required": [
               "items",
               "nextCursor"
+            ],
+            "additionalProperties": false
+          },
+          "meta": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "requestId",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "ParseRunListEnvelope": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "traceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "jobId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    "documentVersionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "contentRevision": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "RUNNING",
+                        "SUCCEEDED",
+                        "WAITING",
+                        "FAILED",
+                        "REJECTED"
+                      ]
+                    },
+                    "fileFormat": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "PDF",
+                            "DOCX",
+                            "XLSX",
+                            "PPTX",
+                            "IMAGE",
+                            "HTML",
+                            "MARKDOWN",
+                            "TEXT",
+                            "CSV"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "declaredMime": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 160
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "detectedMime": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 160
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "inputSha256": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "securityVerdict": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "CLEAN",
+                            "MANUAL_REVIEW",
+                            "REJECTED"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "malwareEngine": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "malwareRevision": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "parserProfileId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "parserRevision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "ocrProfileId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "ocrRevision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "pageCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "blockCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "ocrPageCount": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "derivedBucket": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 63
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "derivedObjectKey": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 1024
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "derivedSha256": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "failureClass": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "RETRYABLE_PROVIDER",
+                            "DOCUMENT_PROBLEM",
+                            "DEVELOPER_DEFECT"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "failureCode": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "failureMessage": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "metrics": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    },
+                    "startedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "completedAt": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "updatedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "jobId",
+                    "documentVersionId",
+                    "contentRevision",
+                    "status",
+                    "fileFormat",
+                    "declaredMime",
+                    "detectedMime",
+                    "inputSha256",
+                    "securityVerdict",
+                    "malwareEngine",
+                    "malwareRevision",
+                    "parserProfileId",
+                    "parserRevision",
+                    "ocrProfileId",
+                    "ocrRevision",
+                    "pageCount",
+                    "blockCount",
+                    "ocrPageCount",
+                    "derivedBucket",
+                    "derivedObjectKey",
+                    "derivedSha256",
+                    "failureClass",
+                    "failureCode",
+                    "failureMessage",
+                    "metrics",
+                    "startedAt",
+                    "completedAt",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "items"
+            ],
+            "additionalProperties": false
+          },
+          "meta": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "requestId",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "ParseRunDetailEnvelope": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "traceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "run": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "jobId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "documentVersionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "contentRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "RUNNING",
+                      "SUCCEEDED",
+                      "WAITING",
+                      "FAILED",
+                      "REJECTED"
+                    ]
+                  },
+                  "fileFormat": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "PDF",
+                          "DOCX",
+                          "XLSX",
+                          "PPTX",
+                          "IMAGE",
+                          "HTML",
+                          "MARKDOWN",
+                          "TEXT",
+                          "CSV"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "declaredMime": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "detectedMime": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "inputSha256": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "securityVerdict": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "CLEAN",
+                          "MANUAL_REVIEW",
+                          "REJECTED"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "malwareEngine": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "malwareRevision": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "parserProfileId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "parserRevision": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "ocrProfileId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "ocrRevision": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "pageCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "blockCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "ocrPageCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "derivedBucket": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 63
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "derivedObjectKey": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 1024
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "derivedSha256": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "failureClass": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": [
+                          "RETRYABLE_PROVIDER",
+                          "DOCUMENT_PROBLEM",
+                          "DEVELOPER_DEFECT"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "failureCode": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "failureMessage": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "metrics": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "startedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "completedAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "jobId",
+                  "documentVersionId",
+                  "contentRevision",
+                  "status",
+                  "fileFormat",
+                  "declaredMime",
+                  "detectedMime",
+                  "inputSha256",
+                  "securityVerdict",
+                  "malwareEngine",
+                  "malwareRevision",
+                  "parserProfileId",
+                  "parserRevision",
+                  "ocrProfileId",
+                  "ocrRevision",
+                  "pageCount",
+                  "blockCount",
+                  "ocrPageCount",
+                  "derivedBucket",
+                  "derivedObjectKey",
+                  "derivedSha256",
+                  "failureClass",
+                  "failureCode",
+                  "failureMessage",
+                  "metrics",
+                  "startedAt",
+                  "completedAt",
+                  "createdAt",
+                  "updatedAt"
+                ],
+                "additionalProperties": false
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "parseRunId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "severity": {
+                      "type": "string",
+                      "enum": [
+                        "INFO",
+                        "WARNING",
+                        "ERROR"
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "message": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    },
+                    "pageNo": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "blockId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "parseRunId",
+                    "severity",
+                    "code",
+                    "message",
+                    "pageNo",
+                    "blockId",
+                    "metadata",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "run",
+              "issues"
+            ],
+            "additionalProperties": false
+          },
+          "meta": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "requestId",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "DocumentBlockListEnvelope": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "traceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "TITLE",
+                        "PARAGRAPH",
+                        "LIST",
+                        "TABLE",
+                        "TABLE_ROW",
+                        "IMAGE",
+                        "CAPTION",
+                        "CODE",
+                        "FORMULA",
+                        "HEADER",
+                        "FOOTER",
+                        "FOOTNOTE"
+                      ]
+                    },
+                    "text": {
+                      "type": "string"
+                    },
+                    "originalText": {
+                      "type": "string"
+                    },
+                    "pageNo": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sheetName": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "slideNo": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "bbox": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "x1": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "y1": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "x2": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "y2": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            }
+                          },
+                          "required": [
+                            "x1",
+                            "y1",
+                            "x2",
+                            "y2"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "headingLevel": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 6
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "confidence": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "table": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "rows": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "headerRowCount": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "mergedCells": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "row": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "column": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "rowSpan": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "columnSpan": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "row",
+                                  "column",
+                                  "rowSpan",
+                                  "columnSpan"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "rows",
+                            "headerRowCount",
+                            "mergedCells"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    },
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160
+                    },
+                    "parseRunId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "documentVersionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "contentRevision": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "ordinal": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "parentBlockId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "parserName": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "parserRevision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "ocrEngine": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "ocrRevision": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "contentSha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "text",
+                    "originalText",
+                    "pageNo",
+                    "sheetName",
+                    "slideNo",
+                    "bbox",
+                    "headingLevel",
+                    "confidence",
+                    "table",
+                    "metadata",
+                    "id",
+                    "parseRunId",
+                    "documentVersionId",
+                    "contentRevision",
+                    "ordinal",
+                    "parentBlockId",
+                    "parserName",
+                    "parserRevision",
+                    "ocrEngine",
+                    "ocrRevision",
+                    "contentSha256",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "nextOrdinal": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "items",
+              "nextOrdinal"
+            ],
+            "additionalProperties": false
+          },
+          "meta": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "requestId",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "ProcessingProviderProfileListEnvelope": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "traceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "MALWARE_SCANNER",
+                        "PARSER",
+                        "OCR"
+                      ]
+                    },
+                    "adapter": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 60
+                    },
+                    "profileId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "protocolVersion": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40
+                    },
+                    "endpoint": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "capabilities": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      }
+                    },
+                    "timeoutMs": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "adapter",
+                    "profileId",
+                    "revision",
+                    "protocolVersion",
+                    "endpoint",
+                    "capabilities",
+                    "timeoutMs"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "items"
             ],
             "additionalProperties": false
           },

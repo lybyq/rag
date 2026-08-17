@@ -197,21 +197,21 @@ POST /v1/jobs/{jobId}/cancel
 
 ### 需求清单
 
-- [ ] `PAR-001` 实现隔离 Bucket、魔数/MIME/扩展名交叉校验和 SHA-256。
-- [ ] `PAR-002` 集成可配置恶意软件扫描 Port，外网提供本地开源扫描器或测试 Adapter。
-- [ ] `PAR-003` 检查宏、嵌入对象、外部链接、密码保护、压缩层数、解压比例、页数、像素和表格规模限制。
-- [ ] `PAR-004` Parser Runtime 使用无外网、只读根文件系统、最小权限和资源/时间上限的隔离容器。
-- [ ] `PAR-005` 定义 ParserPort 与 OcrPort，输入输出使用 Zod 校验并携带引擎版本。
-- [ ] `PAR-006` 建立 PDF、DOCX、XLSX、PPTX、图片、HTML、Markdown、TXT、CSV 的格式路由。
-- [ ] `PAR-007` PDF 按页判断文字覆盖度，可靠文字层不做 OCR，扫描或低覆盖页面进入 OCR。
-- [ ] `PAR-008` OCR 返回文本、归一化坐标、置信度和引擎版本，低置信页面触发质量告警。
-- [ ] `PAR-009` 所有 Parser 只输出统一 DocumentBlock，不直接生成最终 Chunk。
-- [ ] `PAR-010` Block 顺序在同一 parse revision 内唯一稳定，保留 `originalText`，标准化不得覆盖它。
-- [ ] `PAR-011` 表格保留行列、合并单元格、表头和页/Sheet 信息；PPT 保留 slideNo；PDF/图片保留 bbox。
-- [ ] `PAR-012` 解析派生对象写入版本化路径并保存 Hash，重复任务可直接校验复用。
-- [ ] `PAR-013` 解析超时终止整个隔离进程，区分可重试故障、文档问题与开发缺陷。
-- [ ] `PAR-014` 为每类格式建立代表性 Golden 文档和 Block Snapshot。
-- [ ] `PAR-015` 支持管理员查看 Parser/OCR Profile、版本、耗时和失败原因。
+- [x] `PAR-001` 实现隔离 Bucket、魔数/MIME/扩展名交叉校验和 SHA-256。
+- [x] `PAR-002` 集成可配置恶意软件扫描 Port，外网提供本地开源扫描器或测试 Adapter。
+- [x] `PAR-003` 检查宏、嵌入对象、外部链接、密码保护、压缩层数、解压比例、页数、像素和表格规模限制。
+- [x] `PAR-004` Parser Runtime 使用无外网、只读根文件系统、最小权限和资源/时间上限的隔离容器。
+- [x] `PAR-005` 定义 ParserPort 与 OcrPort，输入输出使用 Zod 校验并携带引擎版本。
+- [x] `PAR-006` 建立 PDF、DOCX、XLSX、PPTX、图片、HTML、Markdown、TXT、CSV 的格式路由。
+- [x] `PAR-007` PDF 按页判断文字覆盖度，可靠文字层不做 OCR，扫描或低覆盖页面进入 OCR。
+- [x] `PAR-008` OCR 返回文本、归一化坐标、置信度和引擎版本，低置信页面触发质量告警。
+- [x] `PAR-009` 所有 Parser 只输出统一 DocumentBlock，不直接生成最终 Chunk。
+- [x] `PAR-010` Block 顺序在同一 parse revision 内唯一稳定，保留 `originalText`，标准化不得覆盖它。
+- [x] `PAR-011` 表格保留行列、合并单元格、表头和页/Sheet 信息；PPT 保留 slideNo；PDF/图片保留 bbox。
+- [x] `PAR-012` 解析派生对象写入版本化路径并保存 Hash，重复任务可直接校验复用。
+- [x] `PAR-013` 解析超时终止整个隔离进程，区分可重试故障、文档问题与开发缺陷。
+- [x] `PAR-014` 为每类格式建立代表性 Golden 文档和 Block Snapshot。
+- [x] `PAR-015` 支持管理员查看 Parser/OCR Profile、版本、耗时和失败原因。
 
 ### 验收门禁
 

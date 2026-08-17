@@ -28,6 +28,12 @@ function clientStub(overrides: Partial<MinioStorageClient> = {}): MinioStorageCl
       lastModified: new Date(),
       metaData: { 'content-type': 'application/pdf', 'x-amz-meta-sha256': 'A'.repeat(64) },
     }),
+    getObject: jest.fn().mockResolvedValue(
+      (async function* (): AsyncGenerator<Uint8Array> {
+        yield Buffer.from('bytes');
+      })(),
+    ),
+    putObject: jest.fn().mockResolvedValue({ etag: 'derived', versionId: null }),
     ...overrides,
   } as unknown as MinioStorageClient;
 }
@@ -57,6 +63,33 @@ describe('MinioObjectStorageAdapter contract', () => {
       etag: 'abc',
       sha256: 'a'.repeat(64),
     });
+  });
+
+  it('[PAR-012] 派生快照写入可信 SHA metadata，并签发只读 URL', async () => {
+    const client = clientStub();
+    const adapter = new MinioObjectStorageAdapter(config, client);
+    const signal = new AbortController().signal;
+    await adapter.ensureNamedBucket('rag-derived', { signal });
+    await adapter.putObject(
+      'rag-derived',
+      'derived/version/blocks.json',
+      {
+        bytes: Buffer.from('{}'),
+        contentType: 'application/json',
+        sha256: 'b'.repeat(64),
+      },
+      { signal },
+    );
+    await adapter.presignGet('rag-quarantine', 'object', 300, { signal });
+
+    expect(client.putObject).toHaveBeenCalledWith(
+      'rag-derived',
+      'derived/version/blocks.json',
+      expect.any(Buffer),
+      2,
+      expect.objectContaining({ 'x-amz-meta-sha256': 'b'.repeat(64) }),
+    );
+    expect(client.presignedUrl).toHaveBeenCalledWith('GET', 'rag-quarantine', 'object', 300);
   });
 
   it('透传对象存储错误并响应取消信号', async () => {

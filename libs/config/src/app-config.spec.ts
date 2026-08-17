@@ -36,4 +36,20 @@ describe('[BASE-010] startup configuration', () => {
       /JWT 模式必须配置/,
     );
   });
+
+  it('[PAR-003][PAR-004] production 拒绝结构安全能力不完整的 Docling 直连 Parser', () => {
+    expect(() =>
+      loadAppConfig({
+        APP_ENV: 'production',
+        AUTH_MODE: 'trusted-header',
+        AUTH_TRUSTED_PROXY_CIDRS: '10.0.0.0/8',
+        DATABASE_URL: 'postgresql://rag:secret@db.internal/rag?sslmode=require',
+        MINIO_ACCESS_KEY: 'production-access',
+        MINIO_SECRET_KEY: 'production-secret-value',
+        PARSER_ADAPTER: 'docling',
+        SCANNER_ADAPTER: 'clamd',
+        OCR_ADAPTER: 'http',
+      }),
+    ).toThrow(/PARSER_ADAPTER_STRUCTURE_SCAN/);
+  });
 });

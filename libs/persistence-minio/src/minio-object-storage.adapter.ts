@@ -10,6 +10,7 @@ import type {
   CompletedStoragePart,
   ExternalCallOptions,
   ObjectStoragePort,
+  StoredObjectBody,
   StoredObjectHead,
 } from '@rag/application';
 import type { AppConfig } from '@rag/config';
@@ -27,6 +28,8 @@ export type MinioStorageClient = Pick<
   | 'abortMultipartUpload'
   | 'removeObject'
   | 'statObject'
+  | 'getObject'
+  | 'putObject'
 >;
 
 /** 将配置 URL 转成 MinIO SDK 连接参数。 */
@@ -54,9 +57,14 @@ export class MinioObjectStorageAdapter implements ObjectStoragePort {
 
   /** Bucket 不存在时创建；并发创建的 BucketAlreadyOwnedByYou 视为成功。 */
   public async ensureBucket(options: ExternalCallOptions): Promise<void> {
-    if (await withAbort(this.client.bucketExists(this.bucket), options.signal)) return;
+    await this.ensureNamedBucket(this.bucket, options);
+  }
+
+  /** M03 派生 Bucket 与隔离上传 Bucket 分开创建，避免未扫描对象被后续流程误读。 */
+  public async ensureNamedBucket(bucket: string, options: ExternalCallOptions): Promise<void> {
+    if (await withAbort(this.client.bucketExists(bucket), options.signal)) return;
     try {
-      await withAbort(this.client.makeBucket(this.bucket), options.signal);
+      await withAbort(this.client.makeBucket(bucket), options.signal);
     } catch (error) {
       if (!isAlreadyOwnedBucketError(error)) throw error;
     }
@@ -84,6 +92,19 @@ export class MinioObjectStorageAdapter implements ObjectStoragePort {
   ): Promise<string> {
     return withAbort(
       this.client.presignedPutObject(bucket, objectKey, expiresSeconds),
+      options.signal,
+    );
+  }
+
+  /** Parser/OCR 仅获得短时 GET URL，不获得对象存储账号。 */
+  public presignGet(
+    bucket: string,
+    objectKey: string,
+    expiresSeconds: number,
+    options: ExternalCallOptions,
+  ): Promise<string> {
+    return withAbort(
+      this.client.presignedUrl('GET', bucket, objectKey, expiresSeconds),
       options.signal,
     );
   }
@@ -159,6 +180,50 @@ export class MinioObjectStorageAdapter implements ObjectStoragePort {
       ...(stat.etag ? { etag: stripEtagQuotes(stat.etag) } : {}),
       ...(sha256 ? { sha256: sha256.toLowerCase() } : {}),
     };
+  }
+
+  /** 返回可流式消费的对象；取消时主动销毁 SDK Readable，及时归还 socket。 */
+  public async readObject(
+    bucket: string,
+    objectKey: string,
+    options: ExternalCallOptions,
+  ): Promise<AsyncIterable<Uint8Array>> {
+    const stream = await withAbort(this.client.getObject(bucket, objectKey), options.signal);
+    return abortableContent(stream, options.signal);
+  }
+
+  /** 写入派生快照并持久化可信 SHA，供重试时执行内容寻址式复用。 */
+  public async putObject(
+    bucket: string,
+    objectKey: string,
+    body: StoredObjectBody,
+    options: ExternalCallOptions,
+  ): Promise<void> {
+    await withAbort(
+      this.client.putObject(bucket, objectKey, Buffer.from(body.bytes), body.bytes.byteLength, {
+        'content-type': body.contentType,
+        'x-amz-meta-sha256': body.sha256,
+      }),
+      options.signal,
+    );
+  }
+}
+
+/** 在迭代边界检查取消信号，并把 Buffer 收窄为跨 Adapter 的 Uint8Array。 */
+async function* abortableContent(
+  content: AsyncIterable<Uint8Array> & { destroy?: (error?: Error) => void },
+  signal: AbortSignal,
+): AsyncGenerator<Uint8Array> {
+  const onAbort = (): void =>
+    content.destroy?.(signal.reason instanceof Error ? signal.reason : new Error('aborted'));
+  signal.addEventListener('abort', onAbort, { once: true });
+  try {
+    for await (const chunk of content) {
+      if (signal.aborted) throw signal.reason;
+      yield chunk;
+    }
+  } finally {
+    signal.removeEventListener('abort', onAbort);
   }
 }
 

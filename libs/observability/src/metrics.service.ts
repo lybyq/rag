@@ -32,6 +32,22 @@ export class MetricsService implements OnModuleDestroy {
     registers: [this.registry],
   });
 
+  /** M03 只按稳定结果和步骤聚合，不把文件名、Job ID 或 Provider URL 放入标签。 */
+  public readonly m03ProcessingTotal = new Counter({
+    name: 'rag_m03_processing_total',
+    help: 'M03 文件处理结果累计次数',
+    labelNames: ['result'] as const,
+    registers: [this.registry],
+  });
+
+  public readonly m03DurationSeconds = new Histogram({
+    name: 'rag_m03_processing_duration_seconds',
+    help: 'M03 单文档端到端处理耗时（秒）',
+    labelNames: ['result'] as const,
+    buckets: [0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300],
+    registers: [this.registry],
+  });
+
   public constructor() {
     this.registry.setDefaultLabels({ system: 'enterprise-rag' });
     collectDefaultMetrics({ register: this.registry });

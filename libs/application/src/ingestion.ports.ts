@@ -31,6 +31,13 @@ export interface StoredObjectHead {
   readonly sha256?: string;
 }
 
+/** 写入派生对象时使用的内容事实；SHA 会进入对象 metadata 供幂等重试验证。 */
+export interface StoredObjectBody {
+  readonly bytes: Uint8Array;
+  readonly contentType: string;
+  readonly sha256: string;
+}
+
 /** Multipart 合并所需的分片事实。 */
 export interface CompletedStoragePart {
   readonly partNumber: number;
@@ -40,6 +47,7 @@ export interface CompletedStoragePart {
 /** 可替换的 MinIO/S3 对象存储端口。 */
 export interface ObjectStoragePort {
   ensureBucket(options: ExternalCallOptions): Promise<void>;
+  ensureNamedBucket(bucket: string, options: ExternalCallOptions): Promise<void>;
   initiateMultipart(
     bucket: string,
     objectKey: string,
@@ -47,6 +55,12 @@ export interface ObjectStoragePort {
     options: ExternalCallOptions,
   ): Promise<string>;
   presignPut(
+    bucket: string,
+    objectKey: string,
+    expiresSeconds: number,
+    options: ExternalCallOptions,
+  ): Promise<string>;
+  presignGet(
     bucket: string,
     objectKey: string,
     expiresSeconds: number,
@@ -79,6 +93,17 @@ export interface ObjectStoragePort {
     objectKey: string,
     options: ExternalCallOptions,
   ): Promise<StoredObjectHead>;
+  readObject(
+    bucket: string,
+    objectKey: string,
+    options: ExternalCallOptions,
+  ): Promise<AsyncIterable<Uint8Array>>;
+  putObject(
+    bucket: string,
+    objectKey: string,
+    body: StoredObjectBody,
+    options: ExternalCallOptions,
+  ): Promise<void>;
 }
 
 /** 创建会话时写入数据库的单文件命令。 */
@@ -213,6 +238,7 @@ export interface DocumentIngestionRepository {
     },
     leaseSeconds: number,
   ): Promise<IngestionJob | undefined>;
+  renewJobLease(jobId: string, workerId: string, leaseSeconds: number): Promise<boolean>;
   recoverExpiredLeases(now: Date, maxAttempts: number): Promise<number>;
 }
 

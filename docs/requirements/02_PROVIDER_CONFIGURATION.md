@@ -205,6 +205,37 @@ M02 参数在进程启动时由 Zod 校验并固化，当前均不支持热更�
 
 MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI Secret 或内网 Secret Manager 注入；轮换时应先让新旧凭据短暂并存，再滚动切换并撤销旧凭据。
 
+### 6.2 M03 文件处理配置说明
+
+| 环境变量                      | 默认值                                     | 合法范围/能力约束                                               | 敏感       | 热更新 | 回退方式                                   |
+| ----------------------------- | ------------------------------------------ | --------------------------------------------------------------- | ---------- | ------ | ------------------------------------------ |
+| `MINIO_DERIVED_BUCKET`        | `rag-derived`                              | 与隔离上传 Bucket 不同；生产启用版本/生命周期                   | 否         | 否     | 恢复原 Bucket，并保留历史对象读权限        |
+| `FILE_STREAM_TIMEOUT_MS`      | `600000`                                   | `10000..3600000` 毫秒；覆盖完整对象流，不是单次 HEAD            | 否         | 否     | 按对象大小和带宽恢复旧 Deadline            |
+| `SCANNER_ADAPTER`             | `clamd`                                    | `clamd/fixture`；生产禁止 fixture                               | 否         | 否     | 切回上一 Scanner Profile 后滚动 Worker     |
+| `SCANNER_REVISION`            | `ClamAV 1.4.3`                             | 匹配 clamd `VERSION` 前缀；Run 保存实际签名库 revision          | 否         | 否     | 镜像与 Profile 同步回滚                    |
+| `CLAMD_HOST/PORT`             | `localhost/3310`                           | TCP 只能开放给 Worker 网段，clamd 本身无认证                    | 否         | 否     | 恢复旧服务地址；失败任务按 lease 重试      |
+| `SCANNER_REQUEST_TIMEOUT_MS`  | `60000`                                    | `1000..300000` 毫秒                                             | 否         | 否     | 恢复旧超时，检查扫描吞吐后重排队           |
+| `PARSER_ADAPTER`              | `docling`                                  | `docling/http/fixture`；生产必须用具备完整结构安全检查的 `http` | 否         | 否     | 切回上一不可变 Profile；旧 Run 保留修订    |
+| `PARSER_BASE_URL`             | `http://localhost:8104`                    | 合法 URL；生产使用 TLS/mTLS 或受控内网                          | 否         | 否     | 恢复旧 Endpoint，验证协议版本后重试        |
+| `PARSER_API_KEY`              | 空                                         | 仅 `http` Adapter 按需使用                                      | 是         | 否     | Secret Manager 回滚上一版本                |
+| `PARSER_PROFILE_ID/REVISION`  | `docling-standard-dev-v1/docling-serve-v1` | 非空且历史含义不可原地修改                                      | 否         | 否     | 切回旧 Profile ID，不覆盖历史 Run          |
+| `PARSER_PROTOCOL_VERSION`     | `1`                                        | 必须与响应完全一致                                              | 否         | 否     | Adapter 与 Provider 同步回滚               |
+| `PARSER_REQUEST_TIMEOUT_MS`   | `180000`                                   | `1000..600000` 毫秒                                             | 否         | 否     | 恢复旧超时；超时会终止调用并有限重试       |
+| `PARSER_MAX_RESPONSE_BYTES`   | `104857600`                                | `1 MiB..512 MiB`                                                | 否         | 否     | 恢复旧上限；超限进入开发缺陷排查           |
+| `PARSER_TEMP_ROOT`            | `.data/parser-runtime`                     | 必须位于有容量的数据盘；不放系统盘                              | 否         | 否     | 切回旧目录并清理孤儿临时文件               |
+| `OCR_ADAPTER`                 | `docling`                                  | `docling/http/fixture`；生产禁止 fixture                        | 否         | 否     | 切回上一 OCR Profile                       |
+| `OCR_BASE_URL/API_KEY`        | `localhost:8103/空`                        | 与 Parser 相同的网络/Secret 原则                                | API Key 是 | 否     | 回滚 Endpoint/Secret                       |
+| `OCR_TEXT_COVERAGE_THRESHOLD` | `0.02`                                     | `0..1`；按页判断                                                | 否         | 否     | 恢复旧阈值并新建 contentRevision 重处理    |
+| `OCR_MIN_CONFIDENCE`          | `0.75`                                     | `0..1`；低于阈值只告警，不伪造文字                              | 否         | 否     | 恢复旧阈值并重处理                         |
+| `FILE_MAX_ARCHIVE_DEPTH`      | `3`                                        | `1..20`                                                         | 否         | 否     | 恢复旧安全策略；不能为单文件绕过           |
+| `FILE_MAX_COMPRESSION_RATIO`  | `100`                                      | `1..10000`                                                      | 否         | 否     | 恢复旧安全策略                             |
+| `FILE_MAX_PAGES`              | `2000`                                     | `1..20000`                                                      | 否         | 否     | 恢复旧上限或走受控离线流程                 |
+| `FILE_MAX_TOTAL_PIXELS`       | `500000000`                                | `1..100000000000`                                               | 否         | 否     | 恢复旧上限                                 |
+| `FILE_MAX_TABLE_CELLS`        | `5000000`                                  | `1..100000000`                                                  | 否         | 否     | 恢复旧上限                                 |
+| `PROCESSING_MAX_ATTEMPTS`     | `3`                                        | `1..10`                                                         | 否         | 否     | 恢复旧次数；达到上限后人工处理，不无限重试 |
+
+外网 `docling` Adapter 用于免费功能联调，但 Docling 原生响应不能证明宏、嵌入对象和外链已经完整检查，因此生产配置会拒绝将它直接作为安全 Parser。内网 `http` Adapter 必须返回完整 `FileStructureInspection`；响应缺字段、协议或修订不一致会 fail closed。
+
 ## 7. Profile Registry
 
 Profile 必须是不可变、可引用的配置事实。修改模型或关键参数时创建新 Profile ID，不原地改变历史含义。

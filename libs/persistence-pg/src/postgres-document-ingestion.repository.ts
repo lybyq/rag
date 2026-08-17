@@ -946,7 +946,10 @@ export class PostgresDocumentIngestionRepository implements DocumentIngestionRep
     return result.rowCount === 1;
   }
 
-  /** Inbox 收据与 M02 占位处理状态同事务提交，进程重启不会重复执行副作用。 */
+  /**
+   * Inbox 只证明消息已送达，不提前把任务改成 WAITING。
+   * 即使收据重复，Consumer 仍会尝试领取 QUEUED lease，从而覆盖“写完收据后进程崩溃”的窗口。
+   */
   public async consumeQueuedIngestion(
     consumerName: string,
     eventId: string,
@@ -964,45 +967,10 @@ export class PostgresDocumentIngestionRepository implements DocumentIngestionRep
         await client.query('COMMIT');
         return false;
       }
-      const claimed = await client.query<JobRow>(
-        `UPDATE ingestion_jobs
-            SET status = 'WAITING', current_step = 'SECURITY_SCAN',
-                public_message = '等待 M03 文件安全处理器', updated_at = now()
-          WHERE id = $1 AND status = 'QUEUED'
-        RETURNING *`,
-        [jobId],
-      );
-      const job = claimed.rows[0];
-      if (job) {
-        await client.query(
-          `UPDATE ingestion_job_steps
-              SET status = 'WAITING', public_message = '等待 M03 文件安全处理器', updated_at = now()
-            WHERE job_id = $1 AND step_name = 'SECURITY_SCAN' AND status = 'QUEUED'`,
-          [jobId],
-        );
-        await client.query(
-          `UPDATE document_versions
-              SET status = 'WAITING', optimistic_version = optimistic_version + 1, updated_at = now()
-            WHERE id = $1 AND status = 'QUEUED'`,
-          [job.document_version_id],
-        );
-        await this.insertJobEvent(client, jobId, 'ingestion.waiting', {
-          step: 'SECURITY_SCAN',
-          reason: 'M03_HANDLER_PENDING',
-        });
-        await client.query(
-          `INSERT INTO audit_logs (
-             actor_user_id, actor_roles, action, resource_type, resource_id,
-             result, reason, metadata, request_id
-           ) VALUES (NULL, ARRAY[]::text[], 'INGESTION_STATUS_TRANSITION', 'DOCUMENT', $1,
-             'SUCCESS', 'M02 consumer accepted event', $2::jsonb, $3)`,
-          [
-            job.document_id,
-            JSON.stringify({ jobId, from: 'QUEUED', to: 'WAITING' }),
-            `worker:${eventId}`,
-          ],
-        );
-      }
+      await this.insertJobEvent(client, jobId, 'ingestion.message_received', {
+        consumerName,
+        receiptInserted: true,
+      });
       await client.query('COMMIT');
       return true;
     } catch (error) {
@@ -1159,6 +1127,30 @@ export class PostgresDocumentIngestionRepository implements DocumentIngestionRep
     } finally {
       client.release();
     }
+  }
+
+  /** 长耗时 Parser/OCR 调用期间独立续租，不伪造处理单位或阶段百分比。 */
+  public async renewJobLease(
+    jobId: string,
+    workerId: string,
+    leaseSeconds: number,
+  ): Promise<boolean> {
+    const result = await this.pool.query(
+      `UPDATE ingestion_jobs
+          SET lease_expires_at = now() + make_interval(secs => $3),
+              heartbeat_at = now(), updated_at = now()
+        WHERE id = $1 AND status = 'RUNNING' AND lease_owner = $2
+          AND lease_expires_at > now()
+      RETURNING current_step`,
+      [jobId, workerId, leaseSeconds],
+    );
+    if (result.rowCount !== 1) return false;
+    await this.pool.query(
+      `UPDATE ingestion_job_steps SET heartbeat_at = now(), updated_at = now()
+        WHERE job_id = $1 AND status = 'RUNNING'`,
+      [jobId],
+    );
+    return true;
   }
 
   /** 过期 lease 在事务行锁下只恢复一次；超过次数转 WAITING 供人工处理。 */

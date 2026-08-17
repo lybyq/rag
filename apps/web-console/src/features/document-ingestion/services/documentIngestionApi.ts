@@ -10,15 +10,21 @@ import {
   IngestionJobListEnvelopeSchema,
   UploadPartListEnvelopeSchema,
   UploadSessionEnvelopeSchema,
+  DocumentBlockListEnvelopeSchema,
+  ParseRunDetailEnvelopeSchema,
+  ParseRunListEnvelopeSchema,
   type CompleteUploadRequest,
   type CompleteUploadResult,
   type CreateUploadPartsRequest,
   type CreateUploadSessionRequest,
   type CursorPage,
   type Document,
+  type DocumentBlock,
+  type DocumentParseRun,
   type IngestionExecutionStatus,
   type IngestionJob,
   type IngestionJobEvent,
+  type ParseIssue,
   type UploadPartInstruction,
   type UploadSession,
 } from '@rag/contracts';
@@ -27,6 +33,40 @@ import {
   platformApiFetch,
   platformApiRawFetch,
 } from '../../identity/services/platformApi';
+
+/** 读取一个版本保留的全部 Parse Run 历史，最新修订排在前面。 */
+export function listDocumentParseRuns(versionId: string): Promise<readonly DocumentParseRun[]> {
+  return platformApiFetch(
+    `/api/v1/document-versions/${encodeURIComponent(versionId)}/parse-runs`,
+    ParseRunListEnvelopeSchema,
+  ).then((response) => response.data.items);
+}
+
+/** 读取 Parse Run 和可公开的问题列表。 */
+export function getDocumentParseRun(
+  parseRunId: string,
+): Promise<{ run: DocumentParseRun; issues: readonly ParseIssue[] }> {
+  return platformApiFetch(
+    `/api/v1/parse-runs/${encodeURIComponent(parseRunId)}`,
+    ParseRunDetailEnvelopeSchema,
+  ).then((response) => response.data);
+}
+
+/** 按稳定 ordinal 分页读取 Block，避免一次把大文档正文送入浏览器。 */
+export function listDocumentBlocks(
+  parseRunId: string,
+  afterOrdinal = 0,
+  limit = 100,
+): Promise<{ items: readonly DocumentBlock[]; nextOrdinal: number | null }> {
+  const query = new URLSearchParams({
+    afterOrdinal: String(afterOrdinal),
+    limit: String(limit),
+  });
+  return platformApiFetch(
+    `/api/v1/parse-runs/${encodeURIComponent(parseRunId)}/blocks?${query.toString()}`,
+    DocumentBlockListEnvelopeSchema,
+  ).then((response) => response.data);
+}
 
 /** 创建上传会话。 */
 export function createUploadSession(request: CreateUploadSessionRequest): Promise<UploadSession> {

@@ -1,0 +1,65 @@
+[
+  {
+    "name": "text-pdf",
+    "fileName": "policy.pdf",
+    "declaredMime": "application/pdf",
+    "headerHex": "255044462d312e370a",
+    "expectedFormat": "PDF"
+  },
+  {
+    "name": "word-ooxml",
+    "fileName": "policy.docx",
+    "declaredMime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "headerHex": "504b030414000000",
+    "expectedFormat": "DOCX"
+  },
+  {
+    "name": "excel-ooxml",
+    "fileName": "matrix.xlsx",
+    "declaredMime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "headerHex": "504b030414000000",
+    "expectedFormat": "XLSX"
+  },
+  {
+    "name": "powerpoint-ooxml",
+    "fileName": "briefing.pptx",
+    "declaredMime": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "headerHex": "504b030414000000",
+    "expectedFormat": "PPTX"
+  },
+  {
+    "name": "scanned-image",
+    "fileName": "scan.png",
+    "declaredMime": "image/png",
+    "headerHex": "89504e470d0a1a0a",
+    "expectedFormat": "IMAGE"
+  },
+  {
+    "name": "html-page",
+    "fileName": "handbook.html",
+    "declaredMime": "text/html",
+    "headerUtf8": "<!doctype html><html><body>handbook</body></html>",
+    "expectedFormat": "HTML"
+  },
+  {
+    "name": "markdown-page",
+    "fileName": "handbook.md",
+    "declaredMime": "text/markdown",
+    "headerUtf8": "# Handbook\n\nEnterprise RAG",
+    "expectedFormat": "MARKDOWN"
+  },
+  {
+    "name": "plain-text",
+    "fileName": "notice.txt",
+    "declaredMime": "text/plain",
+    "headerUtf8": "Enterprise knowledge notice",
+    "expectedFormat": "TEXT"
+  },
+  {
+    "name": "csv-table",
+    "fileName": "owners.csv",
+    "declaredMime": "text/csv",
+    "headerUtf8": "team,owner\nRAG,Alice",
+    "expectedFormat": "CSV"
+  }
+]

@@ -1,0 +1,100 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`[PAR-006][PAR-014] supported format golden manifest csv-table 路由到 CSV 并输出版本化统一契约 1`] = `
+{
+  "blockTypes": [
+    "PARAGRAPH",
+  ],
+  "format": "CSV",
+  "ocrPages": [],
+  "parserRevision": "golden-r1",
+}
+`;
+
+exports[`[PAR-006][PAR-014] supported format golden manifest excel-ooxml 路由到 XLSX 并输出版本化统一契约 1`] = `
+{
+  "blockTypes": [
+    "PARAGRAPH",
+  ],
+  "format": "XLSX",
+  "ocrPages": [],
+  "parserRevision": "golden-r1",
+}
+`;
+
+exports[`[PAR-006][PAR-014] supported format golden manifest html-page 路由到 HTML 并输出版本化统一契约 1`] = `
+{
+  "blockTypes": [
+    "PARAGRAPH",
+  ],
+  "format": "HTML",
+  "ocrPages": [],
+  "parserRevision": "golden-r1",
+}
+`;
+
+exports[`[PAR-006][PAR-014] supported format golden manifest markdown-page 路由到 MARKDOWN 并输出版本化统一契约 1`] = `
+{
+  "blockTypes": [
+    "PARAGRAPH",
+  ],
+  "format": "MARKDOWN",
+  "ocrPages": [],
+  "parserRevision": "golden-r1",
+}
+`;
+
+exports[`[PAR-006][PAR-014] supported format golden manifest plain-text 路由到 TEXT 并输出版本化统一契约 1`] = `
+{
+  "blockTypes": [
+    "PARAGRAPH",
+  ],
+  "format": "TEXT",
+  "ocrPages": [],
+  "parserRevision": "golden-r1",
+}
+`;
+
+exports[`[PAR-006][PAR-014] supported format golden manifest powerpoint-ooxml 路由到 PPTX 并输出版本化统一契约 1`] = `
+{
+  "blockTypes": [
+    "PARAGRAPH",
+  ],
+  "format": "PPTX",
+  "ocrPages": [],
+  "parserRevision": "golden-r1",
+}
+`;
+
+exports[`[PAR-006][PAR-014] supported format golden manifest scanned-image 路由到 IMAGE 并输出版本化统一契约 1`] = `
+{
+  "blockTypes": [],
+  "format": "IMAGE",
+  "ocrPages": [
+    1,
+  ],
+  "parserRevision": "golden-r1",
+}
+`;
+
+exports[`[PAR-006][PAR-014] supported format golden manifest text-pdf 路由到 PDF 并输出版本化统一契约 1`] = `
+{
+  "blockTypes": [
+    "PARAGRAPH",
+  ],
+  "format": "PDF",
+  "ocrPages": [],
+  "parserRevision": "golden-r1",
+}
+`;
+
+exports[`[PAR-006][PAR-014] supported format golden manifest word-ooxml 路由到 DOCX 并输出版本化统一契约 1`] = `
+{
+  "blockTypes": [
+    "PARAGRAPH",
+  ],
+  "format": "DOCX",
+  "ocrPages": [],
+  "parserRevision": "golden-r1",
+}
+`;

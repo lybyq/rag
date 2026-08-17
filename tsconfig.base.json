@@ -24,6 +24,7 @@
       "@rag/contracts-internal/*": ["libs/contracts/src/internal/*"],
       "@rag/domain": ["libs/domain/src"],
       "@rag/evidence": ["libs/evidence/src"],
+      "@rag/file-processing-providers": ["libs/file-processing-providers/src"],
       "@rag/health": ["libs/health/src"],
       "@rag/ingestion-core": ["libs/ingestion-core/src"],
       "@rag/model-gateway": ["libs/model-gateway/src"],

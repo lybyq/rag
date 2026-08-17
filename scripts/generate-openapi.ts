@@ -14,6 +14,7 @@ const documents = [
       version: '0.1.0',
       includeM01: true,
       includeM02: true,
+      includeM03: true,
     }),
   },
   {

@@ -1,4 +1,4 @@
-# M00～M02 本地开发与故障排查
+# M00～M03 本地开发与故障排查
 
 ## 1. 前置条件
 
@@ -18,6 +18,18 @@ pnpm health:deep
 pnpm seed:dev
 pnpm dev:services
 ```
+
+如果系统盘空间紧张，先把 pnpm Store、临时目录和 Parser 临时根放到数据盘。本项目当前开发机使用：
+
+```powershell
+pnpm config set store-dir D:\.pnpm-store
+New-Item -ItemType Directory -Force D:\codex-temp\rag-m03
+$env:TEMP='D:\codex-temp\rag-m03'
+$env:TMP='D:\codex-temp\rag-m03'
+$env:PARSER_TEMP_ROOT='D:\coding\rag\.data\parser-runtime'
+```
+
+不要在未确认 Docker `data-root` 所在磁盘前拉取 Docling CPU 镜像；它明显大于普通基础设施镜像。本轮只做了 Compose 静态校验，没有在 C 盘空间为 0 的机器上拉取它。
 
 也可运行 `pnpm dev:all`，它依次启动基础设施、等待并迁移 PostgreSQL、创建开发 Bucket，再并行启动四个后端和 Web。
 
@@ -86,7 +98,7 @@ curl.exe http://localhost:3000/api/v1/spaces -H "X-RAG-Mock-User: dev-admin"
 2. 打开 `/tasks`，选择文件。小文件使用单 PUT，大于 `UPLOAD_MULTIPART_THRESHOLD_BYTES` 的文件自动切片。
 3. 浏览器请求 Platform API 创建会话；文件字节随后直接 PUT 到 MinIO 的短时预签名 URL。
 4. 上传完成后 Platform API 执行 HEAD，再用一个 PG 事务写入 Document、Version、File、Job、10 个 Step 和 Outbox。
-5. Scheduler 把 Outbox 投递到独立的 BullMQ Redis；M02 Consumer 会把任务置为 `WAITING`，明确等待 M03 文件安全处理器。
+5. Scheduler 把 Outbox 投递到独立的 BullMQ Redis；M03 Consumer 写 Inbox 收据、领取 lease，并真正执行安全和解析流水线。
 
 本地 Compose 通过 `MINIO_API_CORS_ALLOW_ORIGIN=http://localhost:5173` 允许浏览器直传。部署到其他前端域名时必须同步修改对象存储 CORS，且至少暴露 Multipart 所需的 `ETag` 响应头。
 
@@ -101,6 +113,23 @@ curl.exe http://localhost:3000/api/v1/spaces -H "X-RAG-Mock-User: dev-admin"
 ### 任务长期 RUNNING
 
 查询 `ingestion_jobs.lease_owner/lease_expires_at/heartbeat_at` 和当前步骤。Scheduler 会把过期 lease 重排队；达到最大尝试次数后转为 `WAITING`，需要人工判断文件问题、基础设施故障还是代码缺陷。
+
+### M03 外网能力演练
+
+1. 默认真实配置为 `SCANNER_ADAPTER=clamd`、`PARSER_ADAPTER=docling`、`OCR_ADAPTER=docling`。
+2. 资源允许时运行 `docker compose --profile m03 --env-file deploy/docker/images.env -f deploy/docker/docker-compose.yml up -d clamav docling`。
+3. Windows 主机 Worker 与容器 Docling 共用预签名 URL 时，MinIO Endpoint 必须是双方都能解析的地址；只对主机有效的 `localhost` 不能被容器回访。
+4. 仅演练编排可切到三个 `fixture` Adapter；production 会拒绝启动，Fixture 结果不能用来声称解析质量达标。
+5. 上传后在任务抽屉查看安全结论、Provider 修订、OCR 页数、警告和 Block 预览。
+
+Docling 容器启用了只读根文件系统、`cap_drop=ALL`、`no-new-privileges`、PID/CPU/内存上限、临时文件系统和无公网的内部网络。内网生产仍应由 Kubernetes/容器平台补齐 NetworkPolicy、镜像签名、Seccomp/AppArmor 和只允许访问对象存储的 egress 白名单。
+
+### M03 任务失败怎么判断
+
+- `RETRYABLE_PROVIDER`：网络、429、5xx、超时；有限重试，达到 `PROCESSING_MAX_ATTEMPTS` 后等待人工处理。
+- `DOCUMENT_PROBLEM`：伪装格式、Hash/大小变化、恶意、密码、宏、资源超限；确定性拒绝，不反复烧资源。
+- `DEVELOPER_DEFECT`：Provider JSON、协议版本、实际修订或未知响应不匹配；等待工程人员修 Adapter/契约。
+- `MANUAL_REVIEW`：嵌入对象或外链需要业务管理员确认；不会静默进入 M04。
 
 ### 401 / 403
 

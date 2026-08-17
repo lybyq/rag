@@ -5,8 +5,16 @@ import { HealthModule } from '@rag/health';
 import { ObservabilityModule } from '@rag/observability';
 import { M01Module } from './m01/m01.module';
 import { M02Module } from './m02/m02.module';
+import { M03Module } from './m03/m03.module';
 
 @Module({
-  imports: [RuntimeConfigModule, ObservabilityModule, HealthModule, M01Module, M02Module],
+  imports: [
+    RuntimeConfigModule,
+    ObservabilityModule,
+    HealthModule,
+    M01Module,
+    M02Module,
+    M03Module,
+  ],
 })
 export class PlatformApiModule {}

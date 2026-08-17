@@ -25,6 +25,12 @@ import {
   UploadSessionEnvelopeSchema,
 } from './document-ingestion';
 import {
+  DocumentBlockListEnvelopeSchema,
+  ParseRunDetailEnvelopeSchema,
+  ParseRunListEnvelopeSchema,
+  ProcessingProviderProfileListEnvelopeSchema,
+} from './document-parsing';
+import {
   CreateKnowledgeSpaceRequestSchema,
   DeactivateKnowledgeSpaceRequestSchema,
   DevelopmentIdentityPresetListEnvelopeSchema,
@@ -49,6 +55,8 @@ export interface OpenApiDocumentOptions {
   includeM01?: boolean;
   /** Platform API 注册 M02 文档接入和任务中心路径。 */
   includeM02?: boolean;
+  /** Platform API 注册 M03 Parse Run、Block 与 Provider Profile 路径。 */
+  includeM03?: boolean;
 }
 
 /** OpenAPI 文档使用普通 JSON 对象表示，便于 NestJS 和生成脚本共同消费。 */
@@ -417,6 +425,57 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
+  const m03Paths: Record<string, unknown> = options.includeM03
+    ? {
+        '/api/v1/document-versions/{versionId}/parse-runs': {
+          get: {
+            operationId: 'listDocumentVersionParseRuns',
+            summary: '列出文档版本的解析运行历史',
+            parameters: [uuidPathParameter('versionId')],
+            responses: {
+              '200': jsonResponse('解析运行列表', 'ParseRunListEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/parse-runs/{parseRunId}': {
+          get: {
+            operationId: 'getParseRun',
+            summary: '读取解析运行、安全事实、耗时与问题',
+            parameters: [uuidPathParameter('parseRunId')],
+            responses: {
+              '200': jsonResponse('解析运行详情', 'ParseRunDetailEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/parse-runs/{parseRunId}/blocks': {
+          get: {
+            operationId: 'listDocumentBlocks',
+            summary: '按稳定 ordinal 分页预览统一 DocumentBlock',
+            parameters: [
+              uuidPathParameter('parseRunId'),
+              { name: 'afterOrdinal', in: 'query', schema: { type: 'integer', minimum: 0 } },
+              { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 200 } },
+            ],
+            responses: {
+              '200': jsonResponse('DocumentBlock 页面', 'DocumentBlockListEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/parsing/profiles': {
+          get: {
+            operationId: 'listProcessingProviderProfiles',
+            summary: '列出当前生效的扫描、Parser 与 OCR Profile',
+            responses: {
+              '200': jsonResponse('Provider Profile 列表', 'ProcessingProviderProfileListEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+      }
+    : {};
 
   return {
     openapi: '3.1.0',
@@ -468,6 +527,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
       },
       ...m01Paths,
       ...m02Paths,
+      ...m03Paths,
     },
     components: {
       securitySchemes: {
@@ -520,6 +580,16 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               IngestionJobEnvelope: z.toJSONSchema(IngestionJobEnvelopeSchema),
               IngestionJobListEnvelope: z.toJSONSchema(IngestionJobListEnvelopeSchema),
               IngestionJobEventListEnvelope: z.toJSONSchema(IngestionJobEventListEnvelopeSchema),
+            }
+          : {}),
+        ...(options.includeM03
+          ? {
+              ParseRunListEnvelope: z.toJSONSchema(ParseRunListEnvelopeSchema),
+              ParseRunDetailEnvelope: z.toJSONSchema(ParseRunDetailEnvelopeSchema),
+              DocumentBlockListEnvelope: z.toJSONSchema(DocumentBlockListEnvelopeSchema),
+              ProcessingProviderProfileListEnvelope: z.toJSONSchema(
+                ProcessingProviderProfileListEnvelopeSchema,
+              ),
             }
           : {}),
       },

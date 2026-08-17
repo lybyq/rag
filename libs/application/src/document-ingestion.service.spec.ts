@@ -48,13 +48,21 @@ function serviceFixture(): {
   } as unknown as jest.Mocked<DocumentIngestionRepository>;
   const storage = {
     ensureBucket: jest.fn().mockResolvedValue(undefined),
+    ensureNamedBucket: jest.fn().mockResolvedValue(undefined),
     initiateMultipart: jest.fn().mockResolvedValue('multipart-id'),
     presignPut: jest.fn().mockResolvedValue('http://minio/single'),
+    presignGet: jest.fn().mockResolvedValue('http://minio/download'),
     presignPart: jest.fn().mockResolvedValue('http://minio/part'),
     completeMultipart: jest.fn().mockResolvedValue(undefined),
     abortMultipart: jest.fn().mockResolvedValue(undefined),
     removeObject: jest.fn().mockResolvedValue(undefined),
     headObject: jest.fn(),
+    readObject: jest.fn().mockResolvedValue(
+      (async function* (): AsyncGenerator<Uint8Array> {
+        yield new Uint8Array();
+      })(),
+    ),
+    putObject: jest.fn().mockResolvedValue(undefined),
   } as jest.Mocked<ObjectStoragePort>;
   const authorization = {
     requirePermission: jest.fn().mockResolvedValue(undefined),
