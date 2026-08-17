@@ -1,0 +1,15 @@
+{
+  "license": "synthetic-public-test-data",
+  "revision": "m04-golden-v1",
+  "tokenizerRevision": "js-tiktoken-1.0.21:cl100k_base",
+  "cases": [
+    { "id": "prose-heading-cross-page", "covers": ["heading-path", "cross-page", "parent-child"] },
+    { "id": "xlsx-multi-header", "covers": ["multi-level-header", "merged-cell", "sheet"] },
+    { "id": "contract-clauses", "covers": ["clause-boundary", "neighbor"] },
+    { "id": "faq-pairs", "covers": ["faq-boundary", "display-vs-embedding"] },
+    {
+      "id": "code-and-duplicate-page",
+      "covers": ["code-boundary", "token-limit", "reversible-dedup"]
+    }
+  ]
+}

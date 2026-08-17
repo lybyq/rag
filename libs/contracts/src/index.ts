@@ -9,4 +9,5 @@ export * from './document-parsing';
 export * from './event-envelope';
 export * from './health';
 export * from './knowledge-space';
+export * from './knowledge-processing';
 export * from './openapi';

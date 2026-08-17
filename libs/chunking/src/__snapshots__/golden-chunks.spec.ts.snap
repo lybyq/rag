@@ -1,0 +1,855 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`[KNO-015] M04 Chunk Golden Snapshot code-and-duplicate-page 输出稳定 Chunk 字段和关系 1`] = `
+{
+  "chunks": [
+    {
+      "contentType": "CODE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const
+
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：部署说明
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const
+
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;",
+      "granularity": "PARENT",
+      "headingPath": [
+        "部署说明",
+      ],
+      "ordinal": 1,
+      "parentOrdinal": null,
+      "sourceBlockIds": [
+        "golden-block-2",
+      ],
+      "splitReason": null,
+      "tokenCount": 113,
+    },
+    {
+      "contentType": "CODE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：部署说明
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const",
+      "granularity": "CHILD",
+      "headingPath": [
+        "部署说明",
+      ],
+      "ordinal": 2,
+      "parentOrdinal": 1,
+      "sourceBlockIds": [
+        "golden-block-2",
+      ],
+      "splitReason": "TOKEN_LIMIT",
+      "tokenCount": 64,
+    },
+    {
+      "contentType": "CODE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：部署说明
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;
+export const enabled = true;",
+      "granularity": "CHILD",
+      "headingPath": [
+        "部署说明",
+      ],
+      "ordinal": 3,
+      "parentOrdinal": 1,
+      "sourceBlockIds": [
+        "golden-block-2",
+      ],
+      "splitReason": "TOKEN_LIMIT",
+      "tokenCount": 56,
+    },
+    {
+      "contentType": "PROSE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "本页为统一免责声明，禁止对外传播。
+
+本页为统一免责声明，禁止对外传播。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：部署说明
+本页为统一免责声明，禁止对外传播。
+
+本页为统一免责声明，禁止对外传播。",
+      "granularity": "PARENT",
+      "headingPath": [
+        "部署说明",
+      ],
+      "ordinal": 4,
+      "parentOrdinal": null,
+      "sourceBlockIds": [
+        "golden-block-3",
+        "golden-block-4",
+      ],
+      "splitReason": null,
+      "tokenCount": 44,
+    },
+    {
+      "contentType": "PROSE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "本页为统一免责声明，禁止对外传播。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：部署说明
+本页为统一免责声明，禁止对外传播。",
+      "granularity": "CHILD",
+      "headingPath": [
+        "部署说明",
+      ],
+      "ordinal": 5,
+      "parentOrdinal": 4,
+      "sourceBlockIds": [
+        "golden-block-3",
+      ],
+      "splitReason": null,
+      "tokenCount": 26,
+    },
+    {
+      "contentType": "PROSE",
+      "dedupStatus": "SUPPRESSED_DUPLICATE",
+      "displayContent": "本页为统一免责声明，禁止对外传播。",
+      "duplicateOfOrdinal": 5,
+      "embeddingText": "标题路径：部署说明
+本页为统一免责声明，禁止对外传播。",
+      "granularity": "CHILD",
+      "headingPath": [
+        "部署说明",
+      ],
+      "ordinal": 6,
+      "parentOrdinal": 4,
+      "sourceBlockIds": [
+        "golden-block-4",
+      ],
+      "splitReason": null,
+      "tokenCount": 26,
+    },
+  ],
+  "relations": [
+    {
+      "fromOrdinal": 2,
+      "toBlockId": null,
+      "toOrdinal": 1,
+      "type": "PARENT_CHILD",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": "golden-block-2",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 1,
+      "toBlockId": "golden-block-2",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 3,
+      "toBlockId": null,
+      "toOrdinal": 1,
+      "type": "PARENT_CHILD",
+    },
+    {
+      "fromOrdinal": 3,
+      "toBlockId": "golden-block-2",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 5,
+      "toBlockId": null,
+      "toOrdinal": 4,
+      "type": "PARENT_CHILD",
+    },
+    {
+      "fromOrdinal": 5,
+      "toBlockId": "golden-block-3",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 4,
+      "toBlockId": "golden-block-3",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 6,
+      "toBlockId": null,
+      "toOrdinal": 4,
+      "type": "PARENT_CHILD",
+    },
+    {
+      "fromOrdinal": 6,
+      "toBlockId": "golden-block-4",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 4,
+      "toBlockId": "golden-block-4",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": null,
+      "toOrdinal": 3,
+      "type": "NEXT",
+    },
+    {
+      "fromOrdinal": 3,
+      "toBlockId": null,
+      "toOrdinal": 2,
+      "type": "PREVIOUS",
+    },
+    {
+      "fromOrdinal": 3,
+      "toBlockId": null,
+      "toOrdinal": 5,
+      "type": "NEXT",
+    },
+    {
+      "fromOrdinal": 5,
+      "toBlockId": null,
+      "toOrdinal": 3,
+      "type": "PREVIOUS",
+    },
+    {
+      "fromOrdinal": 5,
+      "toBlockId": null,
+      "toOrdinal": 6,
+      "type": "NEXT",
+    },
+    {
+      "fromOrdinal": 6,
+      "toBlockId": null,
+      "toOrdinal": 5,
+      "type": "PREVIOUS",
+    },
+    {
+      "fromOrdinal": 6,
+      "toBlockId": null,
+      "toOrdinal": 5,
+      "type": "DUPLICATE_OF",
+    },
+  ],
+}
+`;
+
+exports[`[KNO-015] M04 Chunk Golden Snapshot contract-clauses 输出稳定 Chunk 字段和关系 1`] = `
+{
+  "chunks": [
+    {
+      "contentType": "CLAUSE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "第一条 服务范围：乙方提供知识库实施服务。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：服务合同
+第一条 服务范围：乙方提供知识库实施服务。",
+      "granularity": "PARENT",
+      "headingPath": [
+        "服务合同",
+      ],
+      "ordinal": 1,
+      "parentOrdinal": null,
+      "sourceBlockIds": [
+        "golden-block-2",
+      ],
+      "splitReason": null,
+      "tokenCount": 31,
+    },
+    {
+      "contentType": "CLAUSE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "第一条 服务范围：乙方提供知识库实施服务。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：服务合同
+第一条 服务范围：乙方提供知识库实施服务。",
+      "granularity": "CHILD",
+      "headingPath": [
+        "服务合同",
+      ],
+      "ordinal": 2,
+      "parentOrdinal": 1,
+      "sourceBlockIds": [
+        "golden-block-2",
+      ],
+      "splitReason": null,
+      "tokenCount": 31,
+    },
+    {
+      "contentType": "CLAUSE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "第二条 付款条件：验收通过后三十日付款。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：服务合同
+第二条 付款条件：验收通过后三十日付款。",
+      "granularity": "PARENT",
+      "headingPath": [
+        "服务合同",
+      ],
+      "ordinal": 3,
+      "parentOrdinal": null,
+      "sourceBlockIds": [
+        "golden-block-3",
+      ],
+      "splitReason": null,
+      "tokenCount": 25,
+    },
+    {
+      "contentType": "CLAUSE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "第二条 付款条件：验收通过后三十日付款。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：服务合同
+第二条 付款条件：验收通过后三十日付款。",
+      "granularity": "CHILD",
+      "headingPath": [
+        "服务合同",
+      ],
+      "ordinal": 4,
+      "parentOrdinal": 3,
+      "sourceBlockIds": [
+        "golden-block-3",
+      ],
+      "splitReason": null,
+      "tokenCount": 25,
+    },
+    {
+      "contentType": "CLAUSE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "第三条 保密义务：双方不得披露资料。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：服务合同
+第三条 保密义务：双方不得披露资料。",
+      "granularity": "PARENT",
+      "headingPath": [
+        "服务合同",
+      ],
+      "ordinal": 5,
+      "parentOrdinal": null,
+      "sourceBlockIds": [
+        "golden-block-4",
+      ],
+      "splitReason": null,
+      "tokenCount": 28,
+    },
+    {
+      "contentType": "CLAUSE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "第三条 保密义务：双方不得披露资料。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：服务合同
+第三条 保密义务：双方不得披露资料。",
+      "granularity": "CHILD",
+      "headingPath": [
+        "服务合同",
+      ],
+      "ordinal": 6,
+      "parentOrdinal": 5,
+      "sourceBlockIds": [
+        "golden-block-4",
+      ],
+      "splitReason": null,
+      "tokenCount": 28,
+    },
+  ],
+  "relations": [
+    {
+      "fromOrdinal": 2,
+      "toBlockId": null,
+      "toOrdinal": 1,
+      "type": "PARENT_CHILD",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": "golden-block-2",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 1,
+      "toBlockId": "golden-block-2",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 4,
+      "toBlockId": null,
+      "toOrdinal": 3,
+      "type": "PARENT_CHILD",
+    },
+    {
+      "fromOrdinal": 4,
+      "toBlockId": "golden-block-3",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 3,
+      "toBlockId": "golden-block-3",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 6,
+      "toBlockId": null,
+      "toOrdinal": 5,
+      "type": "PARENT_CHILD",
+    },
+    {
+      "fromOrdinal": 6,
+      "toBlockId": "golden-block-4",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 5,
+      "toBlockId": "golden-block-4",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": null,
+      "toOrdinal": 4,
+      "type": "NEXT",
+    },
+    {
+      "fromOrdinal": 4,
+      "toBlockId": null,
+      "toOrdinal": 2,
+      "type": "PREVIOUS",
+    },
+    {
+      "fromOrdinal": 4,
+      "toBlockId": null,
+      "toOrdinal": 6,
+      "type": "NEXT",
+    },
+    {
+      "fromOrdinal": 6,
+      "toBlockId": null,
+      "toOrdinal": 4,
+      "type": "PREVIOUS",
+    },
+  ],
+}
+`;
+
+exports[`[KNO-015] M04 Chunk Golden Snapshot faq-pairs 输出稳定 Chunk 字段和关系 1`] = `
+{
+  "chunks": [
+    {
+      "contentType": "FAQ",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "Q：发票遗失怎么办？
+
+A：提交遗失说明并由部门负责人审批。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：报销 FAQ
+Q：发票遗失怎么办？
+
+A：提交遗失说明并由部门负责人审批。",
+      "granularity": "PARENT",
+      "headingPath": [
+        "报销 FAQ",
+      ],
+      "ordinal": 1,
+      "parentOrdinal": null,
+      "sourceBlockIds": [
+        "golden-block-2",
+        "golden-block-3",
+      ],
+      "splitReason": null,
+      "tokenCount": 39,
+    },
+    {
+      "contentType": "FAQ",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "Q：发票遗失怎么办？
+
+A：提交遗失说明并由部门负责人审批。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：报销 FAQ
+Q：发票遗失怎么办？
+
+A：提交遗失说明并由部门负责人审批。",
+      "granularity": "CHILD",
+      "headingPath": [
+        "报销 FAQ",
+      ],
+      "ordinal": 2,
+      "parentOrdinal": 1,
+      "sourceBlockIds": [
+        "golden-block-2",
+        "golden-block-3",
+      ],
+      "splitReason": null,
+      "tokenCount": 39,
+    },
+    {
+      "contentType": "FAQ",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "Q：多久内需要提交？
+
+A：费用发生后三十日内。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：报销 FAQ
+Q：多久内需要提交？
+
+A：费用发生后三十日内。",
+      "granularity": "PARENT",
+      "headingPath": [
+        "报销 FAQ",
+      ],
+      "ordinal": 3,
+      "parentOrdinal": null,
+      "sourceBlockIds": [
+        "golden-block-4",
+        "golden-block-5",
+      ],
+      "splitReason": null,
+      "tokenCount": 28,
+    },
+    {
+      "contentType": "FAQ",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "Q：多久内需要提交？
+
+A：费用发生后三十日内。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：报销 FAQ
+Q：多久内需要提交？
+
+A：费用发生后三十日内。",
+      "granularity": "CHILD",
+      "headingPath": [
+        "报销 FAQ",
+      ],
+      "ordinal": 4,
+      "parentOrdinal": 3,
+      "sourceBlockIds": [
+        "golden-block-4",
+        "golden-block-5",
+      ],
+      "splitReason": null,
+      "tokenCount": 28,
+    },
+  ],
+  "relations": [
+    {
+      "fromOrdinal": 2,
+      "toBlockId": null,
+      "toOrdinal": 1,
+      "type": "PARENT_CHILD",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": "golden-block-2",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": "golden-block-3",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 1,
+      "toBlockId": "golden-block-2",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 1,
+      "toBlockId": "golden-block-3",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 4,
+      "toBlockId": null,
+      "toOrdinal": 3,
+      "type": "PARENT_CHILD",
+    },
+    {
+      "fromOrdinal": 4,
+      "toBlockId": "golden-block-4",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 4,
+      "toBlockId": "golden-block-5",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 3,
+      "toBlockId": "golden-block-4",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 3,
+      "toBlockId": "golden-block-5",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": null,
+      "toOrdinal": 4,
+      "type": "NEXT",
+    },
+    {
+      "fromOrdinal": 4,
+      "toBlockId": null,
+      "toOrdinal": 2,
+      "type": "PREVIOUS",
+    },
+  ],
+}
+`;
+
+exports[`[KNO-015] M04 Chunk Golden Snapshot prose-heading-cross-page 输出稳定 Chunk 字段和关系 1`] = `
+{
+  "chunks": [
+    {
+      "contentType": "PROSE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "一线城市住宿标准为每晚六百元。
+
+其他城市住宿标准为每晚四百元。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：员工差旅制度 > 住宿标准
+一线城市住宿标准为每晚六百元。
+
+其他城市住宿标准为每晚四百元。",
+      "granularity": "PARENT",
+      "headingPath": [
+        "员工差旅制度",
+        "住宿标准",
+      ],
+      "ordinal": 1,
+      "parentOrdinal": null,
+      "sourceBlockIds": [
+        "golden-block-3",
+        "golden-block-4",
+      ],
+      "splitReason": null,
+      "tokenCount": 61,
+    },
+    {
+      "contentType": "PROSE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "一线城市住宿标准为每晚六百元。
+
+其他城市住宿标准为每晚四百元。",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "标题路径：员工差旅制度 > 住宿标准
+一线城市住宿标准为每晚六百元。
+
+其他城市住宿标准为每晚四百元。",
+      "granularity": "CHILD",
+      "headingPath": [
+        "员工差旅制度",
+        "住宿标准",
+      ],
+      "ordinal": 2,
+      "parentOrdinal": 1,
+      "sourceBlockIds": [
+        "golden-block-3",
+        "golden-block-4",
+      ],
+      "splitReason": null,
+      "tokenCount": 61,
+    },
+  ],
+  "relations": [
+    {
+      "fromOrdinal": 2,
+      "toBlockId": null,
+      "toOrdinal": 1,
+      "type": "PARENT_CHILD",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": "golden-block-3",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": "golden-block-4",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 1,
+      "toBlockId": "golden-block-3",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 1,
+      "toBlockId": "golden-block-4",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": "golden-block-5",
+      "toOrdinal": null,
+      "type": "FOOTNOTE",
+    },
+  ],
+}
+`;
+
+exports[`[KNO-015] M04 Chunk Golden Snapshot xlsx-multi-header 输出稳定 Chunk 字段和关系 1`] = `
+{
+  "chunks": [
+    {
+      "contentType": "TABLE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "| 部门 | 2026 预算 | 2026 预算 |
+| 部门 | 上半年 | 下半年 |
+| 研发 | 100 | 120 |
+| 市场 | 80 | 90 |",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "| 部门 | 2026 预算 | 2026 预算 |
+| 部门 | 上半年 | 下半年 |
+| 研发 | 100 | 120 |
+| 市场 | 80 | 90 |",
+      "granularity": "PARENT",
+      "headingPath": [],
+      "ordinal": 1,
+      "parentOrdinal": null,
+      "sourceBlockIds": [
+        "golden-block-1",
+      ],
+      "splitReason": null,
+      "tokenCount": 62,
+    },
+    {
+      "contentType": "TABLE",
+      "dedupStatus": "UNIQUE",
+      "displayContent": "| 部门 | 2026 预算 | 2026 预算 |
+| 部门 | 上半年 | 下半年 |
+| 研发 | 100 | 120 |
+| 市场 | 80 | 90 |",
+      "duplicateOfOrdinal": null,
+      "embeddingText": "| 部门 | 2026 预算 | 2026 预算 |
+| 部门 | 上半年 | 下半年 |
+| 研发 | 100 | 120 |
+| 市场 | 80 | 90 |",
+      "granularity": "CHILD",
+      "headingPath": [],
+      "ordinal": 2,
+      "parentOrdinal": 1,
+      "sourceBlockIds": [
+        "golden-block-1",
+      ],
+      "splitReason": null,
+      "tokenCount": 62,
+    },
+  ],
+  "relations": [
+    {
+      "fromOrdinal": 2,
+      "toBlockId": null,
+      "toOrdinal": 1,
+      "type": "PARENT_CHILD",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": "golden-block-1",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 1,
+      "toBlockId": "golden-block-1",
+      "toOrdinal": null,
+      "type": "SOURCE_BLOCK",
+    },
+    {
+      "fromOrdinal": 2,
+      "toBlockId": "golden-block-1",
+      "toOrdinal": null,
+      "type": "TABLE_HEADER",
+    },
+  ],
+}
+`;

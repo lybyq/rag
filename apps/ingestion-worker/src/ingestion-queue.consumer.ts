@@ -1,8 +1,9 @@
 /**
- * M03 BullMQ Consumer。
- * Inbox 只去重消息事实；真正的处理幂等由 Job lease、Parse Run 和版本化 derived Key 共同保证。
+ * M03/M04 BullMQ Consumer。
+ * 事件类型只负责阶段路由；Inbox、Job lease 和版本化 Run 共同保证崩溃恢复与幂等。
  *
  * @requirement DOC-009
+ * @requirement KNO-014
  */
 import {
   Inject,
@@ -14,6 +15,7 @@ import {
 import {
   DOCUMENT_INGESTION_REPOSITORY,
   DocumentProcessingService,
+  KnowledgeProcessingService,
   type DocumentIngestionRepository,
 } from '@rag/application';
 import { APP_CONFIG, type AppConfig } from '@rag/config';
@@ -35,6 +37,8 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
     private readonly repository: DocumentIngestionRepository,
     @Inject(DocumentProcessingService)
     private readonly processing: DocumentProcessingService,
+    @Inject(KnowledgeProcessingService)
+    private readonly knowledgeProcessing: KnowledgeProcessingService,
     @Inject(MetricsService) private readonly metrics: MetricsService,
   ) {}
 
@@ -43,8 +47,9 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
       INGESTION_QUEUE_NAME,
       async (job) => {
         const event = OutboxEventSchema.parse(job.data);
+        const stage = classifyStage(event.eventType);
         const receiptInserted = await this.repository.consumeQueuedIngestion(
-          'ingestion-worker:m03',
+          `ingestion-worker:${stage.toLowerCase()}`,
           event.id,
           event.aggregateId,
         );
@@ -62,14 +67,21 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
           return;
         }
         const stopHeartbeat = this.startLeaseHeartbeat(event.aggregateId, workerId);
-        const timer = this.metrics.m03DurationSeconds.startTimer();
         try {
-          const outcome = await this.processing.process(event.aggregateId, workerId);
-          this.metrics.m03ProcessingTotal.inc({ result: outcome.toLowerCase() });
-          timer({ result: outcome.toLowerCase() });
+          if (stage === 'M03') {
+            const timer = this.metrics.m03DurationSeconds.startTimer();
+            const outcome = await this.processing.process(event.aggregateId, workerId);
+            this.metrics.m03ProcessingTotal.inc({ result: outcome.toLowerCase() });
+            timer({ result: outcome.toLowerCase() });
+          } else {
+            const timer = this.metrics.m04DurationSeconds.startTimer();
+            const outcome = await this.knowledgeProcessing.process(event.aggregateId, workerId);
+            this.metrics.m04ProcessingTotal.inc({ result: outcome.toLowerCase() });
+            timer({ result: outcome.toLowerCase() });
+          }
         } catch (error) {
-          this.metrics.m03ProcessingTotal.inc({ result: 'retryable_failure' });
-          timer({ result: 'retryable_failure' });
+          if (stage === 'M03') this.metrics.m03ProcessingTotal.inc({ result: 'retryable_failure' });
+          else this.metrics.m04ProcessingTotal.inc({ result: 'failure' });
           throw error;
         } finally {
           stopHeartbeat();
@@ -116,4 +128,11 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
     timer.unref();
     return () => clearInterval(timer);
   }
+}
+
+/** 未知阶段必须失败并进入队列失败记录，不能误用 M03/M04 处理器消费。 */
+function classifyStage(eventType: string): 'M03' | 'M04' {
+  if (eventType === 'ingestion.requested') return 'M03';
+  if (eventType === 'ingestion.knowledge_processing.requested') return 'M04';
+  throw new Error(`不支持的入库事件类型：${eventType}`);
 }

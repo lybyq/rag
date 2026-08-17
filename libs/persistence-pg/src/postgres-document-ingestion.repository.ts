@@ -186,6 +186,17 @@ function iso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
+/**
+ * 审计 request_id 有固定长度上限；用摘要保留关联唯一性，不能直接拼接任意长度的 Worker/Job ID。
+ * 完整标识仍留在结构化 metadata，request_id 只承担稳定关联键职责。
+ */
+function buildWorkerAuditRequestId(workerId: string, jobId: string, attempt: number): string {
+  const digest = createHash('sha256')
+    .update(`${workerId}\u001f${jobId}\u001f${attempt}`, 'utf8')
+    .digest('hex');
+  return `worker-lease:${digest}`;
+}
+
 function nullableIso(value: Date | string | null): string | null {
   return value === null ? null : iso(value);
 }
@@ -1030,7 +1041,7 @@ export class PostgresDocumentIngestionRepository implements DocumentIngestionRep
         [
           job.document_id,
           JSON.stringify({ jobId, from: 'QUEUED', to: 'RUNNING', workerId }),
-          `worker:${workerId}:${jobId}:attempt:${job.attempt}`,
+          buildWorkerAuditRequestId(workerId, jobId, job.attempt),
         ],
       );
       await client.query('COMMIT');

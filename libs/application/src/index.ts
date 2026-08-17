@@ -13,5 +13,8 @@ export * from './document-processing-admin.service';
 export * from './document-processing.service';
 export * from './ingestion.ports';
 export * from './knowledge-space.service';
+export * from './knowledge-processing.ports';
+export * from './knowledge-processing-admin.service';
+export * from './knowledge-processing.service';
 export * from './outbox-publisher.service';
 export * from './ports';

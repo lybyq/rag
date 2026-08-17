@@ -6,6 +6,7 @@ import { ObservabilityModule } from '@rag/observability';
 import { M01Module } from './m01/m01.module';
 import { M02Module } from './m02/m02.module';
 import { M03Module } from './m03/m03.module';
+import { M04Module } from './m04/m04.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { M03Module } from './m03/m03.module';
     M01Module,
     M02Module,
     M03Module,
+    M04Module,
   ],
 })
 export class PlatformApiModule {}

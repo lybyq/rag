@@ -12,6 +12,8 @@ const authModes = ['mock', 'trusted-header', 'jwt'] as const;
 const scannerAdapters = ['clamd', 'fixture'] as const;
 const parserAdapters = ['docling', 'http', 'fixture'] as const;
 const ocrAdapters = ['http', 'docling', 'fixture'] as const;
+const tokenizerAdapters = ['cl100k'] as const;
+const dedupModes = ['RETAIN', 'SUPPRESS'] as const;
 
 /** 开发身份预置的默认值；选择的是 presetId，而不是让浏览器提交任意角色。 */
 const defaultMockPresets = JSON.stringify([
@@ -171,6 +173,23 @@ export const AppEnvironmentSchema = z
     OCR_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.75),
     PROCESSING_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
 
+    CHUNKER_PROFILE_ID: z.string().min(1).max(100).default('structure-aware-medium-v1'),
+    CHUNKER_REVISION: z.string().min(1).max(100).default('1.0.0'),
+    TOKENIZER_ADAPTER: z.enum(tokenizerAdapters).default('cl100k'),
+    TOKENIZER_PROFILE_ID: z.string().min(1).max(100).default('cl100k-base-local'),
+    CHUNK_CHILD_MAX_TOKENS: z.coerce.number().int().min(64).max(8_192).default(512),
+    CHUNK_PARENT_MAX_TOKENS: z.coerce.number().int().min(128).max(32_768).default(1_500),
+    CHUNK_OVERLAP_TOKENS: z.coerce.number().int().min(0).max(2_048).default(64),
+    CHUNK_DEDUP_MODE: z.enum(dedupModes).default('SUPPRESS'),
+    QUALITY_RULE_VERSION: z.string().min(1).max(100).default('quality-medium-v1'),
+    QUALITY_MIN_NON_EMPTY_BLOCK_RATIO: z.coerce.number().min(0).max(1).default(0.6),
+    QUALITY_REJECT_NON_EMPTY_BLOCK_RATIO: z.coerce.number().min(0).max(1).default(0.2),
+    QUALITY_MIN_OCR_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.75),
+    QUALITY_MAX_GARBLED_RATIO: z.coerce.number().min(0).max(1).default(0.03),
+    QUALITY_REJECT_GARBLED_RATIO: z.coerce.number().min(0).max(1).default(0.15),
+    QUALITY_MAX_DUPLICATE_RATIO: z.coerce.number().min(0).max(1).default(0.4),
+    QUALITY_REQUIRE_HEADING_AFTER_BLOCKS: z.coerce.number().int().min(1).max(10_000).default(20),
+
     MILVUS_ADDRESS: z.string().min(1).default('localhost:19530'),
     MILVUS_USERNAME: z.string().default(''),
     MILVUS_PASSWORD: z.string().default(''),
@@ -268,6 +287,35 @@ export const AppEnvironmentSchema = z
       });
     }
 
+    if (value.CHUNK_PARENT_MAX_TOKENS < value.CHUNK_CHILD_MAX_TOKENS) {
+      context.addIssue({
+        code: 'custom',
+        path: ['CHUNK_PARENT_MAX_TOKENS'],
+        message: 'Parent Token 上限不能小于 Child Token 上限',
+      });
+    }
+    if (value.CHUNK_OVERLAP_TOKENS >= value.CHUNK_CHILD_MAX_TOKENS) {
+      context.addIssue({
+        code: 'custom',
+        path: ['CHUNK_OVERLAP_TOKENS'],
+        message: '重叠 Token 必须小于 Child Token 上限',
+      });
+    }
+    if (value.QUALITY_REJECT_NON_EMPTY_BLOCK_RATIO > value.QUALITY_MIN_NON_EMPTY_BLOCK_RATIO) {
+      context.addIssue({
+        code: 'custom',
+        path: ['QUALITY_REJECT_NON_EMPTY_BLOCK_RATIO'],
+        message: '覆盖率拒绝阈值不能高于人工复核阈值',
+      });
+    }
+    if (value.QUALITY_REJECT_GARBLED_RATIO < value.QUALITY_MAX_GARBLED_RATIO) {
+      context.addIssue({
+        code: 'custom',
+        path: ['QUALITY_REJECT_GARBLED_RATIO'],
+        message: '乱码拒绝阈值不能低于人工复核阈值',
+      });
+    }
+
     if (value.APP_ENV !== 'production') return;
 
     const insecureReasons: string[] = [];
@@ -356,6 +404,24 @@ export interface AppConfig {
       ocrMinConfidence: number;
       maxAttempts: number;
     };
+  };
+  knowledgeProcessing: {
+    chunkerProfileId: string;
+    chunkerRevision: string;
+    tokenizerAdapter: (typeof tokenizerAdapters)[number];
+    tokenizerProfileId: string;
+    childMaxTokens: number;
+    parentMaxTokens: number;
+    overlapTokens: number;
+    dedupMode: (typeof dedupModes)[number];
+    qualityRuleVersion: string;
+    minimumNonEmptyBlockRatio: number;
+    rejectNonEmptyBlockRatio: number;
+    minimumOcrConfidence: number;
+    maximumGarbledRatio: number;
+    rejectGarbledRatio: number;
+    maximumDuplicateRatio: number;
+    requireHeadingAfterBlocks: number;
   };
   milvus: {
     address: string;
@@ -490,6 +556,24 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
         ocrMinConfidence: value.OCR_MIN_CONFIDENCE,
         maxAttempts: value.PROCESSING_MAX_ATTEMPTS,
       }),
+    }),
+    knowledgeProcessing: Object.freeze({
+      chunkerProfileId: value.CHUNKER_PROFILE_ID,
+      chunkerRevision: value.CHUNKER_REVISION,
+      tokenizerAdapter: value.TOKENIZER_ADAPTER,
+      tokenizerProfileId: value.TOKENIZER_PROFILE_ID,
+      childMaxTokens: value.CHUNK_CHILD_MAX_TOKENS,
+      parentMaxTokens: value.CHUNK_PARENT_MAX_TOKENS,
+      overlapTokens: value.CHUNK_OVERLAP_TOKENS,
+      dedupMode: value.CHUNK_DEDUP_MODE,
+      qualityRuleVersion: value.QUALITY_RULE_VERSION,
+      minimumNonEmptyBlockRatio: value.QUALITY_MIN_NON_EMPTY_BLOCK_RATIO,
+      rejectNonEmptyBlockRatio: value.QUALITY_REJECT_NON_EMPTY_BLOCK_RATIO,
+      minimumOcrConfidence: value.QUALITY_MIN_OCR_CONFIDENCE,
+      maximumGarbledRatio: value.QUALITY_MAX_GARBLED_RATIO,
+      rejectGarbledRatio: value.QUALITY_REJECT_GARBLED_RATIO,
+      maximumDuplicateRatio: value.QUALITY_MAX_DUPLICATE_RATIO,
+      requireHeadingAfterBlocks: value.QUALITY_REQUIRE_HEADING_AFTER_BLOCKS,
     }),
     milvus: Object.freeze({
       address: value.MILVUS_ADDRESS,

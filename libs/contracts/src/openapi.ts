@@ -45,6 +45,13 @@ import {
   UpsertSpaceGrantRequestSchema,
   UserContextEnvelopeSchema,
 } from './knowledge-space';
+import {
+  KnowledgeChunkListEnvelopeSchema,
+  KnowledgeProcessingRunDetailEnvelopeSchema,
+  KnowledgeProcessingRunListEnvelopeSchema,
+  QualityReviewResultEnvelopeSchema,
+  ReviewQualityRequestSchema,
+} from './knowledge-processing';
 
 /** 生成文档所需的最小服务信息。 */
 export interface OpenApiDocumentOptions {
@@ -57,6 +64,8 @@ export interface OpenApiDocumentOptions {
   includeM02?: boolean;
   /** Platform API 注册 M03 Parse Run、Block 与 Provider Profile 路径。 */
   includeM03?: boolean;
+  /** Platform API 注册 M04 Chunk、质量报告与人工审核路径。 */
+  includeM04?: boolean;
 }
 
 /** OpenAPI 文档使用普通 JSON 对象表示，便于 NestJS 和生成脚本共同消费。 */
@@ -476,6 +485,61 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
+  const m04Paths: Record<string, unknown> = options.includeM04
+    ? {
+        '/api/v1/document-versions/{versionId}/knowledge-runs': {
+          get: {
+            operationId: 'listDocumentVersionKnowledgeRuns',
+            summary: '列出文档版本的知识加工运行历史',
+            parameters: [uuidPathParameter('versionId')],
+            responses: {
+              '200': jsonResponse('知识加工运行列表', 'KnowledgeProcessingRunListEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/knowledge-runs/{processingRunId}': {
+          get: {
+            operationId: 'getKnowledgeProcessingRun',
+            summary: '读取知识加工运行、质量报告和发现项',
+            parameters: [uuidPathParameter('processingRunId')],
+            responses: {
+              '200': jsonResponse('知识加工运行详情', 'KnowledgeProcessingRunDetailEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/knowledge-runs/{processingRunId}/chunks': {
+          get: {
+            operationId: 'listKnowledgeChunks',
+            summary: '按稳定 ordinal 分页浏览 Parent/Child Chunk',
+            parameters: [
+              uuidPathParameter('processingRunId'),
+              { name: 'afterOrdinal', in: 'query', schema: { type: 'integer', minimum: 0 } },
+              { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 200 } },
+              { name: 'granularity', in: 'query', schema: { enum: ['PARENT', 'CHILD'] } },
+            ],
+            responses: {
+              '200': jsonResponse('KnowledgeChunk 页面', 'KnowledgeChunkListEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/knowledge-runs/{processingRunId}/reviews': {
+          post: {
+            operationId: 'reviewKnowledgeQuality',
+            summary: '乐观锁批准、拒绝或要求重处理',
+            parameters: [uuidPathParameter('processingRunId')],
+            requestBody: jsonBody('ReviewQualityRequest'),
+            responses: {
+              '201': jsonResponse('审核结果与可选重处理任务', 'QualityReviewResultEnvelope'),
+              '409': errorResponse('报告版本冲突或审核状态不允许'),
+              ...securedResponses,
+            },
+          },
+        },
+      }
+    : {};
 
   return {
     openapi: '3.1.0',
@@ -528,6 +592,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
       ...m01Paths,
       ...m02Paths,
       ...m03Paths,
+      ...m04Paths,
     },
     components: {
       securitySchemes: {
@@ -590,6 +655,19 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               ProcessingProviderProfileListEnvelope: z.toJSONSchema(
                 ProcessingProviderProfileListEnvelopeSchema,
               ),
+            }
+          : {}),
+        ...(options.includeM04
+          ? {
+              ReviewQualityRequest: z.toJSONSchema(ReviewQualityRequestSchema),
+              KnowledgeProcessingRunListEnvelope: z.toJSONSchema(
+                KnowledgeProcessingRunListEnvelopeSchema,
+              ),
+              KnowledgeProcessingRunDetailEnvelope: z.toJSONSchema(
+                KnowledgeProcessingRunDetailEnvelopeSchema,
+              ),
+              KnowledgeChunkListEnvelope: z.toJSONSchema(KnowledgeChunkListEnvelopeSchema),
+              QualityReviewResultEnvelope: z.toJSONSchema(QualityReviewResultEnvelopeSchema),
             }
           : {}),
       },

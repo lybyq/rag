@@ -229,27 +229,31 @@ POST /v1/jobs/{jobId}/cancel
 
 ### 需求清单
 
-- [ ] `KNO-001` 定义 KnowledgeChunk、ChunkRelation 和 DocumentQualityReport 契约。
-- [ ] `KNO-002` 恢复标题树、段落、列表、脚注、表格、跨页关系和阅读顺序。
-- [ ] `KNO-003` 按文档格式和内容类型选择专用 Chunker，不使用单一字符切分覆盖所有格式。
-- [ ] `KNO-004` 实现 Parent-Child Chunk、前后邻居、表头、脚注和来源 Block 关系。
-- [ ] `KNO-005` Chunk 不跨不兼容标题、表格、条款和代码边界。
-- [ ] `KNO-006` 生成 display content 与 embedding text，分别服务引用展示和模型检索。
-- [ ] `KNO-007` 使用实际 Tokenizer 计算 Token 数，处理超长内容并记录截断/拆分原因。
-- [ ] `KNO-008` 计算内容 Hash、页内重复、跨页重复和可配置去重，不丢失来源关系。
-- [ ] `KNO-009` 质量门禁检查解析覆盖、OCR、结构、乱码、重复、缺页、表格、权限负责人和版本冲突。
-- [ ] `KNO-010` Policy 输出 PASS、MANUAL_REVIEW 或 REJECT，并保存规则版本和原因。
-- [ ] `KNO-011` 实现质量报告、Block/Chunk 浏览、审核通过、拒绝和要求重处理 API。
-- [ ] `KNO-012` 审核操作需要对应角色、原因和乐观锁，结果完整审计。
-- [ ] `KNO-013` 未通过质量门禁或需要人工审核的内容不能进入正式索引。
-- [ ] `KNO-014` Parser/Chunker 升级生成新的 content revision，旧 revision 保留到安全清理时间。
-- [ ] `KNO-015` 建立 Chunk Golden Snapshot 和准确字段抽取评测。
+- [x] `KNO-001` 定义 KnowledgeChunk、ChunkRelation 和 DocumentQualityReport 契约。
+- [x] `KNO-002` 恢复标题树、段落、列表、脚注、表格、跨页关系和阅读顺序。
+- [x] `KNO-003` 按文档格式和内容类型选择专用 Chunker，不使用单一字符切分覆盖所有格式。
+- [x] `KNO-004` 实现 Parent-Child Chunk、前后邻居、表头、脚注和来源 Block 关系。
+- [x] `KNO-005` Chunk 不跨不兼容标题、表格、条款和代码边界。
+- [x] `KNO-006` 生成 display content 与 embedding text，分别服务引用展示和模型检索。
+- [x] `KNO-007` 使用实际 Tokenizer 计算 Token 数，处理超长内容并记录截断/拆分原因。
+- [x] `KNO-008` 计算内容 Hash、页内重复、跨页重复和可配置去重，不丢失来源关系。
+- [x] `KNO-009` 质量门禁检查解析覆盖、OCR、结构、乱码、重复、缺页、表格、权限负责人和版本冲突。
+- [x] `KNO-010` Policy 输出 PASS、MANUAL_REVIEW 或 REJECT，并保存规则版本和原因。
+- [x] `KNO-011` 实现质量报告、Block/Chunk 浏览、审核通过、拒绝和要求重处理 API。
+- [x] `KNO-012` 审核操作需要对应角色、原因和乐观锁，结果完整审计。
+- [x] `KNO-013` 未通过质量门禁或需要人工审核的内容不能进入正式索引。
+- [x] `KNO-014` Parser/Chunker 升级生成新的 content revision，旧 revision 保留到安全清理时间。
+- [x] `KNO-015` 建立 Chunk Golden Snapshot 和准确字段抽取评测。
 
 ### 验收门禁
 
 - 每个 Chunk 能回溯到文档版本、Block、页码/Sheet/Slide 和必要坐标。
 - 多级表头、条款、FAQ、代码和重复页测试通过。
 - 审核并发、越权审核和审核后重处理不造成状态覆盖。
+
+### 2026-08-18 实施证据
+
+需求到源码、自动化测试、真实 PostgreSQL 并发/重处理验证和环境补跑项见 [M04 实施与验收证据](./M04_IMPLEMENTATION_EVIDENCE.md)。外网使用真实 `cl100k_base` BPE 完成工程门禁；内网 Embedding 官方 tokenizer 与业务 Golden 仍须按验收清单复验，不能将当前 Profile 冒充模型精确计数。
 
 ---
 

@@ -13,6 +13,10 @@ import {
   DocumentBlockListEnvelopeSchema,
   ParseRunDetailEnvelopeSchema,
   ParseRunListEnvelopeSchema,
+  KnowledgeProcessingRunListEnvelopeSchema,
+  KnowledgeProcessingRunDetailEnvelopeSchema,
+  KnowledgeChunkListEnvelopeSchema,
+  QualityReviewResultEnvelopeSchema,
   type CompleteUploadRequest,
   type CompleteUploadResult,
   type CreateUploadPartsRequest,
@@ -25,6 +29,11 @@ import {
   type IngestionJob,
   type IngestionJobEvent,
   type ParseIssue,
+  type DocumentQualityReport,
+  type KnowledgeChunk,
+  type KnowledgeProcessingRun,
+  type QualityFinding,
+  type ReviewQualityRequest,
   type UploadPartInstruction,
   type UploadSession,
 } from '@rag/contracts';
@@ -65,6 +74,53 @@ export function listDocumentBlocks(
   return platformApiFetch(
     `/api/v1/parse-runs/${encodeURIComponent(parseRunId)}/blocks?${query.toString()}`,
     DocumentBlockListEnvelopeSchema,
+  ).then((response) => response.data);
+}
+
+/** 读取文档版本保留的全部 M04 运行历史。 */
+export function listKnowledgeProcessingRuns(
+  versionId: string,
+): Promise<readonly KnowledgeProcessingRun[]> {
+  return platformApiFetch(
+    `/api/v1/document-versions/${encodeURIComponent(versionId)}/knowledge-runs`,
+    KnowledgeProcessingRunListEnvelopeSchema,
+  ).then((response) => response.data.items);
+}
+
+/** 读取一次 M04 运行的质量报告和发现项。 */
+export function getKnowledgeProcessingRun(processingRunId: string): Promise<{
+  run: KnowledgeProcessingRun;
+  report: DocumentQualityReport;
+  findings: readonly QualityFinding[];
+}> {
+  return platformApiFetch(
+    `/api/v1/knowledge-runs/${encodeURIComponent(processingRunId)}`,
+    KnowledgeProcessingRunDetailEnvelopeSchema,
+  ).then((response) => response.data);
+}
+
+/** 按稳定 ordinal 分页读取 Parent/Child Chunk。 */
+export function listKnowledgeChunks(
+  processingRunId: string,
+  afterOrdinal = 0,
+  limit = 100,
+): Promise<{ items: readonly KnowledgeChunk[]; nextOrdinal: number | null }> {
+  const query = new URLSearchParams({ afterOrdinal: String(afterOrdinal), limit: String(limit) });
+  return platformApiFetch(
+    `/api/v1/knowledge-runs/${encodeURIComponent(processingRunId)}/chunks?${query.toString()}`,
+    KnowledgeChunkListEnvelopeSchema,
+  ).then((response) => response.data);
+}
+
+/** 提交带原因和乐观锁版本的质量审核。 */
+export function reviewKnowledgeQuality(
+  processingRunId: string,
+  request: ReviewQualityRequest,
+): Promise<{ report: DocumentQualityReport; reprocessJobId: string | null }> {
+  return platformApiFetch(
+    `/api/v1/knowledge-runs/${encodeURIComponent(processingRunId)}/reviews`,
+    QualityReviewResultEnvelopeSchema,
+    { method: 'POST', body: JSON.stringify(request) },
   ).then((response) => response.data);
 }
 

@@ -453,21 +453,21 @@ export class PostgresDocumentProcessingRepository implements DocumentProcessingR
       );
       await client.query(
         `UPDATE ingestion_job_steps
-            SET status = 'WAITING', overall_percent = 50,
-                public_message = '等待 M04 分块与质量门禁', updated_at = now()
+            SET status = 'QUEUED', overall_percent = 50,
+                public_message = 'M04 分块与质量门禁已排队', updated_at = now()
           WHERE job_id = $1 AND step_name = 'CHUNK'`,
         [command.jobId],
       );
       await client.query(
         `UPDATE ingestion_jobs
-            SET status = 'WAITING', current_step = 'CHUNK', overall_percent = 50,
-                public_message = 'M03 解析完成，等待 M04', lease_owner = NULL,
+            SET status = 'QUEUED', current_step = 'CHUNK', overall_percent = 50,
+                public_message = 'M03 解析完成，M04 已排队', lease_owner = NULL,
                 lease_expires_at = NULL, heartbeat_at = now(), updated_at = now()
           WHERE id = $1 AND lease_owner = $2`,
         [command.jobId, command.workerId],
       );
       await client.query(
-        `UPDATE document_versions SET status = 'WAITING', updated_at = now()
+        `UPDATE document_versions SET status = 'QUEUED', updated_at = now()
           WHERE id = (SELECT document_version_id FROM ingestion_jobs WHERE id = $1)`,
         [command.jobId],
       );
@@ -477,6 +477,22 @@ export class PostgresDocumentProcessingRepository implements DocumentProcessingR
         ocrPageCount: command.ocr?.pages.length ?? 0,
         snapshotReused: command.snapshotReused,
       });
+      // 阶段交接也走事务 Outbox：数据库提交后由 Scheduler 重试投递，进程崩溃不会丢失 M04。
+      await client.query(
+        `INSERT INTO outbox_events (aggregate_type, aggregate_id, event_type, payload)
+         SELECT 'INGESTION_JOB', j.id, 'ingestion.knowledge_processing.requested',
+                jsonb_build_object(
+                  'jobId', j.id,
+                  'documentId', j.document_id,
+                  'documentVersionId', j.document_version_id,
+                  'contentRevision', j.content_revision,
+                  'pipelineVersion', j.pipeline_version,
+                  'parseRunId', $2::text
+                )
+           FROM ingestion_jobs j WHERE j.id = $1
+         ON CONFLICT (aggregate_id, event_type) DO NOTHING`,
+        [command.jobId, command.parseRunId],
+      );
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');

@@ -48,6 +48,23 @@ export class MetricsService implements OnModuleDestroy {
     registers: [this.registry],
   });
 
+  /** M04 固定标签只记录质量结论或失败分类，不记录文档、用户和规则内容。 */
+  public readonly m04ProcessingTotal = new Counter({
+    name: 'rag_m04_processing_total',
+    help: 'M04 知识加工与质量门禁结果累计次数',
+    labelNames: ['result'] as const,
+    registers: [this.registry],
+  });
+
+  /** M04 单文档结构恢复、Chunk 和质量检查端到端耗时。 */
+  public readonly m04DurationSeconds = new Histogram({
+    name: 'rag_m04_processing_duration_seconds',
+    help: 'M04 单文档知识加工耗时（秒）',
+    labelNames: ['result'] as const,
+    buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60],
+    registers: [this.registry],
+  });
+
   public constructor() {
     this.registry.setDefaultLabels({ system: 'enterprise-rag' });
     collectDefaultMetrics({ register: this.registry });

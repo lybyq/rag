@@ -52,4 +52,34 @@ describe('[BASE-010] startup configuration', () => {
       }),
     ).toThrow(/PARSER_ADAPTER_STRUCTURE_SCAN/);
   });
+
+  it('[KNO-007] 拒绝 Parent 小于 Child 或 overlap 不小于 Child 的分块预算', () => {
+    expect(() =>
+      loadAppConfig({
+        CHUNK_CHILD_MAX_TOKENS: '512',
+        CHUNK_PARENT_MAX_TOKENS: '256',
+      }),
+    ).toThrow(/Parent Token 上限/);
+    expect(() =>
+      loadAppConfig({
+        CHUNK_CHILD_MAX_TOKENS: '512',
+        CHUNK_OVERLAP_TOKENS: '512',
+      }),
+    ).toThrow(/重叠 Token/);
+  });
+
+  it('[KNO-009] 拒绝相互倒置的质量人工复核与硬拒绝阈值', () => {
+    expect(() =>
+      loadAppConfig({
+        QUALITY_MIN_NON_EMPTY_BLOCK_RATIO: '0.4',
+        QUALITY_REJECT_NON_EMPTY_BLOCK_RATIO: '0.5',
+      }),
+    ).toThrow(/覆盖率拒绝阈值/);
+    expect(() =>
+      loadAppConfig({
+        QUALITY_MAX_GARBLED_RATIO: '0.2',
+        QUALITY_REJECT_GARBLED_RATIO: '0.1',
+      }),
+    ).toThrow(/乱码拒绝阈值/);
+  });
 });

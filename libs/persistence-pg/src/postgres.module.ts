@@ -4,6 +4,7 @@ import {
   AUTHORIZATION_VERSION_PROVIDER,
   DOCUMENT_INGESTION_REPOSITORY,
   DOCUMENT_PROCESSING_REPOSITORY,
+  KNOWLEDGE_PROCESSING_REPOSITORY,
   KNOWLEDGE_SPACE_REPOSITORY,
   SECURITY_AUDIT,
 } from '@rag/application';
@@ -16,6 +17,7 @@ import { PostgresSecurityAuditAdapter } from './postgres-security-audit.adapter'
 import { PostgresHealthProbe } from './postgres-health.probe';
 import { PostgresDocumentIngestionRepository } from './postgres-document-ingestion.repository';
 import { PostgresDocumentProcessingRepository } from './postgres-document-processing.repository';
+import { PostgresKnowledgeProcessingRepository } from './postgres-knowledge-processing.repository';
 import { POSTGRES_POOL } from './postgres.tokens';
 
 @Module({
@@ -36,12 +38,17 @@ import { POSTGRES_POOL } from './postgres.tokens';
     PostgresKnowledgeSpaceRepository,
     PostgresDocumentIngestionRepository,
     PostgresDocumentProcessingRepository,
+    PostgresKnowledgeProcessingRepository,
     PostgresSecurityAuditAdapter,
     { provide: AUTHORIZATION_VERSION_PROVIDER, useExisting: PostgresAuthorizationVersionProvider },
     { provide: KNOWLEDGE_SPACE_REPOSITORY, useExisting: PostgresKnowledgeSpaceRepository },
     { provide: SECURITY_AUDIT, useExisting: PostgresSecurityAuditAdapter },
     { provide: DOCUMENT_INGESTION_REPOSITORY, useExisting: PostgresDocumentIngestionRepository },
     { provide: DOCUMENT_PROCESSING_REPOSITORY, useExisting: PostgresDocumentProcessingRepository },
+    {
+      provide: KNOWLEDGE_PROCESSING_REPOSITORY,
+      useExisting: PostgresKnowledgeProcessingRepository,
+    },
   ],
   exports: [
     POSTGRES_POOL,
@@ -51,6 +58,7 @@ import { POSTGRES_POOL } from './postgres.tokens';
     SECURITY_AUDIT,
     DOCUMENT_INGESTION_REPOSITORY,
     DOCUMENT_PROCESSING_REPOSITORY,
+    KNOWLEDGE_PROCESSING_REPOSITORY,
   ],
 })
 export class PostgresPersistenceModule {}

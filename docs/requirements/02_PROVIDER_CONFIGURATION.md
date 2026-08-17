@@ -236,6 +236,28 @@ MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI 
 
 外网 `docling` Adapter 用于免费功能联调，但 Docling 原生响应不能证明宏、嵌入对象和外链已经完整检查，因此生产配置会拒绝将它直接作为安全 Parser。内网 `http` Adapter 必须返回完整 `FileStructureInspection`；响应缺字段、协议或修订不一致会 fail closed。
 
+### 6.3 M04 知识加工与质量配置说明
+
+| 环境变量                               | 默认值                            | 合法范围/能力约束                                              | 敏感 | 热更新 | 回退方式                             |
+| -------------------------------------- | --------------------------------- | -------------------------------------------------------------- | ---- | ------ | ------------------------------------ |
+| `CHUNKER_PROFILE_ID/REVISION`          | `structure-aware-medium-v1/1.0.0` | 非空且历史含义不可原地修改                                     | 否   | 否     | 切回旧 Profile，新建 revision 重处理 |
+| `TOKENIZER_ADAPTER`                    | `cl100k`                          | 当前外网实现 `cl100k`；内网增加与 Embedding 精确匹配的 Adapter | 否   | 否     | 切回上一 Tokenizer Profile           |
+| `TOKENIZER_PROFILE_ID`                 | `cl100k-base-local`               | 与 revision 一起进入 Run 快照                                  | 否   | 否     | 新建 revision，不覆盖旧 tokenCount   |
+| `CHUNK_CHILD_MAX_TOKENS`               | `512`                             | `64..8192`                                                     | 否   | 否     | 恢复旧值并重处理                     |
+| `CHUNK_PARENT_MAX_TOKENS`              | `1500`                            | `128..32768` 且不小于 Child                                    | 否   | 否     | 恢复旧值并重处理                     |
+| `CHUNK_OVERLAP_TOKENS`                 | `64`                              | `0..2048` 且小于 Child                                         | 否   | 否     | 恢复旧值并重处理                     |
+| `CHUNK_DEDUP_MODE`                     | `SUPPRESS`                        | `RETAIN/SUPPRESS`；两者都保留来源事实                          | 否   | 否     | 切回旧 Policy 并重处理               |
+| `QUALITY_RULE_VERSION`                 | `quality-medium-v1`               | 非空；规则语义变化必须新版本                                   | 否   | 否     | 切回旧规则并新建 revision            |
+| `QUALITY_MIN_NON_EMPTY_BLOCK_RATIO`    | `0.6`                             | `0..1`，不低于 reject 阈值                                     | 否   | 否     | 恢复已评测阈值                       |
+| `QUALITY_REJECT_NON_EMPTY_BLOCK_RATIO` | `0.2`                             | `0..1`，不高于 manual 阈值                                     | 否   | 否     | 恢复已评测阈值                       |
+| `QUALITY_MIN_OCR_CONFIDENCE`           | `0.75`                            | `0..1`                                                         | 否   | 否     | 恢复已评测阈值                       |
+| `QUALITY_MAX_GARBLED_RATIO`            | `0.03`                            | `0..1`，不高于 reject 阈值                                     | 否   | 否     | 恢复已评测阈值                       |
+| `QUALITY_REJECT_GARBLED_RATIO`         | `0.15`                            | `0..1`，不低于 manual 阈值                                     | 否   | 否     | 恢复已评测阈值                       |
+| `QUALITY_MAX_DUPLICATE_RATIO`          | `0.4`                             | `0..1`                                                         | 否   | 否     | 恢复已评测阈值                       |
+| `QUALITY_REQUIRE_HEADING_AFTER_BLOCKS` | `20`                              | `1..10000`                                                     | 否   | 否     | 恢复已评测阈值                       |
+
+当前 `cl100k` 是无需云调用的真实 BPE 外网基线，不是内网 Embedding tokenizer 的替代承诺。切换模型或 tokenizer 必须创建新 Profile/revision、重跑 Chunk Golden 和检索评测；禁止原地改变历史 Profile 的含义。
+
 ## 7. Profile Registry
 
 Profile 必须是不可变、可引用的配置事实。修改模型或关键参数时创建新 Profile ID，不原地改变历史含义。

@@ -136,7 +136,7 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] M03 PostgreSQL transaction', () =
     await pool.end();
   });
 
-  it('只有 lease owner 能原子写入 Block，完成后停在 M04 CHUNK WAITING', async () => {
+  it('只有 lease owner 能原子写入 Block，完成后通过 Outbox 排队 M04 CHUNK', async () => {
     const command = uploadCommand();
     uploadSessionId = command.id;
     await ingestion.createUploadSession(context, command);
@@ -273,7 +273,7 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] M03 PostgreSQL transaction', () =
     });
 
     await expect(ingestion.getJob(context, completed.job.id)).resolves.toEqual(
-      expect.objectContaining({ status: 'WAITING', currentStep: 'CHUNK', overallPercent: 50 }),
+      expect.objectContaining({ status: 'QUEUED', currentStep: 'CHUNK', overallPercent: 50 }),
     );
     const runs = await processing.listRuns(context, completed.documentVersion.id);
     expect(runs[0]).toEqual(expect.objectContaining({ status: 'SUCCEEDED', blockCount: 1 }));

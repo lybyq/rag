@@ -47,6 +47,9 @@ importers:
       ioredis:
         specifier: 5.8.2
         version: 5.8.2(supports-color@8.1.1)
+      js-tiktoken:
+        specifier: 1.0.21
+        version: 1.0.21
       jsonwebtoken:
         specifier: 9.0.2
         version: 9.0.2
@@ -4171,6 +4174,9 @@ packages:
     resolution: {integrity: sha512-coM7xq1syLcMyuVGyToxcj2AlzhkDjmfklL8r0JgJ7A76wyGMpJ1oA35mr4APdYNO/o/4YY8H54NQIJzhMbhBg==}
     engines: {node: '>=12'}
     hasBin: true
+
+  js-tiktoken@1.0.21:
+    resolution: {integrity: sha512-biOj/6M5qdgx5TKjDnFT1ymSpM5tbd3ylwDtrQvFQSu0Z7bBYko2dF+W/aUkXUPuk6IVpRxk/3Q2sHOzGlS36g==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -10708,6 +10714,10 @@ snapshots:
       editorconfig: 1.0.7
       glob: 8.1.0
       nopt: 6.0.0
+
+  js-tiktoken@1.0.21:
+    dependencies:
+      base64-js: 1.5.1
 
   js-tokens@4.0.0: {}
 

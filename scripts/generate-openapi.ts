@@ -15,6 +15,7 @@ const documents = [
       includeM01: true,
       includeM02: true,
       includeM03: true,
+      includeM04: true,
     }),
   },
   {

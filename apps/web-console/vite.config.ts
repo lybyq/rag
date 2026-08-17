@@ -14,11 +14,12 @@ export default defineConfig({
     vue(),
     AutoImport({
       imports: ['vue', 'vue-router', 'pinia'],
-      resolvers: [ElementPlusResolver()],
+      // Vitest 黑盒组件测试使用 Stub，不加载 Element Plus CSS 副作用；生产构建仍按需注入 CSS。
+      resolvers: [ElementPlusResolver({ importStyle: process.env.VITEST ? false : 'css' })],
       dts: 'auto-imports.d.ts',
     }),
     Components({
-      resolvers: [ElementPlusResolver()],
+      resolvers: [ElementPlusResolver({ importStyle: process.env.VITEST ? false : 'css' })],
       dts: 'components.d.ts',
     }),
   ],

@@ -24,6 +24,7 @@ export interface AccessContext {
 /** 后续资源模块复用的资源类别；每项都必须重新反查所属空间。 */
 export type ProtectedResourceKind =
   | 'DOCUMENT'
+  | 'KNOWLEDGE_RUN'
   | 'CITATION'
   | 'HISTORY_MESSAGE'
   | 'RETRIEVAL_CANDIDATE'
