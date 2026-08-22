@@ -784,14 +784,12 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
           WHERE job_id = $1 AND step_name = 'EMBED'`,
         [command.jobId],
       );
-      await this.releaseJob(
+      await this.queueM05(
         client,
         command.jobId,
         command.workerId,
-        'WAITING',
-        'EMBED',
-        75,
-        'M04 质量门禁通过，等待 M05',
+        command.processingRunId,
+        'M04 质量门禁通过，进入 M05',
       );
     } else if (command.quality.verdict === 'MANUAL_REVIEW') {
       await client.query(
@@ -857,6 +855,34 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
     );
   }
 
+  /** M04 与 M05 通过同一事务中的 Outbox 交接；WAITING 表示等待下游 Worker 领取。 */
+  private async queueM05(
+    client: PoolClient,
+    jobId: string,
+    workerId: string | null,
+    processingRunId: string,
+    publicMessage: string,
+  ): Promise<void> {
+    await client.query(
+      `UPDATE ingestion_jobs SET status = 'WAITING', current_step = 'EMBED', overall_percent = 75,
+              public_message = $3, lease_owner = NULL, lease_expires_at = NULL,
+              heartbeat_at = now(), updated_at = now()
+        WHERE id = $1 AND ($2::text IS NULL OR lease_owner = $2)`,
+      [jobId, workerId, publicMessage],
+    );
+    await client.query(
+      `UPDATE document_versions SET status = 'WAITING', updated_at = now()
+        WHERE id = (SELECT document_version_id FROM ingestion_jobs WHERE id = $1)`,
+      [jobId],
+    );
+    await client.query(
+      `INSERT INTO outbox_events (aggregate_type, aggregate_id, event_type, payload)
+       VALUES ('INGESTION_JOB',$1,'ingestion.indexing.requested',$2::jsonb)`,
+      [jobId, JSON.stringify({ jobId, processingRunId })],
+    );
+    await this.insertEvent(client, jobId, 'ingestion.m05_queued', { processingRunId });
+  }
+
   private async finishApprovedReview(
     client: PoolClient,
     jobId: string,
@@ -879,14 +905,9 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
         WHERE job_id = $1 AND step_name = 'EMBED'`,
       [jobId],
     );
+    await this.queueM05(client, jobId, null, processingRunId, '人工审核通过，进入 M05');
     await client.query(
-      `UPDATE ingestion_jobs SET status = 'WAITING', current_step = 'EMBED', overall_percent = 75,
-              public_message = '人工审核通过，等待 M05', updated_at = now()
-        WHERE id = $1`,
-      [jobId],
-    );
-    await client.query(
-      `UPDATE document_versions SET status = 'WAITING', optimistic_version = optimistic_version + 1,
+      `UPDATE document_versions SET optimistic_version = optimistic_version + 1,
               updated_at = now()
         WHERE id = (SELECT document_version_id FROM ingestion_jobs WHERE id = $1)`,
       [jobId],

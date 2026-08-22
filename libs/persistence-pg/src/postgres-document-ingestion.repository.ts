@@ -992,7 +992,7 @@ export class PostgresDocumentIngestionRepository implements DocumentIngestionRep
     }
   }
 
-  /** Worker 原子领取 QUEUED 任务并建立可续租 lease。 */
+  /** Worker 原子领取新任务或由可靠阶段事件唤醒的 WAITING 任务，并建立可续租 lease。 */
   public async acquireJobLease(
     jobId: string,
     workerId: string,
@@ -1006,7 +1006,7 @@ export class PostgresDocumentIngestionRepository implements DocumentIngestionRep
             SET status = 'RUNNING', lease_owner = $2,
                 lease_expires_at = now() + make_interval(secs => $3),
                 heartbeat_at = now(), public_message = 'Worker 已领取任务', updated_at = now()
-          WHERE id = $1 AND status = 'QUEUED'
+          WHERE id = $1 AND status IN ('QUEUED','WAITING')
         RETURNING *`,
         [jobId, workerId, leaseSeconds],
       );
@@ -1019,7 +1019,7 @@ export class PostgresDocumentIngestionRepository implements DocumentIngestionRep
         `UPDATE ingestion_job_steps
             SET status = 'RUNNING', started_at = COALESCE(started_at, now()),
                 heartbeat_at = now(), public_message = '步骤执行中', updated_at = now()
-          WHERE job_id = $1 AND step_name = $2 AND status = 'QUEUED'`,
+          WHERE job_id = $1 AND step_name = $2 AND status IN ('QUEUED','WAITING')`,
         [jobId, job.current_step],
       );
       await client.query(

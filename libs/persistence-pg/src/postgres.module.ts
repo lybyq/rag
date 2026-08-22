@@ -4,8 +4,11 @@ import {
   AUTHORIZATION_VERSION_PROVIDER,
   DOCUMENT_INGESTION_REPOSITORY,
   DOCUMENT_PROCESSING_REPOSITORY,
+  INDEXING_REPOSITORY,
+  INDEX_MAINTENANCE_REPOSITORY,
   KNOWLEDGE_PROCESSING_REPOSITORY,
   KNOWLEDGE_SPACE_REPOSITORY,
+  PROFILE_ROLLOUT_REPOSITORY,
   SECURITY_AUDIT,
 } from '@rag/application';
 import { APP_CONFIG, type AppConfig } from '@rag/config';
@@ -17,6 +20,7 @@ import { PostgresSecurityAuditAdapter } from './postgres-security-audit.adapter'
 import { PostgresHealthProbe } from './postgres-health.probe';
 import { PostgresDocumentIngestionRepository } from './postgres-document-ingestion.repository';
 import { PostgresDocumentProcessingRepository } from './postgres-document-processing.repository';
+import { PostgresIndexingRepository } from './postgres-indexing.repository';
 import { PostgresKnowledgeProcessingRepository } from './postgres-knowledge-processing.repository';
 import { POSTGRES_POOL } from './postgres.tokens';
 
@@ -38,6 +42,7 @@ import { POSTGRES_POOL } from './postgres.tokens';
     PostgresKnowledgeSpaceRepository,
     PostgresDocumentIngestionRepository,
     PostgresDocumentProcessingRepository,
+    PostgresIndexingRepository,
     PostgresKnowledgeProcessingRepository,
     PostgresSecurityAuditAdapter,
     { provide: AUTHORIZATION_VERSION_PROVIDER, useExisting: PostgresAuthorizationVersionProvider },
@@ -49,6 +54,9 @@ import { POSTGRES_POOL } from './postgres.tokens';
       provide: KNOWLEDGE_PROCESSING_REPOSITORY,
       useExisting: PostgresKnowledgeProcessingRepository,
     },
+    { provide: INDEXING_REPOSITORY, useExisting: PostgresIndexingRepository },
+    { provide: INDEX_MAINTENANCE_REPOSITORY, useExisting: PostgresIndexingRepository },
+    { provide: PROFILE_ROLLOUT_REPOSITORY, useExisting: PostgresIndexingRepository },
   ],
   exports: [
     POSTGRES_POOL,
@@ -59,6 +67,9 @@ import { POSTGRES_POOL } from './postgres.tokens';
     DOCUMENT_INGESTION_REPOSITORY,
     DOCUMENT_PROCESSING_REPOSITORY,
     KNOWLEDGE_PROCESSING_REPOSITORY,
+    INDEXING_REPOSITORY,
+    INDEX_MAINTENANCE_REPOSITORY,
+    PROFILE_ROLLOUT_REPOSITORY,
   ],
 })
 export class PostgresPersistenceModule {}

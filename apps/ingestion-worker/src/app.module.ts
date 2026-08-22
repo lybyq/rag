@@ -4,17 +4,24 @@ import {
   DOCUMENT_OCR,
   DOCUMENT_PARSER,
   DOCUMENT_PROCESSING_REPOSITORY,
+  EMBEDDING_PORT,
+  INDEXING_REPOSITORY,
+  IndexingService,
   DocumentProcessingService,
   KNOWLEDGE_PROCESSING_REPOSITORY,
   KnowledgeProcessingService,
   MALWARE_SCANNER,
   OBJECT_STORAGE,
+  VECTOR_INDEX_PORT,
   type DocumentProcessingRepository,
+  type EmbeddingPort,
+  type IndexingRepository,
   type MalwareScannerPort,
   type ObjectStoragePort,
   type OcrPort,
   type ParserPort,
   type KnowledgeProcessingRepository,
+  type VectorIndexPort,
 } from '@rag/application';
 import { Cl100kTextTokenizer } from '@rag/chunking';
 import { APP_CONFIG, RuntimeConfigModule, type AppConfig } from '@rag/config';
@@ -22,9 +29,12 @@ import { FileProcessingProvidersModule } from '@rag/file-processing-providers';
 import { HealthModule } from '@rag/health';
 import { ObservabilityModule } from '@rag/observability';
 import { MinioPersistenceModule } from '@rag/persistence-minio';
+import { EmbeddingGatewayModule } from '@rag/model-gateway';
+import { MilvusPersistenceModule } from '@rag/persistence-milvus';
 import { PostgresPersistenceModule } from '@rag/persistence-pg';
 import { RedisPersistenceModule } from '@rag/persistence-redis';
 import { IngestionQueueConsumer } from './ingestion-queue.consumer';
+import { EmbeddingStartupVerifier } from './embedding-startup.verifier';
 
 @Module({
   imports: [
@@ -35,6 +45,8 @@ import { IngestionQueueConsumer } from './ingestion-queue.consumer';
     MinioPersistenceModule,
     RedisPersistenceModule,
     FileProcessingProvidersModule,
+    EmbeddingGatewayModule,
+    MilvusPersistenceModule,
   ],
   providers: [
     {
@@ -101,6 +113,46 @@ import { IngestionQueueConsumer } from './ingestion-queue.consumer';
         });
       },
     },
+    {
+      provide: IndexingService,
+      inject: [INDEXING_REPOSITORY, EMBEDDING_PORT, VECTOR_INDEX_PORT, APP_CONFIG],
+      useFactory: (
+        repository: IndexingRepository,
+        embedding: EmbeddingPort,
+        vectorIndex: VectorIndexPort,
+        config: AppConfig,
+      ): IndexingService =>
+        new IndexingService(repository, embedding, vectorIndex, {
+          profile: {
+            profileId: config.embedding.profileId,
+            providerProfile: config.providerProfile,
+            provider: config.embedding.providerName,
+            modelId: config.embedding.modelId,
+            revision: config.embedding.revision,
+            protocolVersion: config.embedding.protocolVersion,
+            tokenizerRevision: config.embedding.tokenizerRevision,
+            denseDimension: config.embedding.denseDimension,
+            normalizeDense: config.embedding.normalizeDense,
+            sparseFormatVersion: config.embedding.outputModes.includes('sparse')
+              ? config.embedding.sparseFormatVersion
+              : null,
+            documentTemplateVersion: config.embedding.documentTemplateVersion,
+            queryTemplateVersion: config.embedding.queryTemplateVersion,
+            maxInputTokens: config.embedding.maxInputTokens,
+            maxBatchSize: config.embedding.batchSize,
+          },
+          requestTimeoutMs: config.embedding.requestTimeoutMs,
+          overallDeadlineMs: config.indexing.overallDeadlineMs,
+          maxBatchTokens: config.embedding.maxBatchTokens,
+          maxConcurrency: config.embedding.maxConcurrency,
+          maxAttempts: config.embedding.maxAttempts,
+          retryBaseDelayMs: config.embedding.retryBaseDelayMs,
+          maxQueuedItems: config.embedding.maxQueuedItems,
+          vectorWriteBatchSize: config.indexing.vectorWriteBatchSize,
+          vectorWriteMaxAttempts: config.indexing.vectorWriteMaxAttempts,
+        }),
+    },
+    EmbeddingStartupVerifier,
     IngestionQueueConsumer,
   ],
 })

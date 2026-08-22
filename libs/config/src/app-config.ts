@@ -284,6 +284,7 @@ export const AppEnvironmentSchema = z
     EMBEDDING_BASE_URL: z.string().url().default('http://localhost:8101'),
     EMBEDDING_API_KEY: z.string().default(''),
     EMBEDDING_MODEL_ID: z.string().min(1).max(160).default('fixture-embedding'),
+    EMBEDDING_PROVIDER_NAME: z.string().min(1).max(100).default('fixture'),
     EMBEDDING_PROFILE_ID: z.string().min(1).max(100).default('fixture-embedding-external-dev-v1'),
     EMBEDDING_REVISION: z.string().min(1).max(100).default('1'),
     EMBEDDING_PROTOCOL_VERSION: z.string().min(1).max(40).default('1'),
@@ -294,6 +295,39 @@ export const AppEnvironmentSchema = z
     EMBEDDING_NORMALIZE_DENSE: z.enum(['true', 'false']).default('true'),
     EMBEDDING_OUTPUT_MODE: EmbeddingOutputModesSchema,
     EMBEDDING_MAX_INPUT_TOKENS: z.coerce.number().int().min(64).max(131_072).default(8_192),
+    EMBEDDING_TOKENIZER_REVISION: z.string().min(1).max(100).default('fixture-tokenizer-v1'),
+    EMBEDDING_SPARSE_FORMAT_VERSION: z.string().max(100).default(''),
+    EMBEDDING_DOCUMENT_TEMPLATE_VERSION: z.string().min(1).max(100).default('document-v1'),
+    EMBEDDING_QUERY_TEMPLATE_VERSION: z.string().min(1).max(100).default('query-v1'),
+    EMBEDDING_MAX_BATCH_TOKENS: z.coerce.number().int().min(64).max(1_048_576).default(16_384),
+    EMBEDDING_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
+    EMBEDDING_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+    EMBEDDING_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(0).max(60_000).default(250),
+    EMBEDDING_MAX_QUEUED_ITEMS: z.coerce.number().int().min(1).max(1_000_000).default(5_000),
+
+    INDEXING_OVERALL_DEADLINE_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(3_600_000)
+      .default(900_000),
+    INDEXING_VECTOR_WRITE_BATCH_SIZE: z.coerce.number().int().min(1).max(10_000).default(256),
+    INDEXING_VECTOR_WRITE_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+    INDEXING_MANIFEST_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(30),
+    INDEXING_RECONCILE_INTERVAL_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(60)
+      .max(604_800)
+      .default(3_600),
+    INDEXING_MAINTENANCE_LEASE_SECONDS: z.coerce.number().int().min(10).max(3_600).default(300),
+    INDEXING_MAINTENANCE_BATCH_SIZE: z.coerce.number().int().min(1).max(1_000).default(10),
+    INDEXING_MAINTENANCE_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(100).default(5),
+    INDEXING_ROLLOUT_MAX_CASES: z.coerce.number().int().min(1).max(1_000).default(50),
+    INDEXING_ROLLOUT_EVALUATION_TOP_K: z.coerce.number().int().min(1).max(100).default(5),
+    INDEXING_ROLLOUT_MINIMUM_RECALL: z.coerce.number().min(0).max(1).default(0.9),
+    INDEXING_ROLLOUT_LEASE_SECONDS: z.coerce.number().int().min(30).max(3_600).default(600),
+    INDEXING_ROLLOUT_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(3),
 
     RERANKER_ADAPTER: z.enum(rerankerAdapters).default('fixture'),
     RERANKER_BASE_URL: z.string().url().default('http://localhost:8102'),
@@ -473,6 +507,30 @@ export const AppEnvironmentSchema = z
         message: 'Child Token 上限必须小于 Embedding 最大输入 Token',
       });
     }
+    if (value.EMBEDDING_MAX_BATCH_TOKENS < value.EMBEDDING_MAX_INPUT_TOKENS) {
+      context.addIssue({
+        code: 'custom',
+        path: ['EMBEDDING_MAX_BATCH_TOKENS'],
+        message: '单批 Token 预算不能小于单条 Embedding 输入上限',
+      });
+    }
+    if (value.EMBEDDING_MAX_QUEUED_ITEMS < value.EMBEDDING_BATCH_SIZE) {
+      context.addIssue({
+        code: 'custom',
+        path: ['EMBEDDING_MAX_QUEUED_ITEMS'],
+        message: '背压队列上限不能小于单批条数',
+      });
+    }
+    if (
+      value.EMBEDDING_OUTPUT_MODE.includes('sparse') !==
+      value.EMBEDDING_SPARSE_FORMAT_VERSION.length > 0
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['EMBEDDING_SPARSE_FORMAT_VERSION'],
+        message: 'Sparse 输出能力与 Sparse 格式版本必须同时配置或同时关闭',
+      });
+    }
     if (value.CHUNK_CHILD_MAX_TOKENS >= value.RERANKER_MAX_INPUT_TOKENS) {
       context.addIssue({
         code: 'custom',
@@ -527,9 +585,6 @@ export const AppEnvironmentSchema = z
       if (value.VECTOR_STORE_ADAPTER !== 'milvus') {
         unsafeIntranetFields.push('VECTOR_STORE_ADAPTER');
       }
-      if (value.EMBEDDING_DENSE_DIMENSION !== 1_024) {
-        unsafeIntranetFields.push('EMBEDDING_DENSE_DIMENSION');
-      }
       if (!value.EMBEDDING_OUTPUT_MODE.includes('sparse')) {
         unsafeIntranetFields.push('EMBEDDING_OUTPUT_MODE');
       }
@@ -546,8 +601,11 @@ export const AppEnvironmentSchema = z
         ['LLM_PROFILE_ID', value.LLM_PROFILE_ID],
         ['LLM_REVISION', value.LLM_REVISION],
         ['EMBEDDING_MODEL_ID', value.EMBEDDING_MODEL_ID],
+        ['EMBEDDING_PROVIDER_NAME', value.EMBEDDING_PROVIDER_NAME],
         ['EMBEDDING_PROFILE_ID', value.EMBEDDING_PROFILE_ID],
         ['EMBEDDING_REVISION', value.EMBEDDING_REVISION],
+        ['EMBEDDING_TOKENIZER_REVISION', value.EMBEDDING_TOKENIZER_REVISION],
+        ['EMBEDDING_SPARSE_FORMAT_VERSION', value.EMBEDDING_SPARSE_FORMAT_VERSION],
         ['RERANKER_MODEL_ID', value.RERANKER_MODEL_ID],
         ['RERANKER_PROFILE_ID', value.RERANKER_PROFILE_ID],
         ['RERANKER_REVISION', value.RERANKER_REVISION],
@@ -721,6 +779,7 @@ export interface AppConfig {
     baseUrl: string;
     apiKey?: string;
     modelId: string;
+    providerName: string;
     profileId: string;
     revision: string;
     protocolVersion: string;
@@ -731,6 +790,30 @@ export interface AppConfig {
     normalizeDense: boolean;
     outputModes: readonly ('dense' | 'sparse')[];
     maxInputTokens: number;
+    tokenizerRevision: string;
+    sparseFormatVersion: string | null;
+    documentTemplateVersion: string;
+    queryTemplateVersion: string;
+    maxBatchTokens: number;
+    maxConcurrency: number;
+    maxAttempts: number;
+    retryBaseDelayMs: number;
+    maxQueuedItems: number;
+  };
+  indexing: {
+    overallDeadlineMs: number;
+    vectorWriteBatchSize: number;
+    vectorWriteMaxAttempts: number;
+    manifestRetentionDays: number;
+    reconcileIntervalSeconds: number;
+    maintenanceLeaseSeconds: number;
+    maintenanceBatchSize: number;
+    maintenanceMaxAttempts: number;
+    rolloutMaxCases: number;
+    rolloutEvaluationTopK: number;
+    rolloutMinimumRecall: number;
+    rolloutLeaseSeconds: number;
+    rolloutMaxAttempts: number;
   };
   reranker: {
     adapter: (typeof rerankerAdapters)[number];
@@ -931,6 +1014,7 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       baseUrl: value.EMBEDDING_BASE_URL,
       ...(value.EMBEDDING_API_KEY ? { apiKey: value.EMBEDDING_API_KEY } : {}),
       modelId: value.EMBEDDING_MODEL_ID,
+      providerName: value.EMBEDDING_PROVIDER_NAME,
       profileId: value.EMBEDDING_PROFILE_ID,
       revision: value.EMBEDDING_REVISION,
       protocolVersion: value.EMBEDDING_PROTOCOL_VERSION,
@@ -941,6 +1025,30 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       normalizeDense: value.EMBEDDING_NORMALIZE_DENSE === 'true',
       outputModes: Object.freeze([...value.EMBEDDING_OUTPUT_MODE]),
       maxInputTokens: value.EMBEDDING_MAX_INPUT_TOKENS,
+      tokenizerRevision: value.EMBEDDING_TOKENIZER_REVISION,
+      sparseFormatVersion: value.EMBEDDING_SPARSE_FORMAT_VERSION || null,
+      documentTemplateVersion: value.EMBEDDING_DOCUMENT_TEMPLATE_VERSION,
+      queryTemplateVersion: value.EMBEDDING_QUERY_TEMPLATE_VERSION,
+      maxBatchTokens: value.EMBEDDING_MAX_BATCH_TOKENS,
+      maxConcurrency: value.EMBEDDING_MAX_CONCURRENCY,
+      maxAttempts: value.EMBEDDING_MAX_ATTEMPTS,
+      retryBaseDelayMs: value.EMBEDDING_RETRY_BASE_DELAY_MS,
+      maxQueuedItems: value.EMBEDDING_MAX_QUEUED_ITEMS,
+    }),
+    indexing: Object.freeze({
+      overallDeadlineMs: value.INDEXING_OVERALL_DEADLINE_MS,
+      vectorWriteBatchSize: value.INDEXING_VECTOR_WRITE_BATCH_SIZE,
+      vectorWriteMaxAttempts: value.INDEXING_VECTOR_WRITE_MAX_ATTEMPTS,
+      manifestRetentionDays: value.INDEXING_MANIFEST_RETENTION_DAYS,
+      reconcileIntervalSeconds: value.INDEXING_RECONCILE_INTERVAL_SECONDS,
+      maintenanceLeaseSeconds: value.INDEXING_MAINTENANCE_LEASE_SECONDS,
+      maintenanceBatchSize: value.INDEXING_MAINTENANCE_BATCH_SIZE,
+      maintenanceMaxAttempts: value.INDEXING_MAINTENANCE_MAX_ATTEMPTS,
+      rolloutMaxCases: value.INDEXING_ROLLOUT_MAX_CASES,
+      rolloutEvaluationTopK: value.INDEXING_ROLLOUT_EVALUATION_TOP_K,
+      rolloutMinimumRecall: value.INDEXING_ROLLOUT_MINIMUM_RECALL,
+      rolloutLeaseSeconds: value.INDEXING_ROLLOUT_LEASE_SECONDS,
+      rolloutMaxAttempts: value.INDEXING_ROLLOUT_MAX_ATTEMPTS,
     }),
     reranker: Object.freeze({
       adapter: value.RERANKER_ADAPTER,

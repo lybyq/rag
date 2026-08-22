@@ -6,6 +6,7 @@
  * @requirement AUTH-008
  * @requirement AUTH-010
  * @requirement AUTH-012
+ * @requirement IDX-012
  */
 import { Inject, Injectable } from '@nestjs/common';
 import type {
@@ -274,6 +275,26 @@ export class PostgresKnowledgeSpaceRepository implements KnowledgeSpaceRepositor
         throw new ApplicationError('VERSION_CONFLICT', 409, '空间版本冲突或无管理权限');
       }
       await this.incrementAuthorizationVersion(client);
+      // 空间废止与状态更新必须同事务落入 Outbox；否则其他实例仍可能使用旧权限/旧检索缓存。
+      await this.insertOutbox(
+        client,
+        `${spaceId}:deactivate:v${row.version}`,
+        'index.space.revoked',
+        {
+          spaceId,
+          spaceVersion: row.version,
+          reason: 'knowledge space deactivated',
+        },
+      );
+      await this.insertOutbox(
+        client,
+        `${spaceId}:deactivate:v${row.version}`,
+        'cache.invalidate.space',
+        {
+          spaceId,
+          cause: 'SPACE_REVOKED',
+        },
+      );
       await client.query('COMMIT');
       return mapSpace(row, await this.resolvePermissions(context, spaceId));
     } catch (error) {
@@ -325,6 +346,27 @@ export class PostgresKnowledgeSpaceRepository implements KnowledgeSpaceRepositor
         command.reason,
       );
       await this.incrementAuthorizationVersion(client);
+      await this.insertOutbox(
+        client,
+        `${spaceId}:policy:v${policyVersion}`,
+        'index.authorization.changed',
+        {
+          spaceId,
+          policyVersion,
+          subjectType: command.subjectType,
+          subjectId: command.subjectId,
+        },
+      );
+      await this.insertOutbox(
+        client,
+        `${spaceId}:policy:v${policyVersion}`,
+        'cache.invalidate.space',
+        {
+          spaceId,
+          policyVersion,
+          cause: 'AUTHORIZATION_CHANGED',
+        },
+      );
       await client.query('COMMIT');
       const row = result.rows[0];
       if (!row) throw new Error('ACL upsert 未返回记录');
@@ -357,6 +399,27 @@ export class PostgresKnowledgeSpaceRepository implements KnowledgeSpaceRepositor
       const grants = await this.loadAllGrants(client, spaceId);
       await this.insertPolicySnapshot(client, spaceId, policyVersion, grants, context, reason);
       await this.incrementAuthorizationVersion(client);
+      await this.insertOutbox(
+        client,
+        `${spaceId}:policy:v${policyVersion}`,
+        'index.authorization.revoked',
+        {
+          spaceId,
+          policyVersion,
+          revokedGrantId: grantId,
+          reason,
+        },
+      );
+      await this.insertOutbox(
+        client,
+        `${spaceId}:policy:v${policyVersion}`,
+        'cache.invalidate.space',
+        {
+          spaceId,
+          policyVersion,
+          cause: 'AUTHORIZATION_REVOKED',
+        },
+      );
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -556,6 +619,23 @@ export class PostgresKnowledgeSpaceRepository implements KnowledgeSpaceRepositor
     await client.query(
       `UPDATE authorization_state SET version = version + 1, updated_at = now()
         WHERE singleton_id = 1`,
+    );
+  }
+
+  /**
+   * 将空间变化写入与业务修改相同的 PostgreSQL 事务。
+   * aggregateId 使用业务版本构成幂等键，同一个策略版本重试不会产生两份事件。
+   */
+  private async insertOutbox(
+    client: PoolClient,
+    aggregateId: string,
+    eventType: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    await client.query(
+      `INSERT INTO outbox_events (aggregate_type, aggregate_id, event_type, payload)
+       VALUES ('KNOWLEDGE_SPACE', $1, $2, $3::jsonb)`,
+      [aggregateId, eventType, JSON.stringify(payload)],
     );
   }
 

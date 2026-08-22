@@ -13,10 +13,12 @@ import { MilvusClient } from '@zilliz/milvus2-sdk-node';
 @Injectable()
 export class MilvusHealthProbe implements HealthProbe, OnModuleDestroy {
   public readonly name = 'milvus';
+  private readonly enabled: boolean;
   private client: MilvusClient | undefined;
   private readonly clientConfig: ConstructorParameters<typeof MilvusClient>[0];
 
   public constructor(@Inject(APP_CONFIG) config: AppConfig) {
+    this.enabled = config.vectorStore.adapter === 'milvus';
     // SDK 构造器会立即发起异步连接，因此这里只保存配置，不能在应用启动阶段创建客户端。
     this.clientConfig = {
       address: config.milvus.address,
@@ -29,6 +31,14 @@ export class MilvusHealthProbe implements HealthProbe, OnModuleDestroy {
   /** 调用服务端健康 RPC，并显式检查 isHealthy。 */
   public async check(): Promise<DependencyHealth> {
     const startedAt = performance.now();
+    if (!this.enabled) {
+      return {
+        name: this.name,
+        status: 'up',
+        latencyMs: performance.now() - startedAt,
+        message: '当前 Profile 使用内存向量适配器，Milvus 探针不适用',
+      };
+    }
     try {
       // 惰性创建保证 Milvus 停机时 API 仍能启动并提供 liveness 与诊断信息。
       this.client ??= new MilvusClient(this.clientConfig);

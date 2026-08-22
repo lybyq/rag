@@ -82,6 +82,23 @@ export class MetricsService implements OnModuleDestroy {
     registers: [this.registry],
   });
 
+  /** M05 只记录固定操作与结果标签，不暴露 Profile、空间、文档或 Collection 名。 */
+  public readonly m05OperationsTotal = new Counter({
+    name: 'rag_m05_operations_total',
+    help: 'M05 向量化、索引、发布和维护操作累计次数',
+    labelNames: ['operation', 'result'] as const,
+    registers: [this.registry],
+  });
+
+  /** M05 单文档从 Embedding 到原子发布的端到端耗时。 */
+  public readonly m05DurationSeconds = new Histogram({
+    name: 'rag_m05_indexing_duration_seconds',
+    help: 'M05 向量化、索引、对账与发布耗时（秒）',
+    labelNames: ['result'] as const,
+    buckets: [0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 900],
+    registers: [this.registry],
+  });
+
   public constructor() {
     this.registry.setDefaultLabels({ system: 'enterprise-rag' });
     collectDefaultMetrics({ register: this.registry });

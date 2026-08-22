@@ -29,6 +29,15 @@ describeWithInfra('[AUTH-007][AUTH-012][AUTH-015] M01 PostgreSQL transaction', (
 
   afterAll(async () => {
     if (createdSpaceId) {
+      await pool.query(
+        `DELETE FROM outbox_consumer_receipts WHERE event_id IN (
+           SELECT id FROM outbox_events WHERE payload->>'spaceId' = $1
+         )`,
+        [createdSpaceId],
+      );
+      await pool.query(`DELETE FROM outbox_events WHERE payload->>'spaceId' = $1`, [
+        createdSpaceId,
+      ]);
       await pool.query('DELETE FROM audit_logs WHERE request_id = $1', [adminContext.requestId]);
       await pool.query('DELETE FROM knowledge_space_policies WHERE space_id = $1', [
         createdSpaceId,

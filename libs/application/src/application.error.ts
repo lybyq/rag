@@ -9,8 +9,10 @@ export class ApplicationError extends Error {
       | 'UPLOAD_LIMIT_EXCEEDED'
       | 'UPLOAD_EXPIRED'
       | 'OBJECT_MISMATCH'
-      | 'INVALID_STATE',
-    public readonly httpStatus: 403 | 404 | 409 | 410 | 413,
+      | 'INVALID_STATE'
+      | 'PROVIDER_PROFILE_MISMATCH'
+      | 'SCHEMA_MISMATCH',
+    public readonly httpStatus: 403 | 404 | 409 | 410 | 413 | 500 | 503,
     message: string,
     public readonly retryable = false,
   ) {

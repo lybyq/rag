@@ -52,6 +52,17 @@ import {
   QualityReviewResultEnvelopeSchema,
   ReviewQualityRequestSchema,
 } from './knowledge-processing';
+import {
+  IndexingRunEnvelopeSchema,
+  IndexRebuildDecisionRequestSchema,
+  IndexRebuildEnvelopeSchema,
+  IndexReconciliationEnvelopeSchema,
+  RollbackManifestRequestSchema,
+  SpaceManifestEnvelopeSchema,
+  SpaceManifestListEnvelopeSchema,
+  StartIndexRebuildEnvelopeSchema,
+  StartIndexRebuildRequestSchema,
+} from './indexing';
 
 /** 生成文档所需的最小服务信息。 */
 export interface OpenApiDocumentOptions {
@@ -66,6 +77,8 @@ export interface OpenApiDocumentOptions {
   includeM03?: boolean;
   /** Platform API 注册 M04 Chunk、质量报告与人工审核路径。 */
   includeM04?: boolean;
+  /** Platform API 注册 M05 索引运行、Manifest、回滚与重建路径。 */
+  includeM05?: boolean;
 }
 
 /** OpenAPI 文档使用普通 JSON 对象表示，便于 NestJS 和生成脚本共同消费。 */
@@ -540,6 +553,108 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
+  const m05Paths: Record<string, unknown> = options.includeM05
+    ? {
+        '/api/v1/indexing-runs/{indexingRunId}': {
+          get: {
+            operationId: 'getIndexingRun',
+            summary: '读取一次向量化与索引运行',
+            parameters: [uuidPathParameter('indexingRunId')],
+            responses: {
+              '200': jsonResponse('索引运行', 'IndexingRunEnvelope'),
+              '404': errorResponse('运行不存在或无权访问'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/indexing-runs/{indexingRunId}/reconciliation': {
+          get: {
+            operationId: 'getIndexReconciliation',
+            summary: '读取发布前索引对账报告',
+            parameters: [uuidPathParameter('indexingRunId')],
+            responses: {
+              '200': jsonResponse('索引对账报告', 'IndexReconciliationEnvelope'),
+              '404': errorResponse('报告不存在或无权访问'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/spaces/{spaceId}/index/manifests': {
+          get: {
+            operationId: 'listSpaceManifests',
+            summary: '列出空间发布 Manifest 历史',
+            parameters: [spaceIdParameter],
+            responses: {
+              '200': jsonResponse('Manifest 列表', 'SpaceManifestListEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/spaces/{spaceId}/index/manifests/rollback': {
+          post: {
+            operationId: 'rollbackSpaceManifest',
+            summary: '原子回滚到保留的历史 Manifest',
+            parameters: [spaceIdParameter],
+            requestBody: jsonBody('RollbackManifestRequest'),
+            responses: {
+              '201': jsonResponse('回滚后的活动 Manifest', 'SpaceManifestEnvelope'),
+              '409': errorResponse('目标不可回滚或向量已清理'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/spaces/{spaceId}/index/rebuilds': {
+          post: {
+            operationId: 'startIndexProfileRebuild',
+            summary: '创建 Profile 全量或灰度重建请求',
+            parameters: [spaceIdParameter],
+            requestBody: jsonBody('StartIndexRebuildRequest'),
+            responses: {
+              '201': jsonResponse('已入队的重建请求', 'StartIndexRebuildEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/spaces/{spaceId}/index/rebuilds/{requestId}': {
+          get: {
+            operationId: 'getIndexProfileRebuild',
+            summary: '读取 Profile 重建、评测和灰度状态',
+            parameters: [spaceIdParameter, uuidPathParameter('requestId')],
+            responses: {
+              '200': jsonResponse('Profile 重建状态', 'IndexRebuildEnvelope'),
+              '404': errorResponse('请求不存在或无权访问'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/spaces/{spaceId}/index/rebuilds/{requestId}/promote': {
+          post: {
+            operationId: 'promoteIndexProfileCanary',
+            summary: '将 READY 灰度候选提升为稳定 Manifest',
+            parameters: [spaceIdParameter, uuidPathParameter('requestId')],
+            requestBody: jsonBody('IndexRebuildDecisionRequest'),
+            responses: {
+              '201': jsonResponse('提升后的活动 Manifest', 'SpaceManifestEnvelope'),
+              '409': errorResponse('请求状态或稳定 Head 已变化'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/spaces/{spaceId}/index/rebuilds/{requestId}/rollback': {
+          post: {
+            operationId: 'rollbackIndexProfileRebuild',
+            summary: '按 rollout 请求记录一键回退',
+            parameters: [spaceIdParameter, uuidPathParameter('requestId')],
+            requestBody: jsonBody('IndexRebuildDecisionRequest'),
+            responses: {
+              '201': jsonResponse('回退后的活动 Manifest', 'SpaceManifestEnvelope'),
+              '409': errorResponse('请求不可回退或稳定 Head 已变化'),
+              ...securedResponses,
+            },
+          },
+        },
+      }
+    : {};
 
   return {
     openapi: '3.1.0',
@@ -593,6 +708,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
       ...m02Paths,
       ...m03Paths,
       ...m04Paths,
+      ...m05Paths,
     },
     components: {
       securitySchemes: {
@@ -668,6 +784,19 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               ),
               KnowledgeChunkListEnvelope: z.toJSONSchema(KnowledgeChunkListEnvelopeSchema),
               QualityReviewResultEnvelope: z.toJSONSchema(QualityReviewResultEnvelopeSchema),
+            }
+          : {}),
+        ...(options.includeM05
+          ? {
+              RollbackManifestRequest: z.toJSONSchema(RollbackManifestRequestSchema),
+              StartIndexRebuildRequest: z.toJSONSchema(StartIndexRebuildRequestSchema),
+              IndexRebuildDecisionRequest: z.toJSONSchema(IndexRebuildDecisionRequestSchema),
+              IndexingRunEnvelope: z.toJSONSchema(IndexingRunEnvelopeSchema),
+              IndexReconciliationEnvelope: z.toJSONSchema(IndexReconciliationEnvelopeSchema),
+              SpaceManifestEnvelope: z.toJSONSchema(SpaceManifestEnvelopeSchema),
+              SpaceManifestListEnvelope: z.toJSONSchema(SpaceManifestListEnvelopeSchema),
+              StartIndexRebuildEnvelope: z.toJSONSchema(StartIndexRebuildEnvelopeSchema),
+              IndexRebuildEnvelope: z.toJSONSchema(IndexRebuildEnvelopeSchema),
             }
           : {}),
       },

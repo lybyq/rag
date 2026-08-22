@@ -134,6 +134,60 @@ pnpm security:audit:intranet
 4. 发现质量或协议问题时停止新实例接流量，恢复上一份环境注入和镜像 digest，再创建新 content revision 重处理；不要覆盖历史 Run。
 5. M05 建新 Collection/alias 后才能切换 Embedding 维度或输出模式，禁止把新维度写入旧 Collection。
 
+### 7.1 M05 自动 rollout 实操
+
+先部署使用新 `EMBEDDING_PROFILE_ID` 的 ingestion-worker 与 scheduler-worker。启动兼容性检查通过后，由有空间 ADMIN 权限的用户创建请求：
+
+```http
+POST /api/v1/spaces/{spaceId}/index/rebuilds
+Content-Type: application/json
+
+{
+  "embeddingProfileId": "bge-m3-intranet-r2",
+  "mode": "CANARY",
+  "canaryPercent": 10,
+  "reason": "Embedding r2 预生产灰度"
+}
+```
+
+Scheduler 自动执行以下状态：
+
+```text
+QUEUED
+  → BUILDING：创建新 contentRevision 标准入库 Job
+  → EVALUATING：M05 对账完成但稳定 Head 不变
+  → READY：离线 Recall 达标，仅登记 CANARY 指针
+  → PUBLISHED：管理员提升后原子切换稳定 Head
+```
+
+查询状态：
+
+```http
+GET /api/v1/spaces/{spaceId}/index/rebuilds/{requestId}
+```
+
+确认灰度指标后提升：
+
+```http
+POST /api/v1/spaces/{spaceId}/index/rebuilds/{requestId}/promote
+Content-Type: application/json
+
+{ "reason": "10% 灰度 24 小时指标正常" }
+```
+
+取消 READY 灰度或回退已提升版本使用同一个请求：
+
+```http
+POST /api/v1/spaces/{spaceId}/index/rebuilds/{requestId}/rollback
+Content-Type: application/json
+
+{ "reason": "业务 Recall 回归，恢复 rollout 前稳定版本" }
+```
+
+回退不会接受客户端提交 Collection 或 Manifest ID；数据库使用请求冻结的 `previous_manifest_id`。若 rollout 期间稳定 Head 已被其他发布改变，提升/回退返回 409，必须先调查而不是强行覆盖。
+
+当前离线评测是每个文档代表 Child 的 query→candidate 自检。迁入内网必须再用批准脱敏业务问题集做正式 Recall 基线；M07 接入后才会把在线 userId 稳定分桶应用到真实查询。
+
 ## 8. 常见故障与面试追问
 
 - 为什么不让 `.example` 自动生效？示例含占位符，自动读取会让测试配置被误当生产事实；Compose 若要演练会显式注入。

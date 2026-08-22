@@ -151,7 +151,7 @@ describe('[BASE-010] startup configuration', () => {
     expect(config.vectorStore.adapter).toBe('milvus');
   });
 
-  it('[CFG-003] 内网生产拒绝 Fixture、公网 Endpoint、占位 revision 与错误维度', () => {
+  it('[CFG-003] 内网生产拒绝 Fixture、公网 Endpoint 与占位 revision，但允许配置实际模型维度', () => {
     expect(() =>
       loadAppConfig({
         ...validIntranetProductionEnvironment(),
@@ -221,10 +221,13 @@ function validIntranetProductionEnvironment(): NodeJS.ProcessEnv {
     EMBEDDING_ADAPTER: 'http',
     EMBEDDING_BASE_URL: 'http://bge-m3.internal:8080',
     EMBEDDING_MODEL_ID: 'BAAI/bge-m3',
+    EMBEDDING_PROVIDER_NAME: 'internal-bge-service',
     EMBEDDING_PROFILE_ID: 'bge-m3-intranet-production-v1',
     EMBEDDING_REVISION: '2026.08.1',
     EMBEDDING_DENSE_DIMENSION: '1024',
     EMBEDDING_OUTPUT_MODE: 'dense,sparse',
+    EMBEDDING_TOKENIZER_REVISION: 'bge-m3-tokenizer-2026.08.1',
+    EMBEDDING_SPARSE_FORMAT_VERSION: 'bge-m3-sparse-v1',
     RERANKER_ADAPTER: 'http',
     RERANKER_BASE_URL: 'http://bge-reranker.internal:8080',
     RERANKER_MODEL_ID: 'BAAI/bge-reranker-v2-m3',

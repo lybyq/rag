@@ -265,28 +265,32 @@ POST /v1/jobs/{jobId}/cancel
 
 ### 需求清单
 
-- [ ] `IDX-001` 定义 EmbeddingPort，区分 query 与 document 端点，支持批量、超时和取消。
-- [ ] `IDX-002` 定义 EmbeddingProfile：模型、revision、tokenizer、维度、归一化、Sparse 格式和模板版本。
-- [ ] `IDX-003` 服务启动读取 `/health` 与 `/metadata`，维度、revision 或协议不匹配时健康检查失败。
-- [ ] `IDX-004` 实现 Token 感知的动态批处理、有限并发、部分失败重试和背压。
-- [ ] `IDX-005` 相同内容 Hash 与 Profile 的 Embedding 事实幂等复用，同时保持文档来源独立。
-- [ ] `IDX-006` 一个不兼容 Embedding Profile 使用独立 Milvus Collection，业务代码只访问 Registry/Alias。
-- [ ] `IDX-007` Milvus 保存检索元数据、短摘要、Dense/Sparse 向量，不保存完整正文。
-- [ ] `IDX-008` 完成 Manifest ADR，区分 documentVersion、contentRevision、embeddingRevision、spaceManifestVersion 和 profile。
-- [ ] `IDX-009` 发布构建中的向量不可被普通检索命中。
-- [ ] `IDX-010` 对账至少检查数量、主键缺失、内容 Hash、Profile 元数据和固定关键查询。
-- [ ] `IDX-011` 对账通过后在 PG 事务中原子切换空间 Manifest/文档发布成员。
-- [ ] `IDX-012` 发布、废止、撤权和回滚事件通过 Outbox 可靠触发缓存失效。
-- [ ] `IDX-013` 切换失败保留当前有效版本；新修订可安全重试或清理。
-- [ ] `IDX-014` 旧向量异步清理失败仅告警，不影响当前可见性。
-- [ ] `IDX-015` 实现 PG、MinIO、Milvus 定时对账和修复/人工处理策略。
-- [ ] `IDX-016` 新 Profile 全量重建、离线评测、灰度切换和回退都有自动化流程。
+- [x] `IDX-001` 定义 EmbeddingPort，区分 query 与 document 端点，支持批量、超时和取消。
+- [x] `IDX-002` 定义 EmbeddingProfile：模型、revision、tokenizer、维度、归一化、Sparse 格式和模板版本。
+- [x] `IDX-003` 服务启动读取 `/health` 与 `/metadata`，维度、revision 或协议不匹配时健康检查失败。
+- [x] `IDX-004` 实现 Token 感知的动态批处理、有限并发、部分失败重试和背压。
+- [x] `IDX-005` 相同内容 Hash 与 Profile 的 Embedding 事实幂等复用，同时保持文档来源独立。
+- [x] `IDX-006` 一个不兼容 Embedding Profile 使用独立 Milvus Collection，业务代码只访问 Registry/Alias。
+- [x] `IDX-007` Milvus 保存检索元数据、短摘要、Dense/Sparse 向量，不保存完整正文。
+- [x] `IDX-008` 完成 Manifest ADR，区分 documentVersion、contentRevision、embeddingRevision、spaceManifestVersion 和 profile。
+- [x] `IDX-009` 发布构建中的向量不可被普通检索命中。
+- [x] `IDX-010` 对账至少检查数量、主键缺失、内容 Hash、Profile 元数据和固定关键查询。
+- [x] `IDX-011` 对账通过后在 PG 事务中原子切换空间 Manifest/文档发布成员。
+- [x] `IDX-012` 发布、废止、撤权和回滚事件通过 Outbox 可靠触发缓存失效。
+- [x] `IDX-013` 切换失败保留当前有效版本；新修订可安全重试或清理。
+- [x] `IDX-014` 旧向量异步清理失败仅告警，不影响当前可见性。
+- [x] `IDX-015` 实现 PG、MinIO、Milvus 定时对账和修复/人工处理策略。
+- [x] `IDX-016` 新 Profile 全量重建、离线评测、灰度切换和回退都有自动化流程。
 
 ### 验收门禁
 
 - Milvus 中断、批次部分失败、重复 Job 和发布事务失败不影响当前线上版本。
 - 单独发布一个文档后，同一空间的其他有效文档仍然可检索。
 - Profile 维度不匹配时不允许写入或查询错误 Collection。
+
+### 2026-08-22 实施证据
+
+需求到源码、自动化测试、真实 PostgreSQL 场景、可观测性和内网补跑项的完整映射，见 [M05 实施与验收证据](./M05_IMPLEMENTATION_EVIDENCE.md)。企业 Milvus、Embedding 服务和脱敏业务集的环境验收仍需在内网执行，未使用外网 Fixture 冒充该项证据。
 
 ---
 

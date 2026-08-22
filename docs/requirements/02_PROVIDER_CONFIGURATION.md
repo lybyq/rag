@@ -261,6 +261,40 @@ MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI 
 
 当前 `cl100k` 是无需云调用的真实 BPE 外网基线，不是内网 Embedding tokenizer 的替代承诺。切换模型或 tokenizer 必须创建新 Profile/revision、重跑 Chunk Golden 和检索评测；禁止原地改变历史 Profile 的含义。
 
+### 6.4 M05 Embedding、Milvus 与 Profile Rollout 配置说明
+
+| 环境变量                              | 默认值                 | 合法范围/能力约束                                                            | 敏感 | 热更新 | 回退方式                             |
+| ------------------------------------- | ---------------------- | ---------------------------------------------------------------------------- | ---- | ------ | ------------------------------------ |
+| `EMBEDDING_ADAPTER`                   | `fixture`              | `fixture/http/openai-compatible`；内网 staging/production 必须为远程真实服务 | 否   | 否     | 滚动切回上一 Adapter/Profile         |
+| `EMBEDDING_BASE_URL`                  | 本地占位               | HTTP Adapter 的服务根 URL；内网使用 TLS/mTLS 或受控网段                      | 否   | 否     | 恢复上一 Endpoint                    |
+| `EMBEDDING_API_KEY`                   | 空                     | 仅通过 Secret 注入，不写 Git/日志                                            | 是   | 否     | Secret 版本回滚后滚动实例            |
+| `EMBEDDING_PROFILE_ID`                | `fixture-embedding-v1` | 历史含义不可变；兼容字段变化必须新 ID                                        | 否   | 否     | 发起旧 Profile rollout 或请求级回退  |
+| `EMBEDDING_MODEL_ID/REVISION`         | Fixture 值             | 必须与 `/metadata` 完全一致                                                  | 否   | 否     | 恢复模型部署和 Profile               |
+| `EMBEDDING_PROTOCOL_VERSION`          | `1`                    | 当前项目 HTTP 协议版本                                                       | 否   | 否     | Adapter 与服务同步回滚               |
+| `EMBEDDING_TOKENIZER_REVISION`        | Fixture 值             | 必须匹配生成 Chunk tokenCount 的模型 tokenizer                               | 否   | 否     | 新 contentRevision 重处理            |
+| `EMBEDDING_DENSE_DIMENSION`           | `1024`                 | `1..65536`；现有 Registry 不一致直接拒绝                                     | 否   | 否     | 使用旧 Profile/Collection            |
+| `EMBEDDING_NORMALIZE_DENSE`           | `true`                 | 响应范数误差超过 0.02 拒绝                                                   | 否   | 否     | 恢复旧模型输出策略                   |
+| `EMBEDDING_OUTPUT_MODES`              | `dense`                | `dense` 或 `dense,sparse`；Sparse 变化创建新 Collection                      | 否   | 否     | 回退旧 Profile                       |
+| `EMBEDDING_SPARSE_FORMAT_VERSION`     | 空                     | 启用 sparse 时必填且与 metadata 一致                                         | 否   | 否     | 回退旧 Profile                       |
+| `EMBEDDING_DOCUMENT_TEMPLATE_VERSION` | `document-v1`          | 文档输入模板的不可变版本                                                     | 否   | 否     | 新 Profile 全量重建                  |
+| `EMBEDDING_QUERY_TEMPLATE_VERSION`    | `query-v1`             | 查询输入模板的不可变版本                                                     | 否   | 否     | 新 Profile 全量重建                  |
+| `EMBEDDING_MAX_BATCH_TOKENS`          | `8192`                 | 不小于单条最大输入；按内网显存压测                                           | 否   | 否     | 恢复安全批次预算                     |
+| `EMBEDDING_MAX_CONCURRENCY`           | `2`                    | `1..64`；避免压垮共享内网模型                                                | 否   | 否     | 降回已验证并发                       |
+| `EMBEDDING_MAX_ATTEMPTS`              | `3`                    | `1..10`；只重试 429/5xx/timeout 明确失败项                                   | 否   | 否     | 恢复旧次数                           |
+| `EMBEDDING_MAX_QUEUED_ITEMS`          | `2048`                 | 显式背压上限                                                                 | 否   | 否     | 降低入口并发或扩容 Worker            |
+| `VECTOR_STORE_ADAPTER`                | `memory`/`milvus`      | 外网 Fixture 可用 memory；内网必须 milvus                                    | 否   | 否     | 切回旧应用配置                       |
+| `MILVUS_ADDRESS/DATABASE`             | 本地默认               | 内网集群地址与批准 database                                                  | 否   | 否     | 恢复旧 Endpoint                      |
+| `MILVUS_TOKEN/PASSWORD`               | 空                     | Secret 注入                                                                  | 是   | 否     | 凭据版本回滚                         |
+| `MILVUS_COLLECTION_PREFIX`            | `rag_chunks`           | 服务端生成 Collection 名，客户端不可传                                       | 否   | 否     | Registry 保留旧映射                  |
+| `INDEXING_MANIFEST_RETENTION_DAYS`    | `30`                   | `1..3650`；必须覆盖回退观察期                                                | 否   | 否     | 延长保留期不会影响当前 Head          |
+| `INDEXING_RECONCILE_INTERVAL_SECONDS` | `3600`                 | `60..604800`                                                                 | 否   | 否     | 恢复旧频率                           |
+| `INDEXING_ROLLOUT_MAX_CASES`          | `50`                   | `1..1000` 个文档代表查询                                                     | 否   | 否     | 恢复旧样本预算                       |
+| `INDEXING_ROLLOUT_EVALUATION_TOP_K`   | `5`                    | `1..100`                                                                     | 否   | 否     | 恢复已审批 K                         |
+| `INDEXING_ROLLOUT_MINIMUM_RECALL`     | `0.9`                  | `0..1`；内网以业务评测确定                                                   | 否   | 否     | 回退阈值需审批，不可为通过而临时降低 |
+| `INDEXING_ROLLOUT_LEASE_SECONDS`      | `600`                  | `30..3600`                                                                   | 否   | 否     | 等旧 lease 过期后重领                |
+
+`fixture + memory` 只用于流程与事务测试。真实 Recall、Milvus 性能和内网网络故障必须在 `intranet-staging` 复验。
+
 ## 7. Profile Registry
 
 Profile 必须是不可变、可引用的配置事实。修改模型或关键参数时创建新 Profile ID，不原地改变历史含义。

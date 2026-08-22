@@ -1,5 +1,5 @@
 /**
- * M03/M04 BullMQ Consumer。
+ * M03/M04/M05 BullMQ Consumer。
  * 事件类型只负责阶段路由；Inbox、Job lease 和版本化 Run 共同保证崩溃恢复与幂等。
  *
  * @requirement DOC-009
@@ -14,9 +14,12 @@ import {
 } from '@nestjs/common';
 import {
   DOCUMENT_INGESTION_REPOSITORY,
+  AUTHORIZATION_CACHE,
   DocumentProcessingService,
+  IndexingService,
   KnowledgeProcessingService,
   type DocumentIngestionRepository,
+  type AuthorizationCachePort,
 } from '@rag/application';
 import { APP_CONFIG, type AppConfig } from '@rag/config';
 import { OutboxEventSchema } from '@rag/contracts';
@@ -39,6 +42,8 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
     private readonly processing: DocumentProcessingService,
     @Inject(KnowledgeProcessingService)
     private readonly knowledgeProcessing: KnowledgeProcessingService,
+    @Inject(IndexingService) private readonly indexing: IndexingService,
+    @Inject(AUTHORIZATION_CACHE) private readonly authorizationCache: AuthorizationCachePort,
     @Inject(MetricsService) private readonly metrics: MetricsService,
   ) {}
 
@@ -48,6 +53,19 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
       async (job) => {
         const event = OutboxEventSchema.parse(job.data);
         const stage = classifyStage(event.eventType);
+        if (stage === 'PROJECTION') {
+          // 发布、回滚、废止、撤权都先失效跨实例 Redis 权限缓存，再写消费收据。
+          // 若 Redis 失败则不落收据，BullMQ 会重试，避免“事件已消费但旧权限仍可见”。
+          if (event.eventType === 'cache.invalidate.space') {
+            await this.authorizationCache.invalidateAll();
+          }
+          await this.repository.recordConsumerReceipt('index-projection-worker', event.id);
+          this.metrics.m05OperationsTotal.inc({
+            operation: 'projection_event',
+            result: 'received',
+          });
+          return;
+        }
         const receiptInserted = await this.repository.consumeQueuedIngestion(
           `ingestion-worker:${stage.toLowerCase()}`,
           event.id,
@@ -73,15 +91,25 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
             const outcome = await this.processing.process(event.aggregateId, workerId);
             this.metrics.m03ProcessingTotal.inc({ result: outcome.toLowerCase() });
             timer({ result: outcome.toLowerCase() });
-          } else {
+          } else if (stage === 'M04') {
             const timer = this.metrics.m04DurationSeconds.startTimer();
             const outcome = await this.knowledgeProcessing.process(event.aggregateId, workerId);
             this.metrics.m04ProcessingTotal.inc({ result: outcome.toLowerCase() });
             timer({ result: outcome.toLowerCase() });
+          } else {
+            const timer = this.metrics.m05DurationSeconds.startTimer();
+            const outcome = await this.indexing.process(event.aggregateId, workerId);
+            this.metrics.m05OperationsTotal.inc({
+              operation: 'indexing_run',
+              result: outcome.toLowerCase(),
+            });
+            timer({ result: outcome.toLowerCase() });
           }
         } catch (error) {
           if (stage === 'M03') this.metrics.m03ProcessingTotal.inc({ result: 'retryable_failure' });
-          else this.metrics.m04ProcessingTotal.inc({ result: 'failure' });
+          else if (stage === 'M04') this.metrics.m04ProcessingTotal.inc({ result: 'failure' });
+          else
+            this.metrics.m05OperationsTotal.inc({ operation: 'indexing_run', result: 'failure' });
           throw error;
         } finally {
           stopHeartbeat();
@@ -131,8 +159,12 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
 }
 
 /** 未知阶段必须失败并进入队列失败记录，不能误用 M03/M04 处理器消费。 */
-function classifyStage(eventType: string): 'M03' | 'M04' {
+function classifyStage(eventType: string): 'M03' | 'M04' | 'M05' | 'PROJECTION' {
   if (eventType === 'ingestion.requested') return 'M03';
   if (eventType === 'ingestion.knowledge_processing.requested') return 'M04';
+  if (eventType === 'ingestion.indexing.requested') return 'M05';
+  if (eventType.startsWith('index.') || eventType === 'cache.invalidate.space') {
+    return 'PROJECTION';
+  }
   throw new Error(`不支持的入库事件类型：${eventType}`);
 }
