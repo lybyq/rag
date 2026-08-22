@@ -15,6 +15,7 @@ import type {
   ListKnowledgeChunksQuery,
   QualityFinding,
   QualityReviewAction,
+  ProviderProfile,
   SupportedFileFormat,
 } from '@rag/contracts';
 import type {
@@ -43,6 +44,8 @@ export interface BeginKnowledgeProcessingCommand {
   readonly input: KnowledgeProcessingInput;
   /** 当前 lease owner；Repository 必须用它执行 fencing，不能只检查“存在某个租约”。 */
   readonly workerId: string;
+  /** 当前部署画像；用于证明该 Run 属于外网演练还是内网环境。 */
+  readonly providerProfile: ProviderProfile;
   readonly chunkerProfileId: string;
   readonly chunkerRevision: string;
   readonly tokenizerProfileId: string;

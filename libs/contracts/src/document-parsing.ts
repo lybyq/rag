@@ -14,6 +14,7 @@
 import { z } from 'zod';
 import { createApiEnvelopeSchema } from './api-envelope';
 import { Sha256Schema } from './document-ingestion';
+import { ProviderProfileSchema } from './provider-profile';
 
 /** M03 明确支持的输入格式；ZIP 容器必须进一步判定为某种 Office 格式。 */
 export const SupportedFileFormatSchema = z.enum([
@@ -182,6 +183,44 @@ export const ParsedPageSchema = z.object({
 });
 export type ParsedPage = z.infer<typeof ParsedPageSchema>;
 
+/** OCR 目标类型从“页”扩展到 Office 内嵌图片和局部区域。 */
+export const OcrTargetKindSchema = z.enum(['PAGE', 'REGION', 'EMBEDDED_IMAGE', 'WHOLE_IMAGE']);
+export type OcrTargetKind = z.infer<typeof OcrTargetKindSchema>;
+
+/** OCR 触发原因用于审计策略，不能用自由文本代替。 */
+export const OcrTargetReasonSchema = z.enum([
+  'NO_NATIVE_TEXT',
+  'LOW_TEXT_COVERAGE',
+  'GARBLED_TEXT',
+  'IMAGE_ONLY',
+  'EMBEDDED_SCREENSHOT',
+]);
+export type OcrTargetReason = z.infer<typeof OcrTargetReasonSchema>;
+
+/**
+ * OCR 资产引用只描述原文档中的稳定位置。
+ * HTTP OCR 网关收到 source 后可据此提取 Office 媒体；这里绝不携带永久凭据或正文 Base64。
+ */
+export const OcrAssetReferenceSchema = z.object({
+  storage: z.enum(['SOURCE_DOCUMENT', 'SOURCE_ARCHIVE_ENTRY']),
+  archiveEntryPath: z.string().min(1).max(1024).nullable(),
+  mediaType: z.string().min(1).max(160).nullable(),
+});
+export type OcrAssetReference = z.infer<typeof OcrAssetReferenceSchema>;
+
+/** Parser 只提出可定位 OCR 候选，最终是否调用由应用层 OcrPolicy 决定。 */
+export const OcrTargetSchema = z.object({
+  targetId: z.string().min(1).max(200),
+  kind: OcrTargetKindSchema,
+  pageNo: z.number().int().positive().nullable(),
+  slideNo: z.number().int().positive().nullable(),
+  sheetName: z.string().min(1).max(200).nullable(),
+  bbox: NormalizedBoundingBoxSchema.nullable(),
+  assetRef: OcrAssetReferenceSchema.nullable(),
+  reason: OcrTargetReasonSchema,
+});
+export type OcrTarget = z.infer<typeof OcrTargetSchema>;
+
 /** Parser Port 的内部标准结果，任何供应商响应都必须先映射并校验成此结构。 */
 export const ParserResultSchema = z.object({
   parserName: z.string().min(1).max(100),
@@ -189,25 +228,28 @@ export const ParserResultSchema = z.object({
   protocolVersion: z.string().min(1).max(40),
   blocks: z.array(ParsedBlockCandidateSchema),
   pages: z.array(ParsedPageSchema),
+  ocrCandidates: z.array(OcrTargetSchema),
   inspection: FileStructureInspectionSchema,
   durationMs: z.number().int().nonnegative(),
   warnings: z.array(z.string().max(500)),
 });
 export type ParserResult = z.infer<typeof ParserResultSchema>;
 
-/** OCR 只返回调用方指定页面的 Block，并携带页级平均置信度和引擎版本。 */
-export const OcrPageResultSchema = z.object({
-  pageNo: z.number().int().positive(),
+/** OCR 只返回调用方指定目标的 Block，并携带目标级平均置信度。 */
+export const OcrTargetResultSchema = z.object({
+  targetId: z.string().min(1).max(200),
+  pageNo: z.number().int().positive().nullable(),
   blocks: z.array(ParsedBlockCandidateSchema),
   averageConfidence: z.number().min(0).max(1),
 });
+export type OcrTargetResult = z.infer<typeof OcrTargetResultSchema>;
 
 /** OCR Port 的稳定返回契约。 */
 export const OcrResultSchema = z.object({
   engine: z.string().min(1).max(100),
   engineRevision: z.string().min(1).max(100),
   protocolVersion: z.string().min(1).max(40),
-  pages: z.array(OcrPageResultSchema),
+  results: z.array(OcrTargetResultSchema),
   durationMs: z.number().int().nonnegative(),
   warnings: z.array(z.string().max(500)),
 });
@@ -217,6 +259,8 @@ export type OcrResult = z.infer<typeof OcrResultSchema>;
 export const DocumentParseRunSchema = z.object({
   id: z.uuid(),
   jobId: z.string().min(1).max(300),
+  /** 任务开始时锁定的部署画像；历史任务不会因进程后来切换环境而被重新解释。 */
+  providerProfile: ProviderProfileSchema,
   documentVersionId: z.uuid(),
   contentRevision: z.number().int().positive(),
   status: ParseRunStatusSchema,

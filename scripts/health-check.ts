@@ -1,11 +1,11 @@
 /** 对本地四类基础设施执行真实协议检查，而不只判断端口是否打开。 */
-import { loadAppConfig } from '@rag/config';
+import { loadAppConfig, loadProfileEnvironment } from '@rag/config';
 import { MilvusHealthProbe } from '@rag/persistence-milvus';
 import { MinioHealthProbe } from '@rag/persistence-minio';
 import { PostgresHealthProbe } from '@rag/persistence-pg';
 import { RedisBullmqHealthProbe, RedisCacheHealthProbe } from '@rag/persistence-redis';
 
-const config = loadAppConfig(process.env);
+const config = loadAppConfig(loadProfileEnvironment(process.env));
 const probes = [
   new PostgresHealthProbe(config),
   new RedisCacheHealthProbe(config),

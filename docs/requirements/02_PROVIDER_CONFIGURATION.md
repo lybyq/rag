@@ -96,14 +96,14 @@ AUTH_ROLE_MAPPING_FILE=config/role-mapping.yaml
 
 ### 5.1 基础设施
 
-| 能力                | 外网方案                         | 备注                                          |
-| ------------------- | -------------------------------- | --------------------------------------------- |
-| PostgreSQL          | Docker 官方镜像                  | 业务事实源                                    |
-| Redis Cache/Streams | Docker Redis                     | 与 BullMQ 使用不同逻辑实例或端口              |
-| Redis BullMQ        | Docker Redis                     | 避免离线积压拖慢在线服务                      |
-| MinIO               | Docker MinIO                     | 预签名上传和对象生命周期                      |
-| Milvus              | Milvus Standalone Docker Compose | 免费开源，用于真实 Dense/Sparse 集成          |
-| 恶意软件扫描        | ClamAV 类本地 Adapter            | 开发可使用 EICAR 测试文件验证，CI 可使用 Fake |
+| 能力                | 外网方案                         | 备注                                         |
+| ------------------- | -------------------------------- | -------------------------------------------- |
+| PostgreSQL          | Docker 官方镜像                  | 业务事实源                                   |
+| Redis Cache/Streams | Docker Redis                     | 与 BullMQ 使用不同逻辑实例或端口             |
+| Redis BullMQ        | Docker Redis                     | 避免离线积压拖慢在线服务                     |
+| MinIO               | Docker MinIO                     | 预签名上传和对象生命周期                     |
+| Milvus              | Milvus Standalone Docker Compose | 免费开源，用于真实 Dense/Sparse 集成         |
+| 内容安全预检        | 项目内置流式规则 Adapter         | EICAR/可执行魔数/大小上限；CI 可使用 Fixture |
 
 ### 5.2 AI 能力
 
@@ -113,7 +113,7 @@ AUTH_ROLE_MAPPING_FILE=config/role-mapping.yaml
 | Embedding | 本地 BGE-M3 HTTP Runtime             | 单元/CI 用确定性 Fake；不得用 Fake 评估 Recall |
 | Reranker  | 本地 bge-reranker-v2-m3 HTTP Runtime | 单元/CI 用固定分数 Fake                        |
 | OCR       | 本地 PaddleOCR 类 HTTP Runtime       | Fixture OCR Adapter                            |
-| Parser    | 本地隔离 Parser Runtime              | Fixture Parser Adapter                         |
+| Parser    | 项目自带 Node 多格式 Parser Runtime  | Fixture Parser Adapter                         |
 
 “免费”指开源软件和本地推理，不假定第三方云服务持续提供免费额度。真实模型版本和镜像摘要以 lockfile、Profile Registry 与兼容性矩阵为准。
 
@@ -207,34 +207,37 @@ MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI 
 
 ### 6.2 M03 文件处理配置说明
 
-| 环境变量                      | 默认值                                     | 合法范围/能力约束                                               | 敏感       | 热更新 | 回退方式                                   |
-| ----------------------------- | ------------------------------------------ | --------------------------------------------------------------- | ---------- | ------ | ------------------------------------------ |
-| `MINIO_DERIVED_BUCKET`        | `rag-derived`                              | 与隔离上传 Bucket 不同；生产启用版本/生命周期                   | 否         | 否     | 恢复原 Bucket，并保留历史对象读权限        |
-| `FILE_STREAM_TIMEOUT_MS`      | `600000`                                   | `10000..3600000` 毫秒；覆盖完整对象流，不是单次 HEAD            | 否         | 否     | 按对象大小和带宽恢复旧 Deadline            |
-| `SCANNER_ADAPTER`             | `clamd`                                    | `clamd/fixture`；生产禁止 fixture                               | 否         | 否     | 切回上一 Scanner Profile 后滚动 Worker     |
-| `SCANNER_REVISION`            | `ClamAV 1.4.3`                             | 匹配 clamd `VERSION` 前缀；Run 保存实际签名库 revision          | 否         | 否     | 镜像与 Profile 同步回滚                    |
-| `CLAMD_HOST/PORT`             | `localhost/3310`                           | TCP 只能开放给 Worker 网段，clamd 本身无认证                    | 否         | 否     | 恢复旧服务地址；失败任务按 lease 重试      |
-| `SCANNER_REQUEST_TIMEOUT_MS`  | `60000`                                    | `1000..300000` 毫秒                                             | 否         | 否     | 恢复旧超时，检查扫描吞吐后重排队           |
-| `PARSER_ADAPTER`              | `docling`                                  | `docling/http/fixture`；生产必须用具备完整结构安全检查的 `http` | 否         | 否     | 切回上一不可变 Profile；旧 Run 保留修订    |
-| `PARSER_BASE_URL`             | `http://localhost:8104`                    | 合法 URL；生产使用 TLS/mTLS 或受控内网                          | 否         | 否     | 恢复旧 Endpoint，验证协议版本后重试        |
-| `PARSER_API_KEY`              | 空                                         | 仅 `http` Adapter 按需使用                                      | 是         | 否     | Secret Manager 回滚上一版本                |
-| `PARSER_PROFILE_ID/REVISION`  | `docling-standard-dev-v1/docling-serve-v1` | 非空且历史含义不可原地修改                                      | 否         | 否     | 切回旧 Profile ID，不覆盖历史 Run          |
-| `PARSER_PROTOCOL_VERSION`     | `1`                                        | 必须与响应完全一致                                              | 否         | 否     | Adapter 与 Provider 同步回滚               |
-| `PARSER_REQUEST_TIMEOUT_MS`   | `180000`                                   | `1000..600000` 毫秒                                             | 否         | 否     | 恢复旧超时；超时会终止调用并有限重试       |
-| `PARSER_MAX_RESPONSE_BYTES`   | `104857600`                                | `1 MiB..512 MiB`                                                | 否         | 否     | 恢复旧上限；超限进入开发缺陷排查           |
-| `PARSER_TEMP_ROOT`            | `.data/parser-runtime`                     | 必须位于有容量的数据盘；不放系统盘                              | 否         | 否     | 切回旧目录并清理孤儿临时文件               |
-| `OCR_ADAPTER`                 | `docling`                                  | `docling/http/fixture`；生产禁止 fixture                        | 否         | 否     | 切回上一 OCR Profile                       |
-| `OCR_BASE_URL/API_KEY`        | `localhost:8103/空`                        | 与 Parser 相同的网络/Secret 原则                                | API Key 是 | 否     | 回滚 Endpoint/Secret                       |
-| `OCR_TEXT_COVERAGE_THRESHOLD` | `0.02`                                     | `0..1`；按页判断                                                | 否         | 否     | 恢复旧阈值并新建 contentRevision 重处理    |
-| `OCR_MIN_CONFIDENCE`          | `0.75`                                     | `0..1`；低于阈值只告警，不伪造文字                              | 否         | 否     | 恢复旧阈值并重处理                         |
-| `FILE_MAX_ARCHIVE_DEPTH`      | `3`                                        | `1..20`                                                         | 否         | 否     | 恢复旧安全策略；不能为单文件绕过           |
-| `FILE_MAX_COMPRESSION_RATIO`  | `100`                                      | `1..10000`                                                      | 否         | 否     | 恢复旧安全策略                             |
-| `FILE_MAX_PAGES`              | `2000`                                     | `1..20000`                                                      | 否         | 否     | 恢复旧上限或走受控离线流程                 |
-| `FILE_MAX_TOTAL_PIXELS`       | `500000000`                                | `1..100000000000`                                               | 否         | 否     | 恢复旧上限                                 |
-| `FILE_MAX_TABLE_CELLS`        | `5000000`                                  | `1..100000000`                                                  | 否         | 否     | 恢复旧上限                                 |
-| `PROCESSING_MAX_ATTEMPTS`     | `3`                                        | `1..10`                                                         | 否         | 否     | 恢复旧次数；达到上限后人工处理，不无限重试 |
+| 环境变量                      | 默认值                       | 合法范围/能力约束                                              | 敏感       | 热更新 | 回退方式                                   |
+| ----------------------------- | ---------------------------- | -------------------------------------------------------------- | ---------- | ------ | ------------------------------------------ |
+| `MINIO_DERIVED_BUCKET`        | `rag-derived`                | 与隔离上传 Bucket 不同；生产启用版本/生命周期                  | 否         | 否     | 恢复原 Bucket，并保留历史对象读权限        |
+| `FILE_STREAM_TIMEOUT_MS`      | `600000`                     | `10000..3600000` 毫秒；覆盖完整对象流，不是单次 HEAD           | 否         | 否     | 按对象大小和带宽恢复旧 Deadline            |
+| `SCANNER_ADAPTER`             | `builtin`                    | `builtin/fixture`；生产禁止 fixture                            | 否         | 否     | 切回上一 Scanner Profile 后滚动 Worker     |
+| `SCANNER_REVISION`            | `1.0.0`                      | 修改任一内置签名/魔数规则必须升级 revision                     | 否         | 否     | 切回上一规则 revision                      |
+| `SCANNER_REQUEST_TIMEOUT_MS`  | `60000`                      | `1000..300000` 毫秒                                            | 否         | 否     | 恢复旧超时，检查扫描吞吐后重排队           |
+| `PARSER_ADAPTER`              | `http`                       | `docling/http/fixture`；默认 HTTP 指向项目 Node Parser Service | 否         | 否     | 切回上一不可变 Profile；旧 Run 保留修订    |
+| `PARSER_BASE_URL`             | `http://localhost:8104`      | 合法 URL；生产使用 TLS/mTLS 或受控内网                         | 否         | 否     | 恢复旧 Endpoint，验证协议版本后重试        |
+| `PARSER_API_KEY`              | 空                           | 仅 `http` Adapter 按需使用                                     | 是         | 否     | Secret Manager 回滚上一版本                |
+| `PARSER_PROFILE_ID/REVISION`  | `node-multi-parser-v1/1.0.0` | 非空且历史含义不可原地修改                                     | 否         | 否     | 切回旧 Profile ID，不覆盖历史 Run          |
+| `PARSER_PROTOCOL_VERSION`     | `2`                          | 必须与响应完全一致；v2 包含 `ocrCandidates`                    | 否         | 否     | Adapter 与 Provider 同步回滚               |
+| `PARSER_REQUEST_TIMEOUT_MS`   | `180000`                     | `1000..600000` 毫秒                                            | 否         | 否     | 恢复旧超时；超时会终止调用并有限重试       |
+| `PARSER_MAX_RESPONSE_BYTES`   | `104857600`                  | `1 MiB..512 MiB`                                               | 否         | 否     | 恢复旧上限；超限进入开发缺陷排查           |
+| `PARSER_TEMP_ROOT`            | `.data/parser-runtime`       | 必须位于有容量的数据盘；不放系统盘                             | 否         | 否     | 切回旧目录并清理孤儿临时文件               |
+| `PARSER_ALLOWED_SOURCE_HOSTS` | `localhost,127.0.0.1,minio`  | 精确主机白名单；禁止重定向和 URL 用户信息                      | 否         | 否     | 恢复上一白名单并重启 Parser                |
+| `PARSER_MAX_INPUT_BYTES`      | `268435456`                  | `5 MiB..2 GiB`；超过时显式拒绝，不进入 Node 堆                 | 否         | 否     | 容量验证后调整并新建 Profile               |
+| `PARSER_MAX_ARCHIVE_ENTRIES`  | `20000`                      | `10..1000000`；防止 ZIP 条目风暴                               | 否         | 否     | 恢复已验证上限                             |
+| `PARSER_MAX_XML_ENTRY_BYTES`  | `33554432`                   | `1 MiB..512 MiB`；限制单个 OOXML 解析部件                      | 否         | 否     | 恢复已验证上限                             |
+| `OCR_ADAPTER`                 | `docling`                    | `docling/http/fixture`；生产禁止 fixture                       | 否         | 否     | 切回上一 OCR Profile                       |
+| `OCR_BASE_URL/API_KEY`        | `localhost:8103/空`          | 与 Parser 相同的网络/Secret 原则                               | API Key 是 | 否     | 回滚 Endpoint/Secret                       |
+| `OCR_TEXT_COVERAGE_THRESHOLD` | `0.02`                       | `0..1`；按页判断                                               | 否         | 否     | 恢复旧阈值并新建 contentRevision 重处理    |
+| `OCR_MIN_CONFIDENCE`          | `0.75`                       | `0..1`；低于阈值只告警，不伪造文字                             | 否         | 否     | 恢复旧阈值并重处理                         |
+| `FILE_MAX_ARCHIVE_DEPTH`      | `3`                          | `1..20`                                                        | 否         | 否     | 恢复旧安全策略；不能为单文件绕过           |
+| `FILE_MAX_COMPRESSION_RATIO`  | `100`                        | `1..10000`                                                     | 否         | 否     | 恢复旧安全策略                             |
+| `FILE_MAX_PAGES`              | `2000`                       | `1..20000`                                                     | 否         | 否     | 恢复旧上限或走受控离线流程                 |
+| `FILE_MAX_TOTAL_PIXELS`       | `500000000`                  | `1..100000000000`                                              | 否         | 否     | 恢复旧上限                                 |
+| `FILE_MAX_TABLE_CELLS`        | `5000000`                    | `1..100000000`                                                 | 否         | 否     | 恢复旧上限                                 |
+| `PROCESSING_MAX_ATTEMPTS`     | `3`                          | `1..10`                                                        | 否         | 否     | 恢复旧次数；达到上限后人工处理，不无限重试 |
 
-外网 `docling` Adapter 用于免费功能联调，但 Docling 原生响应不能证明宏、嵌入对象和外链已经完整检查，因此生产配置会拒绝将它直接作为安全 Parser。内网 `http` Adapter 必须返回完整 `FileStructureInspection`；响应缺字段、协议或修订不一致会 fail closed。
+项目自带 `document-parser-service` 是内外网默认 Parser，使用同一 `http` Adapter 与 v2 契约。外网仍可保留 Docling 作为免费 OCR/兼容路径，但 Docling 原生响应不能证明宏、嵌入对象和外链已完整检查，因此生产配置拒绝将它直接作为安全 Parser。内置 Scanner 只覆盖 EICAR、可执行魔数、大小和取消传播；Office 宏/嵌入对象/外链/压缩炸弹由 Node Parser 结构检查负责，它不等价于商业病毒库。
 
 ### 6.3 M04 知识加工与质量配置说明
 
@@ -308,8 +311,8 @@ export interface EmbeddingProviderMetadata extends ProviderMetadata {
 ## 9. 配置验收清单
 
 - [ ] `CFG-001` 所有 Provider 均可通过 Profile 切换，无业务层条件分支。
-- [ ] `CFG-002` test/CI 不依赖个人 DeepSeek 密钥或公网服务。
-- [ ] `CFG-003` production 检测到 Mock Auth、Fake Provider 或默认密钥时拒绝启动。
+- [x] `CFG-002` test/CI 不依赖个人 DeepSeek 密钥或公网服务。
+- [x] `CFG-003` production 检测到 Mock Auth、Fake Provider 或默认密钥时拒绝启动。
 - [ ] `CFG-004` Profile 与实际 Provider 元数据不兼容时健康检查失败。
 - [ ] `CFG-005` 密钥不进入 Git、日志、Trace、前端 Bundle、镜像层或错误响应。
 - [ ] `CFG-006` 内外网 Provider 使用同一套契约测试。
@@ -317,3 +320,8 @@ export interface EmbeddingProviderMetadata extends ProviderMetadata {
 - [ ] `CFG-008` Provider 切换、灰度和回退均有审计记录。
 - [ ] `CFG-009` Feature Flag 按系统/知识空间配置并进入 Run 快照。
 - [x] `CFG-010` M02 配置文档包含默认值、范围、敏感性、是否热更新和回退方式；后续 Provider 模块按同一表格补齐。
+- [x] `CFG-011` 离线依赖 Manifest 固定 Node/pnpm、目标平台、Native 模块和安装脚本白名单，严格模式拒绝未锁镜像摘要。
+- [x] `CFG-012` Profile 文件使用白名单映射，部署环境/Secret 覆盖文件值，运行时永不读取 `.example`。
+- [x] `CFG-013` 外网联网构建、内网离线构建和内网预构建镜像部署分别有 Docker 入口与静态门禁。
+
+双环境配置、Docker、离线依赖和已知验收缺口的证据见 [Provider 双环境与离线部署实施证据](./DUAL_ENV_IMPLEMENTATION_EVIDENCE.md)，操作步骤见 [Provider 双环境切换与内网离线部署 Runbook](../runbooks/provider-profile-and-airgap-deployment.md)。`CFG-001/004/006/007` 仍需随 M05、M07、M08 补齐所有 Provider 和所有 Run，当前不得整体勾选。

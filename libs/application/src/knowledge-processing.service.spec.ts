@@ -20,6 +20,7 @@ const jobId = 'ingest:22222222-2222-4222-8222-222222222222:revision:1:pipeline:v
 const run: KnowledgeProcessingRun = {
   id: '33333333-3333-4333-8333-333333333333',
   jobId,
+  providerProfile: 'test',
   parseRunId: '11111111-1111-4111-8111-111111111111',
   documentVersionId: '22222222-2222-4222-8222-222222222222',
   contentRevision: 1,
@@ -109,6 +110,7 @@ function repositoryFor(value: KnowledgeProcessingInput): {
 
 function service(repository: KnowledgeProcessingRepository): KnowledgeProcessingService {
   return new KnowledgeProcessingService(repository, new Cl100kTextTokenizer(), {
+    providerProfile: 'test',
     chunkerProfileId: 'structure-aware-medium',
     chunkerRevision: '1',
     qualityRuleVersion: 'quality-medium-v1',
@@ -130,12 +132,15 @@ function service(repository: KnowledgeProcessingRepository): KnowledgeProcessing
   });
 }
 
-describe('[KNO-003][KNO-009][KNO-010] KnowledgeProcessingService', () => {
+describe('[CFG-007][KNO-003][KNO-009][KNO-010] KnowledgeProcessingService', () => {
   it('结构切块后再执行质量门禁，并一次提交 PASS 事实', async () => {
     const fixture = repositoryFor(input());
     const outcome = await service(fixture.repository).process(jobId, 'worker-1');
 
     expect(outcome).toBe('PASS');
+    expect(fixture.repository.beginRun).toHaveBeenCalledWith(
+      expect.objectContaining({ providerProfile: 'test' }),
+    );
     expect(fixture.repository.startStep.mock.calls.map((call) => call[2])).toEqual([
       'CHUNK',
       'QUALITY_GATE',

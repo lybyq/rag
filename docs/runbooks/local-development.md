@@ -31,7 +31,7 @@ $env:PARSER_TEMP_ROOT='D:\coding\rag\.data\parser-runtime'
 
 不要在未确认 Docker `data-root` 所在磁盘前拉取 Docling CPU 镜像；它明显大于普通基础设施镜像。本轮只做了 Compose 静态校验，没有在 C 盘空间为 0 的机器上拉取它。
 
-也可运行 `pnpm dev:all`，它依次启动基础设施、等待并迁移 PostgreSQL、创建开发 Bucket，再并行启动四个后端和 Web。
+也可运行 `pnpm dev:all`，它依次启动基础设施、等待并迁移 PostgreSQL、创建开发 Bucket，再并行启动核心后端、Node Parser Service 和 Web。
 
 ## 3. 入口
 
@@ -44,6 +44,7 @@ $env:PARSER_TEMP_ROOT='D:\coding\rag\.data\parser-runtime'
 | Query API liveness    | `http://localhost:3001/api/v1/health/live` |
 | Ingestion probe       | `http://localhost:3002/api/v1/health/live` |
 | Scheduler probe       | `http://localhost:3003/api/v1/health/live` |
+| Node Parser readiness | `http://localhost:8104/v1/health/ready`    |
 | MinIO Console         | `http://localhost:9001`                    |
 | 文档接入与任务中心    | `http://localhost:5173/tasks`              |
 
@@ -116,13 +117,13 @@ curl.exe http://localhost:3000/api/v1/spaces -H "X-RAG-Mock-User: dev-admin"
 
 ### M03 外网能力演练
 
-1. 默认真实配置为 `SCANNER_ADAPTER=clamd`、`PARSER_ADAPTER=docling`、`OCR_ADAPTER=docling`。
-2. 资源允许时运行 `docker compose --profile m03 --env-file deploy/docker/images.env -f deploy/docker/docker-compose.yml up -d clamav docling`。
+1. 默认真实配置为 `SCANNER_ADAPTER=builtin`、`PARSER_ADAPTER=http`、`PARSER_BASE_URL=http://localhost:8104`、`OCR_ADAPTER=docling`。
+2. 本机运行 `pnpm dev:document-parser-service` 启动 Node Parser；需要免费 OCR 且资源允许时，再运行 `docker compose --profile m03 --env-file deploy/docker/images.external.env -f deploy/docker/docker-compose.yml up -d docling`。
 3. Windows 主机 Worker 与容器 Docling 共用预签名 URL 时，MinIO Endpoint 必须是双方都能解析的地址；只对主机有效的 `localhost` 不能被容器回访。
 4. 仅演练编排可切到三个 `fixture` Adapter；production 会拒绝启动，Fixture 结果不能用来声称解析质量达标。
 5. 上传后在任务抽屉查看安全结论、Provider 修订、OCR 页数、警告和 Block 预览。
 
-Docling 容器启用了只读根文件系统、`cap_drop=ALL`、`no-new-privileges`、PID/CPU/内存上限、临时文件系统和无公网的内部网络。内网生产仍应由 Kubernetes/容器平台补齐 NetworkPolicy、镜像签名、Seccomp/AppArmor 和只允许访问对象存储的 egress 白名单。
+Node Parser 与 Docling OCR 容器均启用了只读根文件系统、`cap_drop=ALL`、`no-new-privileges`、PID/CPU/内存上限、临时文件系统和受限处理网络。内网生产仍应由 Kubernetes/容器平台补齐 NetworkPolicy、镜像签名、Seccomp/AppArmor 和只允许访问对象存储的 egress 白名单。
 
 ### M03 任务失败怎么判断
 

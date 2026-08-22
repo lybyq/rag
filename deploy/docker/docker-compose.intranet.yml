@@ -1,0 +1,85 @@
+name: enterprise-rag-intranet
+
+x-intranet-backend: &intranet-backend
+  restart: unless-stopped
+  env_file:
+    - path: ${RAG_ENV_FILE:-../../.env.intranet-production}
+      required: true
+  networks: [rag-platform]
+  security_opt: [no-new-privileges:true]
+
+services:
+  migrate:
+    <<: *intranet-backend
+    image: ${PLATFORM_API_IMAGE:?PLATFORM_API_IMAGE must be set}
+    restart: 'no'
+    command: ['./node_modules/.bin/tsx', 'scripts/migrate.ts']
+
+  platform-api:
+    <<: *intranet-backend
+    image: ${PLATFORM_API_IMAGE:?PLATFORM_API_IMAGE must be set}
+    environment: { APP_NAME: platform-api, HTTP_PORT: 3000 }
+    ports: ['3000:3000']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  rag-query-service:
+    <<: *intranet-backend
+    image: ${RAG_QUERY_SERVICE_IMAGE:?RAG_QUERY_SERVICE_IMAGE must be set}
+    environment: { APP_NAME: rag-query-service, HTTP_PORT: 3001 }
+    ports: ['3001:3001']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  ingestion-worker:
+    <<: *intranet-backend
+    image: ${INGESTION_WORKER_IMAGE:?INGESTION_WORKER_IMAGE must be set}
+    environment: { APP_NAME: ingestion-worker, PROBE_PORT: 3002 }
+    ports: ['3002:3002']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      document-parser-service: { condition: service_healthy }
+
+  document-parser-service:
+    <<: *intranet-backend
+    image: ${DOCUMENT_PARSER_SERVICE_IMAGE:?DOCUMENT_PARSER_SERVICE_IMAGE must be set}
+    environment: { APP_NAME: document-parser-service, HTTP_PORT: 8104 }
+    ports: ['8104:8104']
+    read_only: true
+    cap_drop: [ALL]
+    pids_limit: 256
+    mem_limit: 2g
+    cpus: 2
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+      - /app/.data:size=512m,mode=0700
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8104/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  scheduler-worker:
+    <<: *intranet-backend
+    image: ${SCHEDULER_WORKER_IMAGE:?SCHEDULER_WORKER_IMAGE must be set}
+    environment: { APP_NAME: scheduler-worker, PROBE_PORT: 3003 }
+    ports: ['3003:3003']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  web-console:
+    image: ${WEB_CONSOLE_IMAGE:?WEB_CONSOLE_IMAGE must be set}
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    ports: ['8080:8080']
+    networks: [rag-platform]
+
+networks:
+  rag-platform:
+    driver: bridge

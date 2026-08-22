@@ -12,6 +12,7 @@ import type { OcrPort, ParserPort, ProviderDocumentSource } from '@rag/applicati
 import type {
   FileStructureInspection,
   OcrResult,
+  OcrTarget,
   ParsedBlockCandidate,
   ParserResult,
   ProcessingProviderProfile,
@@ -62,6 +63,7 @@ export class DoclingParserAdapter implements ParserPort {
       parserRevision: this.config.revision,
       protocolVersion: this.config.protocolVersion,
       ...mapDoclingDocument(document),
+      ocrCandidates: [],
       durationMs: Date.now() - startedAt,
       warnings: ['STRUCTURE_INSPECTION_LIMITED_DOCLING'],
     });
@@ -81,12 +83,23 @@ export class DoclingOcrAdapter implements OcrPort {
 
   public async recognize(
     source: ProviderDocumentSource,
-    pageNumbers: readonly number[],
+    targets: readonly OcrTarget[],
     signal: AbortSignal,
   ): Promise<OcrResult> {
     const startedAt = Date.now();
-    const pages = [];
-    for (const pageNo of [...new Set(pageNumbers)].sort((left, right) => left - right)) {
+    if (targets.some((target) => target.kind !== 'PAGE' || target.pageNo === null)) {
+      throw new ProcessingProviderError(
+        'DEVELOPER_DEFECT',
+        'DOCLING_OCR_TARGET_UNSUPPORTED',
+        'Docling OCR 只支持 PAGE 目标，不能静默忽略区域或内嵌图片',
+      );
+    }
+    const uniqueTargets = [...new Map(targets.map((target) => [target.targetId, target])).values()];
+    const results = [];
+    for (const target of uniqueTargets.sort(
+      (left, right) => (left.pageNo ?? 0) - (right.pageNo ?? 0),
+    )) {
+      const pageNo = target.pageNo as number;
       const document = await callDocling(
         this.config,
         source,
@@ -95,11 +108,21 @@ export class DoclingOcrAdapter implements OcrPort {
         this.fetchImplementation,
       );
       const mapped = mapDoclingDocument(document);
-      pages.push({
+      results.push({
+        targetId: target.targetId,
         pageNo,
         blocks: mapped.blocks
           .filter((block) => block.pageNo === pageNo || mapped.pages.length === 1)
-          .map((block) => ({ ...block, pageNo, confidence: block.confidence ?? 1 })),
+          .map((block) => ({
+            ...block,
+            pageNo,
+            confidence: block.confidence ?? 1,
+            metadata: {
+              ...block.metadata,
+              extractionSource: 'OCR',
+              sourceTargetId: target.targetId,
+            },
+          })),
         averageConfidence: 1,
       });
     }
@@ -107,7 +130,7 @@ export class DoclingOcrAdapter implements OcrPort {
       engine: 'Docling OCR',
       engineRevision: this.config.revision,
       protocolVersion: this.config.protocolVersion,
-      pages,
+      results,
       durationMs: Date.now() - startedAt,
       warnings: ['DOCLING_DOES_NOT_EXPOSE_WORD_CONFIDENCE'],
     });

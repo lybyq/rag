@@ -49,6 +49,7 @@ interface ProcessingInputRow extends QueryResultRow {
 interface ParseRunRow extends QueryResultRow {
   id: string;
   job_id: string;
+  provider_profile: string;
   document_version_id: string;
   content_revision: number;
   status: string;
@@ -158,11 +159,12 @@ export class PostgresDocumentProcessingRepository implements DocumentProcessingR
   public async beginRun(command: BeginParseRunCommand): Promise<DocumentParseRun> {
     const result = await this.pool.query<ParseRunRow>(
       `INSERT INTO document_parse_runs (
-         job_id, document_version_id, content_revision, attempt, status, declared_mime,
+         job_id, provider_profile, document_version_id, content_revision, attempt, status, declared_mime,
          parser_profile_id, parser_revision, ocr_profile_id, ocr_revision
-       ) VALUES ($1, $2, $3, $4, 'RUNNING', $5, $6, $7, $8, $9)
+       ) VALUES ($1, $2, $3, $4, $5, 'RUNNING', $6, $7, $8, $9, $10)
        ON CONFLICT (job_id) DO UPDATE SET
          attempt = EXCLUDED.attempt, status = 'RUNNING', declared_mime = EXCLUDED.declared_mime,
+         provider_profile = EXCLUDED.provider_profile,
          parser_profile_id = EXCLUDED.parser_profile_id, parser_revision = EXCLUDED.parser_revision,
          ocr_profile_id = EXCLUDED.ocr_profile_id, ocr_revision = EXCLUDED.ocr_revision,
          failure_class = NULL, failure_code = NULL, failure_message = NULL,
@@ -170,6 +172,7 @@ export class PostgresDocumentProcessingRepository implements DocumentProcessingR
        RETURNING *`,
       [
         command.input.jobId,
+        command.providerProfile,
         command.input.documentVersionId,
         command.input.contentRevision,
         command.input.attempt,
@@ -430,7 +433,11 @@ export class PostgresDocumentProcessingRepository implements DocumentProcessingR
           command.parseRunId,
           command.parser.pages.length,
           command.blocks.length,
-          command.ocr?.pages.length ?? 0,
+          new Set(
+            command.ocr?.results
+              .map((result) => result.pageNo)
+              .filter((pageNo): pageNo is number => pageNo !== null) ?? [],
+          ).size,
           command.derivedBucket,
           command.derivedObjectKey,
           command.derivedSha256,
@@ -474,7 +481,11 @@ export class PostgresDocumentProcessingRepository implements DocumentProcessingR
       await this.insertEvent(client, command.jobId, 'ingestion.m03_completed', {
         parseRunId: command.parseRunId,
         blockCount: command.blocks.length,
-        ocrPageCount: command.ocr?.pages.length ?? 0,
+        ocrPageCount: new Set(
+          command.ocr?.results
+            .map((result) => result.pageNo)
+            .filter((pageNo): pageNo is number => pageNo !== null) ?? [],
+        ).size,
         snapshotReused: command.snapshotReused,
       });
       // 阶段交接也走事务 Outbox：数据库提交后由 Scheduler 重试投递，进程崩溃不会丢失 M04。
@@ -722,6 +733,7 @@ function mapRun(row: ParseRunRow): DocumentParseRun {
   return DocumentParseRunSchema.parse({
     id: row.id,
     jobId: row.job_id,
+    providerProfile: row.provider_profile,
     documentVersionId: row.document_version_id,
     contentRevision: row.content_revision,
     status: row.status,

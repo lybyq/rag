@@ -6,6 +6,7 @@ import QualityReportSummary from './QualityReportSummary.vue';
 
 const now = '2026-08-18T00:00:00.000Z';
 const run: KnowledgeProcessingRun = {
+  providerProfile: 'test',
   id: '33333333-3333-4333-8333-333333333333',
   jobId: 'job-1',
   parseRunId: '11111111-1111-4111-8111-111111111111',

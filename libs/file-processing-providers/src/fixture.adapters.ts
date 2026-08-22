@@ -1,6 +1,6 @@
 /**
  * 非生产 Fixture Adapter。
- * 它让没有 ClamAV/Docling 的开发机演练完整编排，但输出带明确警告，生产配置会拒绝启动。
+ * 它让没有真实 Parser/OCR 的 CI 演练完整编排，但输出带明确警告，生产配置会拒绝启动。
  */
 import type {
   MalwareScannerPort,
@@ -11,6 +11,7 @@ import type {
 import type {
   MalwareScanResult,
   OcrResult,
+  OcrTarget,
   ParserResult,
   ProcessingProviderProfile,
 } from '@rag/contracts';
@@ -83,6 +84,24 @@ export class FixtureParserAdapter implements ParserPort {
           imageOnly: imageLike,
         },
       ],
+      ocrCandidates: imageLike
+        ? [
+            {
+              targetId: 'whole-image',
+              kind: 'WHOLE_IMAGE',
+              pageNo: 1,
+              slideNo: null,
+              sheetName: null,
+              bbox: null,
+              assetRef: {
+                storage: 'SOURCE_DOCUMENT',
+                archiveEntryPath: null,
+                mediaType: source.declaredMime,
+              },
+              reason: 'IMAGE_ONLY',
+            },
+          ]
+        : [],
       inspection: {
         encrypted: false,
         hasMacros: false,
@@ -115,28 +134,33 @@ export class FixtureOcrAdapter implements OcrPort {
 
   public async recognize(
     _source: ProviderDocumentSource,
-    pageNumbers: readonly number[],
+    targets: readonly OcrTarget[],
   ): Promise<OcrResult> {
     return {
       engine: 'fixture-ocr',
       engineRevision: this.revision,
       protocolVersion: this.protocolVersion,
-      pages: pageNumbers.map((pageNo) => ({
-        pageNo,
+      results: targets.map((target) => ({
+        targetId: target.targetId,
+        pageNo: target.pageNo,
         averageConfidence: 1,
         blocks: [
           {
             type: 'PARAGRAPH',
-            text: `[Fixture OCR] page ${pageNo}`,
-            originalText: `[Fixture OCR] page ${pageNo}`,
-            pageNo,
-            sheetName: null,
-            slideNo: null,
-            bbox: null,
+            text: `[Fixture OCR] target ${target.targetId}`,
+            originalText: `[Fixture OCR] target ${target.targetId}`,
+            pageNo: target.pageNo,
+            sheetName: target.sheetName,
+            slideNo: target.slideNo,
+            bbox: target.bbox,
             headingLevel: null,
             confidence: 1,
             table: null,
-            metadata: { fixture: true },
+            metadata: {
+              fixture: true,
+              extractionSource: 'OCR',
+              sourceTargetId: target.targetId,
+            },
           },
         ],
       })),

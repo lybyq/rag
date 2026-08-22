@@ -1,6 +1,6 @@
 /**
  * M03 文件安全与解析端口。
- * 应用层只依赖稳定契约，不知道 ClamAV、Docling、PaddleOCR、MinIO 或 PostgreSQL SDK。
+ * 应用层只依赖稳定契约，不知道内置扫描规则、Docling、PaddleOCR、MinIO 或 PostgreSQL SDK。
  *
  * @requirement PAR-002
  * @requirement PAR-004
@@ -14,11 +14,13 @@ import type {
   FileSecurityVerdict,
   ListDocumentBlocksQuery,
   MalwareScanResult,
+  OcrTarget,
   OcrResult,
   ParseIssue,
   ParserResult,
   ProcessingFailureClass,
   ProcessingProviderProfile,
+  ProviderProfile,
   SupportedFileFormat,
 } from '@rag/contracts';
 import type { DocumentBlockDraft, FileSecurityFinding } from '@rag/parser-core';
@@ -44,11 +46,11 @@ export interface ParserPort {
   profile(): ProcessingProviderProfile;
 }
 
-/** OCR 只处理编排器明确选择的页，防止整本 PDF 重复识别。 */
+/** OCR 只处理编排器明确选择的页、区域或内嵌图片，防止无差别重复识别。 */
 export interface OcrPort {
   recognize(
     source: ProviderDocumentSource,
-    pageNumbers: readonly number[],
+    targets: readonly OcrTarget[],
     signal: AbortSignal,
   ): Promise<OcrResult>;
   profile(): ProcessingProviderProfile;
@@ -73,6 +75,8 @@ export interface DocumentProcessingInput {
 /** 创建或恢复解析运行所需的不可变 Provider 快照。 */
 export interface BeginParseRunCommand {
   readonly input: DocumentProcessingInput;
+  /** 当前部署画像，与 Parser/OCR revision 一起固定本次运行事实。 */
+  readonly providerProfile: ProviderProfile;
   readonly parserProfileId: string;
   readonly parserRevision: string;
   readonly ocrProfileId: string;

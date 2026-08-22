@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { createApiEnvelopeSchema } from './api-envelope';
 import { Sha256Schema } from './document-ingestion';
 import { NormalizedBoundingBoxSchema, SupportedFileFormatSchema } from './document-parsing';
+import { ProviderProfileSchema } from './provider-profile';
 
 /** 质量 Policy 的三态结论；未知或执行异常绝不能伪装成 PASS。 */
 export const QualityVerdictSchema = z.enum(['PASS', 'MANUAL_REVIEW', 'REJECT']);
@@ -196,6 +197,8 @@ export type DocumentQualityReport = z.infer<typeof DocumentQualityReportSchema>;
 export const KnowledgeProcessingRunSchema = z.object({
   id: z.uuid(),
   jobId: z.string().min(1).max(300),
+  /** 任务开始时锁定的部署画像，与下方算法 revision 一起构成可复现快照。 */
+  providerProfile: ProviderProfileSchema,
   parseRunId: z.uuid(),
   documentVersionId: z.uuid(),
   contentRevision: z.number().int().positive(),

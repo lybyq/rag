@@ -2,7 +2,7 @@
 
 ## 状态
 
-Accepted，2026-08-17。
+Superseded in part by [ADR-011](./011-node-parser-and-builtin-content-safety.md)，2026-08-22。隔离、按需 OCR、统一 Block 和派生快照决策仍有效。
 
 ## 背景
 
@@ -13,7 +13,7 @@ Accepted，2026-08-17。
 ## 决策
 
 1. 原始文件只存放在隔离 Bucket；安全门禁通过前不得进入发布链路。
-2. Worker 流式计算可信 SHA-256、识别魔数并通过 ClamAV `INSTREAM` 扫描；扫描异常按失败处理，绝不 fail-open。
+2. Worker 流式计算可信 SHA-256、识别魔数并调用可插拔扫描 Port；扫描异常按失败处理，绝不 fail-open。当前默认实现见 ADR-011。
 3. Parser 与 OCR 分别定义 Port。外网 Parser Adapter 对接 Docling Serve 稳定 v1 API；内网可切换标准 HTTP Adapter。API Key、Endpoint 和 Profile 全部由配置注入。
 4. Parser Runtime 独立部署，禁止公网出站，使用只读根文件系统、非 root 用户、CPU/内存/临时盘和绝对超时限制。预签名读取 URL 只在内存中传递，不写日志和数据库。
 5. PDF 先执行原生解析，再逐页计算文字覆盖率；只有低覆盖或纯图片页进入 OcrPort。OCR 结果必须包含页码、归一化坐标、置信度和引擎版本。
@@ -30,4 +30,4 @@ Accepted，2026-08-17。
 ## 参考
 
 - Docling Serve v1：`POST /v1/convert/source`，支持 URL 输入、JSON 输出及 OCR 配置。
-- ClamAV clamd：使用带长度前缀的 `INSTREAM`，TCP 端口只允许在受信网络内访问。
+- 当前扫描和 Parser 替代决策见 [ADR-011](./011-node-parser-and-builtin-content-safety.md)。

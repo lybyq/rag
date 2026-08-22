@@ -5,6 +5,7 @@ import ParseRunSummary from './ParseRunSummary.vue';
 
 const now = new Date().toISOString();
 const run: DocumentParseRun = {
+  providerProfile: 'test',
   id: '0198a8f4-12f8-7000-8000-111111111111',
   jobId: 'job-1',
   documentVersionId: '0198a8f4-12f8-7000-8000-222222222222',
@@ -15,7 +16,7 @@ const run: DocumentParseRun = {
   detectedMime: 'application/pdf',
   inputSha256: 'a'.repeat(64),
   securityVerdict: 'CLEAN',
-  malwareEngine: 'ClamAV',
+  malwareEngine: 'RAG Builtin Content Safety',
   malwareRevision: '1.4',
   parserProfileId: 'docling-standard',
   parserRevision: 'docling-serve-v1',

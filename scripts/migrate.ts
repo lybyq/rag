@@ -2,7 +2,7 @@
  * 以校验和和 PostgreSQL advisory lock 顺序执行正式 migration。
  * 同一数据库只允许一个实例迁移；已执行文件内容变化会立即失败。
  */
-import { loadAppConfig } from '@rag/config';
+import { loadAppConfig, loadProfileEnvironment } from '@rag/config';
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -48,7 +48,7 @@ async function applyMigration(
 }
 
 async function main(): Promise<void> {
-  const config = loadAppConfig(process.env);
+  const config = loadAppConfig(loadProfileEnvironment(process.env));
   const pool = new Pool({ connectionString: config.databaseUrl, max: 2 });
   await waitForDatabase(pool);
   const client = await pool.connect();

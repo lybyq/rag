@@ -23,6 +23,7 @@
       "@rag/contracts": ["libs/contracts/src"],
       "@rag/contracts-internal/*": ["libs/contracts/src/internal/*"],
       "@rag/domain": ["libs/domain/src"],
+      "@rag/document-parser-core": ["libs/document-parser-core/src"],
       "@rag/evidence": ["libs/evidence/src"],
       "@rag/file-processing-providers": ["libs/file-processing-providers/src"],
       "@rag/health": ["libs/health/src"],

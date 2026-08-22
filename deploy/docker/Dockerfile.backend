@@ -16,5 +16,10 @@ WORKDIR /app
 ARG APP_NAME=platform-api
 COPY --from=builder /workspace/node_modules ./node_modules
 COPY --from=builder /workspace/dist/apps/${APP_NAME} ./dist
+COPY --from=builder /workspace/config ./config
+COPY --from=builder /workspace/database ./database
+COPY --from=builder /workspace/scripts ./scripts
+COPY --from=builder /workspace/libs/config ./libs/config
+COPY --from=builder /workspace/tsconfig.json /workspace/tsconfig.base.json ./
 USER node
 CMD ["node", "dist/main.js"]

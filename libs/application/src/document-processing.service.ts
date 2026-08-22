@@ -16,7 +16,7 @@
  * @requirement PAR-012
  * @requirement PAR-013
  */
-import type { ParseIssue, ProcessingFailureClass } from '@rag/contracts';
+import type { ParseIssue, ProcessingFailureClass, ProviderProfile } from '@rag/contracts';
 import {
   buildDerivedSnapshotKey,
   buildDocumentBlocks,
@@ -24,7 +24,7 @@ import {
   evaluateFileSecurity,
   FileRejectedError,
   mergeOcrBlocks,
-  selectOcrPages,
+  selectOcrTargets,
   sha256Text,
   type FileSecurityLimits,
 } from '@rag/parser-core';
@@ -39,6 +39,8 @@ import type { ObjectStoragePort } from './ingestion.ports';
 
 /** M03 对外部调用和安全阈值的部署配置。 */
 export interface DocumentProcessingConfig extends FileSecurityLimits {
+  /** 本进程启动时已通过白名单加载并校验的 Provider Profile。 */
+  readonly providerProfile: ProviderProfile;
   readonly derivedBucket: string;
   readonly presignedGetTtlSeconds: number;
   readonly storageTimeoutMs: number;
@@ -70,6 +72,7 @@ export class DocumentProcessingService {
     const ocrProfile = this.ocr.profile();
     const run = await this.repository.beginRun({
       input,
+      providerProfile: this.config.providerProfile,
       parserProfileId: parserProfile.profileId,
       parserRevision: parserProfile.revision,
       ocrProfileId: ocrProfile.profileId,
@@ -165,15 +168,19 @@ export class DocumentProcessingService {
         return 'MANUAL_REVIEW';
       }
 
-      const ocrPageNumbers = selectOcrPages(parsed.pages, this.config.ocrTextCoverageThreshold);
+      const ocrTargets = selectOcrTargets(
+        parsed.pages,
+        parsed.ocrCandidates,
+        this.config.ocrTextCoverageThreshold,
+      );
       let ocrResult = null;
-      if (ocrPageNumbers.length > 0) {
-        await this.repository.startStep(jobId, workerId, 'OCR', '仅识别低文本覆盖页面');
-        ocrResult = await this.ocr.recognize(source, ocrPageNumbers, this.providerSignal());
+      if (ocrTargets.length > 0) {
+        await this.repository.startStep(jobId, workerId, 'OCR', '仅识别低覆盖页面或图片目标');
+        ocrResult = await this.ocr.recognize(source, ocrTargets, this.providerSignal());
       }
       await this.repository.startStep(jobId, workerId, 'NORMALIZE', '正在生成统一 DocumentBlock');
-      const ocrBlocks = ocrResult?.pages.flatMap((page) => page.blocks) ?? [];
-      const candidates = mergeOcrBlocks(parsed.blocks, ocrBlocks, ocrPageNumbers);
+      const ocrBlocks = ocrResult?.results.flatMap((result) => result.blocks) ?? [];
+      const candidates = mergeOcrBlocks(parsed.blocks, ocrBlocks, ocrTargets);
       const blocks = buildDocumentBlocks({
         parseRunId: run.id,
         documentVersionId: input.documentVersionId,
@@ -189,7 +196,7 @@ export class DocumentProcessingService {
         detected.warnings,
         parsed.warnings,
         ocrResult?.warnings ?? [],
-        ocrResult?.pages ?? [],
+        ocrResult?.results ?? [],
         this.config.ocrMinConfidence,
       );
       const snapshot = new TextEncoder().encode(
@@ -326,7 +333,7 @@ function buildIssues(
   detectionWarnings: readonly string[],
   parserWarnings: readonly string[],
   ocrWarnings: readonly string[],
-  ocrPages: readonly { pageNo: number; averageConfidence: number }[],
+  ocrResults: readonly { pageNo: number | null; averageConfidence: number }[],
   minimumConfidence: number,
 ): readonly Omit<ParseIssue, 'id' | 'parseRunId' | 'createdAt'>[] {
   const warnings = [...detectionWarnings, ...parserWarnings, ...ocrWarnings];
@@ -338,15 +345,15 @@ function buildIssues(
     blockId: null,
     metadata: {},
   }));
-  for (const page of ocrPages) {
-    if (page.averageConfidence < minimumConfidence) {
+  for (const result of ocrResults) {
+    if (result.averageConfidence < minimumConfidence) {
       issues.push({
         severity: 'WARNING',
         code: 'OCR_LOW_CONFIDENCE',
         message: '该页 OCR 平均置信度低于配置阈值，请人工抽查',
-        pageNo: page.pageNo,
+        pageNo: result.pageNo,
         blockId: null,
-        metadata: { averageConfidence: page.averageConfidence, minimumConfidence },
+        metadata: { averageConfidence: result.averageConfidence, minimumConfidence },
       });
     }
   }

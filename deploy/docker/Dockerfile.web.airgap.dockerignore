@@ -1,0 +1,17 @@
+.git
+.github
+.idea
+.vscode
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+**/coverage
+.data
+*.log
+.env
+.env.*
+!.env.*.example
+
+# 不忽略 .offline：该 Dockerfile 的安装阶段只从离线 Store 取包。

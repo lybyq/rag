@@ -155,6 +155,7 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] M03 PostgreSQL transaction', () =
     expect(input).toBeDefined();
     const run = await processing.beginRun({
       input: input!,
+      providerProfile: 'external-ci',
       parserProfileId: 'parser-golden',
       parserRevision: 'parser-r1',
       ocrProfileId: 'ocr-golden',
@@ -170,8 +171,8 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] M03 PostgreSQL transaction', () =
       detectedMime: 'application/pdf',
       malware: {
         verdict: 'CLEAN',
-        engine: 'ClamAV',
-        engineRevision: 'ClamAV 1.4.3/0/test',
+        engine: 'RAG Builtin Content Safety',
+        engineRevision: '1.0.0',
         signatureName: null,
         scannedBytes: input!.sizeBytes,
         durationMs: 10,
@@ -190,7 +191,7 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] M03 PostgreSQL transaction', () =
       findings: [],
       malware: {
         verdict: 'CLEAN',
-        engine: 'ClamAV',
+        engine: 'RAG Builtin Content Safety',
         engineRevision: '1.4.3',
         signatureName: null,
         scannedBytes: input!.sizeBytes,
@@ -218,6 +219,7 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] M03 PostgreSQL transaction', () =
         },
       ],
       pages: [{ pageNo: 1, textCharacterCount: 8, textCoverage: 0.5, imageOnly: false }],
+      ocrCandidates: [],
       inspection: {
         encrypted: false,
         hasMacros: false,

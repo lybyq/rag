@@ -1,6 +1,6 @@
 /** 内网标准 OCR HTTP Adapter：只提交明确页码并校验响应没有越权返回其他页。 */
 import type { OcrPort, ProviderDocumentSource } from '@rag/application';
-import type { OcrResult, ProcessingProviderProfile } from '@rag/contracts';
+import type { OcrResult, OcrTarget, ProcessingProviderProfile } from '@rag/contracts';
 import { OcrResultSchema } from '@rag/contracts';
 import type { FetchImplementation, ProviderHttpClientConfig } from './http-json.client';
 import { postProviderJson } from './http-json.client';
@@ -26,20 +26,27 @@ export class HttpOcrAdapter implements OcrPort {
       revision: this.config.revision,
       protocolVersion: this.config.protocolVersion,
       endpoint: this.config.baseUrl,
-      capabilities: ['PAGE_SELECTIVE', 'BBOX', 'CONFIDENCE'],
+      capabilities: [
+        'PAGE_SELECTIVE',
+        'REGION_TARGET',
+        'EMBEDDED_IMAGE_TARGET',
+        'WHOLE_IMAGE_TARGET',
+        'BBOX',
+        'CONFIDENCE',
+      ],
       timeoutMs: this.config.timeoutMs,
     };
   }
 
   public async recognize(
     source: ProviderDocumentSource,
-    pageNumbers: readonly number[],
+    targets: readonly OcrTarget[],
     signal: AbortSignal,
   ): Promise<OcrResult> {
     const raw = await postProviderJson(
       this.config,
       'v1/ocr',
-      { protocolVersion: this.config.protocolVersion, source, pageNumbers },
+      { protocolVersion: this.config.protocolVersion, source, targets },
       signal,
       this.fetchImplementation,
     );
@@ -66,14 +73,27 @@ export class HttpOcrAdapter implements OcrPort {
         'OCR 实际修订与配置 Profile 不一致',
       );
     }
-    const requested = new Set(pageNumbers);
-    if (parsed.data.pages.some((page) => !requested.has(page.pageNo))) {
+    const requested = new Set(targets.map((target) => target.targetId));
+    if (parsed.data.results.some((result) => !requested.has(result.targetId))) {
       throw new ProcessingProviderError(
         'DEVELOPER_DEFECT',
-        'OCR_UNREQUESTED_PAGE',
-        'OCR 返回了调用方未请求的页面',
+        'OCR_UNREQUESTED_TARGET',
+        'OCR 返回了调用方未请求的目标',
       );
     }
-    return parsed.data;
+    return OcrResultSchema.parse({
+      ...parsed.data,
+      results: parsed.data.results.map((result) => ({
+        ...result,
+        blocks: result.blocks.map((block) => ({
+          ...block,
+          metadata: {
+            ...block.metadata,
+            extractionSource: 'OCR',
+            sourceTargetId: result.targetId,
+          },
+        })),
+      })),
+    });
   }
 }

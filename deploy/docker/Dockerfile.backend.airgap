@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1
+# 内网 Builder 镜像必须预装精确 Node/pnpm、企业 CA，并来自内网镜像仓库。
+ARG NODE_BUILDER_IMAGE=registry.invalid/rag/node-pnpm:22.20.0-11.19.0-bookworm
+ARG NODE_RUNTIME_IMAGE=registry.invalid/rag/node-runtime:22.20.0-bookworm
+FROM ${NODE_BUILDER_IMAGE} AS builder
+
+WORKDIR /workspace
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web-console/package.json apps/web-console/package.json
+COPY .offline/pnpm-store /opt/rag/pnpm-store
+RUN pnpm install --offline --frozen-lockfile --store-dir /opt/rag/pnpm-store
+COPY nest-cli.json tsconfig.json tsconfig.base.json tsconfig.build.json tsconfig.check.json ./
+COPY apps ./apps
+COPY libs ./libs
+COPY config ./config
+COPY database ./database
+COPY scripts ./scripts
+ARG APP_NAME=platform-api
+RUN pnpm exec nest build ${APP_NAME}
+
+FROM ${NODE_RUNTIME_IMAGE} AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+ARG APP_NAME=platform-api
+COPY --from=builder /workspace/node_modules ./node_modules
+COPY --from=builder /workspace/dist/apps/${APP_NAME} ./dist
+COPY --from=builder /workspace/config ./config
+COPY --from=builder /workspace/database ./database
+COPY --from=builder /workspace/scripts ./scripts
+COPY --from=builder /workspace/libs/config ./libs/config
+COPY --from=builder /workspace/tsconfig.json /workspace/tsconfig.base.json ./
+USER node
+CMD ["node", "dist/main.js"]

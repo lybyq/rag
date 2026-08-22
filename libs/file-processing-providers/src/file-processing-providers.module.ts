@@ -9,7 +9,7 @@ import {
   type ParserPort,
 } from '@rag/application';
 import { APP_CONFIG, type AppConfig } from '@rag/config';
-import { ClamdScannerAdapter } from './clamd-scanner.adapter';
+import { BuiltinContentSafetyScannerAdapter } from './builtin-content-safety-scanner.adapter';
 import { DoclingOcrAdapter, DoclingParserAdapter } from './docling.adapter';
 import {
   FixtureMalwareScannerAdapter,
@@ -25,8 +25,11 @@ import { HttpParserAdapter } from './http-parser.adapter';
       provide: MALWARE_SCANNER,
       inject: [APP_CONFIG],
       useFactory: (config: AppConfig): MalwareScannerPort =>
-        config.fileProcessing.scanner.adapter === 'clamd'
-          ? new ClamdScannerAdapter(config.fileProcessing.scanner)
+        config.fileProcessing.scanner.adapter === 'builtin'
+          ? new BuiltinContentSafetyScannerAdapter({
+              ...config.fileProcessing.scanner,
+              maxBytes: config.upload.maxFileBytes,
+            })
           : new FixtureMalwareScannerAdapter(
               config.fileProcessing.scanner.profileId,
               config.fileProcessing.scanner.revision,

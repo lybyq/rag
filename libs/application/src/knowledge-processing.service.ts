@@ -17,11 +17,13 @@ import {
   type QualityPolicyConfig,
   type TextTokenizer,
 } from '@rag/chunking';
-import type { QualityVerdict } from '@rag/contracts';
+import type { ProviderProfile, QualityVerdict } from '@rag/contracts';
 import type { KnowledgeProcessingRepository } from './knowledge-processing.ports';
 
 /** M04 算法配置；revision 必须改变后生成新的 content revision。 */
 export interface KnowledgeProcessingConfig {
+  /** 本进程启动时已锁定的 Provider Profile。 */
+  readonly providerProfile: ProviderProfile;
   readonly chunkerProfileId: string;
   readonly chunkerRevision: string;
   readonly qualityRuleVersion: string;
@@ -53,6 +55,7 @@ export class KnowledgeProcessingService {
       const run = await this.repository.beginRun({
         input,
         workerId,
+        providerProfile: this.config.providerProfile,
         chunkerProfileId: this.config.chunkerProfileId,
         chunkerRevision: this.config.chunkerRevision,
         tokenizerProfileId: this.tokenizer.profileId,

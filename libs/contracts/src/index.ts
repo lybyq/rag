@@ -11,3 +11,4 @@ export * from './health';
 export * from './knowledge-space';
 export * from './knowledge-processing';
 export * from './openapi';
+export * from './provider-profile';

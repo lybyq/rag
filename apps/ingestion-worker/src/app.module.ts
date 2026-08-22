@@ -56,6 +56,7 @@ import { IngestionQueueConsumer } from './ingestion-queue.consumer';
         config: AppConfig,
       ): DocumentProcessingService =>
         new DocumentProcessingService(repository, storage, scanner, parser, ocr, {
+          providerProfile: config.providerProfile,
           derivedBucket: config.fileProcessing.derivedBucket,
           presignedGetTtlSeconds: Math.min(config.upload.presignedUrlTtlSeconds, 900),
           storageTimeoutMs: Math.max(
@@ -78,6 +79,7 @@ import { IngestionQueueConsumer } from './ingestion-queue.consumer';
         }
         const tokenizer = new Cl100kTextTokenizer(config.knowledgeProcessing.tokenizerProfileId);
         return new KnowledgeProcessingService(repository, tokenizer, {
+          providerProfile: config.providerProfile,
           chunkerProfileId: config.knowledgeProcessing.chunkerProfileId,
           chunkerRevision: config.knowledgeProcessing.chunkerRevision,
           qualityRuleVersion: config.knowledgeProcessing.qualityRuleVersion,

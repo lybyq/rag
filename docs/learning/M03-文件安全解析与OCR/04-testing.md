@@ -2,14 +2,14 @@
 
 ## 自动化分层
 
-| 层              | 本模块证据                              | 能证明               | 不能证明            |
-| --------------- | --------------------------------------- | -------------------- | ------------------- |
-| 领域单测        | magic/MIME、安全阈值、OCR 选页、稳定 ID | 规则确定性           | 真实文档质量        |
-| Port 契约       | clamd 响应、HTTP 429、Schema/版本漂移   | Adapter fail closed  | 远端服务部署正确    |
-| 编排单测        | 流式 SHA、恶意拒绝、低页 OCR、快照      | 调用顺序和副作用边界 | MinIO/PG 网络行为   |
-| Golden Snapshot | 九类格式固定路由与统一结构              | 协议回归             | 复杂排版准确率      |
-| Vue 测试        | 安全结论/Profile/OCR/耗时               | 关键事实可见         | 浏览器端到端网络    |
-| 集成/预生产     | 真实 PG/MinIO/ClamAV/Parser/OCR         | 部署和协议兼容       | 长期容量，需要 soak |
+| 层              | 本模块证据                                                              | 能证明               | 不能证明            |
+| --------------- | ----------------------------------------------------------------------- | -------------------- | ------------------- |
+| 领域单测        | magic/MIME、安全阈值、OCR 选页、稳定 ID                                 | 规则确定性           | 真实文档质量        |
+| Port 契约       | 内置跨块 EICAR/可执行魔数、HTTP 429、Schema/版本漂移                    | Adapter fail closed  | 远端服务部署正确    |
+| 编排单测        | 流式 SHA、恶意拒绝、低页 OCR、快照                                      | 调用顺序和副作用边界 | MinIO/PG 网络行为   |
+| Golden Snapshot | 九类真实合成格式、六类图片头、Office 合并/重复/加密/外链/宏/炸弹/稀疏表 | 结构和安全回归       | 企业真实模板覆盖率  |
+| Vue 测试        | 安全结论/Profile/OCR/耗时                                               | 关键事实可见         | 浏览器端到端网络    |
+| 集成/预生产     | 真实 PG/MinIO/Node Parser/PaddleOCR                                     | 部署和协议兼容       | 长期容量，需要 soak |
 
 ## 为什么 Fixture 不能做质量结论
 
@@ -23,12 +23,14 @@ Fixture 的价值是可预测、快速和不依赖个人密钥；它会对所有
 4. 只有确认是改进时才更新 Snapshot，同时创建新 Profile revision。
 5. 旧 Run 不回写新含义。
 
+供应链审计不是形式项。本轮审计发现通用图片探测库的 ICNS/JXL/HEIF 无限循环 DoS 后，没有因为平台“不主动支持这些格式”就忽略：自动类型探测仍可能把恶意头路由进去。最终删除该依赖，改成只注册六种业务白名单格式的有界头解析，并为每种头增加回归测试。ExcelJS 传递依赖的旧 `uuid` 则通过 pnpm 精确 override 到兼容修复版，并用真实 XLSX 读写 Golden 验证。
+
 常用命令：
 
 ```powershell
 $env:TEMP='D:\codex-temp\rag-m03'
 $env:TMP='D:\codex-temp\rag-m03'
-pnpm exec jest --runInBand libs/parser-core libs/file-processing-providers libs/application/src/document-processing.service.spec.ts
+pnpm test:backend -- libs/document-parser-core libs/parser-core libs/file-processing-providers libs/application/src/document-processing.service.spec.ts
 pnpm test
 pnpm check
 ```

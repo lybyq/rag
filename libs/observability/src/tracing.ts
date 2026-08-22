@@ -7,13 +7,13 @@
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { NodeSDK } from '@opentelemetry/sdk-node';
-import { loadAppConfig } from '@rag/config';
+import { loadAppConfig, loadProfileEnvironment } from '@rag/config';
 
 let telemetrySdk: NodeSDK | undefined;
 
 /** 根据配置启动 Trace SDK；关闭开关时不创建 exporter，也不会产生外部网络请求。 */
 export function startTracing(): void {
-  const config = loadAppConfig(process.env);
+  const config = loadAppConfig(loadProfileEnvironment(process.env));
   if (!config.otel.tracesEnabled || telemetrySdk) return;
 
   const endpoint = config.otel.endpoint;

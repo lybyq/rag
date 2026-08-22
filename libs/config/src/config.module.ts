@@ -6,6 +6,7 @@
  */
 import { Global, Module } from '@nestjs/common';
 import { loadAppConfig, type AppConfig } from './app-config';
+import { loadProfileEnvironment } from './provider-profile';
 
 /** NestJS 注入 AppConfig 时使用的唯一 Token。 */
 export const APP_CONFIG = Symbol('APP_CONFIG');
@@ -16,7 +17,7 @@ export const APP_CONFIG = Symbol('APP_CONFIG');
   providers: [
     {
       provide: APP_CONFIG,
-      useFactory: (): AppConfig => loadAppConfig(process.env),
+      useFactory: (): AppConfig => loadAppConfig(loadProfileEnvironment(process.env)),
     },
   ],
   exports: [APP_CONFIG],

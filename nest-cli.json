@@ -45,6 +45,15 @@
       "compilerOptions": {
         "tsConfigPath": "apps/scheduler-worker/tsconfig.app.json"
       }
+    },
+    "document-parser-service": {
+      "type": "application",
+      "root": "apps/document-parser-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/document-parser-service/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/document-parser-service/tsconfig.app.json"
+      }
     }
   }
 }

@@ -4,15 +4,15 @@
 
 先查 `lease_owner/lease_expires_at/heartbeat_at/current_step`。如果 heartbeat 更新，说明 Worker 活着，继续看 Provider 延迟；如果停止，Scheduler 会在 lease 过期后重排队。不要手工把 RUNNING 直接改成功。
 
-## 2. Scanner 一直连接失败
+## 2. 内置 Scanner 异常或误报
 
-- 检查 `CLAMD_HOST/PORT` 和防火墙；clamd TCP 无认证，不应暴露公网。
-- 用 clamd `PING` 验证服务，但不要把可达等同于签名库最新。
-- 查看 Parse Run `failureClass=RETRYABLE_PROVIDER` 与稳定 `failureCode`，日志中不应出现正文。
+- 查看 `SCANNER_PROFILE_ID/REVISION` 和 `BUILTIN_*` signatureName；规则修改必须升级 revision。
+- `SCANNER_FILE_TOO_LARGE` 表示上游对象大小事实或部署上限不一致，不能改成 CLEAN 绕过。
+- 内置 Scanner 无网络连接问题，也没有病毒库；若企业要求完整反恶意软件检测，应实现新的 `MalwareScannerPort` Adapter。
 
-## 3. Docling 能访问 API 但拉不到文件
+## 3. Node Parser 能访问 API 但拉不到文件
 
-预签名 URL 的 hostname 必须同时被 Docling 运行环境解析。主机上的 `localhost:9000` 对容器表示容器自身。修正 Worker 使用的 MinIO Endpoint/DNS，不要把对象改成公网可读。
+先看 `PARSER_SOURCE_HOST_FORBIDDEN`：预签名 URL 的 hostname 必须同时出现在 `PARSER_ALLOWED_SOURCE_HOSTS` 且能被 Parser 容器解析。主机上的 `localhost:9000` 对容器表示容器自身；Compose 应使用 `minio:9000`。不要为解决 DNS 把对象改成公网可读，也不要允许重定向。
 
 ## 4. Provider 返回 200 仍失败
 
@@ -20,7 +20,7 @@
 
 ## 5. OCR 页数异常
 
-查 Parser 每页 `textCoverage/imageOnly` 和 `OCR_TEXT_COVERAGE_THRESHOLD`。如果文本 PDF 全本 OCR，通常是 Parser 没有返回可靠页级覆盖率；不要在前端改显示数字掩盖。
+查 Parser 的 `pages/ocrCandidates`、Target kind/reason 和 `OCR_TEXT_COVERAGE_THRESHOLD`。如果文本 PDF 全本 OCR，通常是覆盖率代理不适合该模板；如果 Office 图片没 OCR，检查 `archiveEntryPath` 和 OCR 网关是否支持 EMBEDDED_IMAGE。不要在前端改显示数字掩盖。
 
 ## 6. 快照存在但 PG 没成功
 
@@ -28,4 +28,4 @@
 
 ## 7. C 盘空间不足
 
-本项目缓存与临时目录应放 D 盘。Docling CPU 镜像和模型缓存体积较大，先迁移 Docker data-root 或在有容量的主机运行；未经确认不要拉镜像，也不要随意移动 Docker Desktop 数据文件。
+本项目缓存与临时目录应放 D 盘。命令执行前设置 `TEMP/TMP=D:\codex-temp\rag-m03`，`PARSER_TEMP_ROOT` 使用 D 盘项目目录；Docker data-root 也应迁到有容量的数据盘。未经确认不要在已满 C 盘拉取可选 Docling OCR 镜像。

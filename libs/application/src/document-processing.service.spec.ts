@@ -16,6 +16,7 @@ const now = new Date().toISOString();
 const run: DocumentParseRun = {
   id: '0198a8f4-12f8-7000-8000-111111111111',
   jobId: 'job-1',
+  providerProfile: 'test',
   documentVersionId: '0198a8f4-12f8-7000-8000-222222222222',
   contentRevision: 1,
   status: 'RUNNING',
@@ -82,6 +83,7 @@ const parserResult: ParserResult = {
     { pageNo: 1, textCharacterCount: 500, textCoverage: 0.5, imageOnly: false },
     { pageNo: 2, textCharacterCount: 0, textCoverage: 0, imageOnly: true },
   ],
+  ocrCandidates: [],
   inspection: {
     encrypted: false,
     hasMacros: false,
@@ -194,8 +196,9 @@ function fixture(malwareVerdict: 'CLEAN' | 'INFECTED' = 'CLEAN'): {
       engine: 'test-ocr',
       engineRevision: 'ocr-r1',
       protocolVersion: '1',
-      pages: [
+      results: [
         {
+          targetId: 'page-2',
           pageNo: 2,
           averageConfidence: 0.7,
           blocks: [
@@ -210,7 +213,7 @@ function fixture(malwareVerdict: 'CLEAN' | 'INFECTED' = 'CLEAN'): {
               headingLevel: null,
               confidence: 0.7,
               table: null,
-              metadata: {},
+              metadata: { extractionSource: 'OCR', sourceTargetId: 'page-2' },
             },
           ],
         },
@@ -225,6 +228,7 @@ function fixture(malwareVerdict: 'CLEAN' | 'INFECTED' = 'CLEAN'): {
     ocr,
     parser,
     service: new DocumentProcessingService(repository, storage, scanner, parser, ocr, {
+      providerProfile: 'test',
       derivedBucket: 'rag-derived',
       presignedGetTtlSeconds: 300,
       storageTimeoutMs: 1_000,
@@ -241,11 +245,18 @@ function fixture(malwareVerdict: 'CLEAN' | 'INFECTED' = 'CLEAN'): {
   };
 }
 
-describe('DocumentProcessingService', () => {
+describe('[CFG-007] DocumentProcessingService', () => {
   it('[PAR-007][PAR-008][PAR-010][PAR-012] 只 OCR 低覆盖页并原子提交派生快照', async () => {
     const { service, repository, storage, ocr } = fixture();
     await expect(service.process('job-1', 'worker-1')).resolves.toBe('COMPLETED');
-    expect(ocr.recognize).toHaveBeenCalledWith(expect.anything(), [2], expect.any(AbortSignal));
+    expect(repository.beginRun).toHaveBeenCalledWith(
+      expect.objectContaining({ providerProfile: 'test' }),
+    );
+    expect(ocr.recognize).toHaveBeenCalledWith(
+      expect.anything(),
+      [expect.objectContaining({ targetId: 'page-2', kind: 'PAGE', pageNo: 2 })],
+      expect.any(AbortSignal),
+    );
     expect(storage.putObject).toHaveBeenCalledWith(
       'rag-derived',
       expect.stringContaining('/content-r1/'),

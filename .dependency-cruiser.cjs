@@ -4,7 +4,13 @@
  *
  * @requirement BASE-005
  */
-const appNames = ['platform-api', 'rag-query-service', 'ingestion-worker', 'scheduler-worker'];
+const appNames = [
+  'platform-api',
+  'rag-query-service',
+  'ingestion-worker',
+  'scheduler-worker',
+  'document-parser-service',
+];
 
 const crossAppRules = appNames.flatMap((fromApp) =>
   appNames

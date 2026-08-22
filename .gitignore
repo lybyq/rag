@@ -9,6 +9,8 @@ coverage/
 .env.*
 !.env.example
 !.env.*.example
+deploy/docker/images.intranet.env
+.offline/
 
 # 测试和工具缓存
 .eslintcache
@@ -24,4 +26,3 @@ Thumbs.db
 
 # 本地基础设施数据
 .data/
-

@@ -1,0 +1,225 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`[PAR-006][PAR-014] Node multi-format parser golden CSV 输出稳定统一 Block 1`] = `
+{
+  "blocks": [
+    {
+      "headingLevel": null,
+      "table": {
+        "headerRowCount": 1,
+        "mergedCells": [],
+        "rows": [
+          [
+            "姓名",
+            "部门",
+          ],
+          [
+            "张三",
+            "研发",
+          ],
+          [
+            "李四",
+            "销售,华东",
+          ],
+        ],
+      },
+      "text": "姓名 | 部门
+张三 | 研发
+李四 | 销售,华东",
+      "type": "TABLE",
+    },
+  ],
+  "format": "CSV",
+  "inspection": {
+    "archiveDepth": null,
+    "compressedSizeBytes": null,
+    "embeddedObjectCount": 0,
+    "encrypted": false,
+    "externalLinkCount": 0,
+    "hasMacros": false,
+    "pageCount": null,
+    "tableCellCount": 6,
+    "totalPixels": null,
+    "uncompressedSizeBytes": null,
+  },
+  "pages": [],
+  "targets": [],
+}
+`;
+
+exports[`[PAR-006][PAR-014] Node multi-format parser golden HTML 输出稳定统一 Block 1`] = `
+{
+  "blocks": [
+    {
+      "headingLevel": 1,
+      "table": null,
+      "text": "制度",
+      "type": "TITLE",
+    },
+    {
+      "headingLevel": null,
+      "table": null,
+      "text": "正文",
+      "type": "PARAGRAPH",
+    },
+    {
+      "headingLevel": null,
+      "table": {
+        "headerRowCount": 1,
+        "mergedCells": [
+          {
+            "column": 0,
+            "columnSpan": 2,
+            "row": 0,
+            "rowSpan": 1,
+          },
+        ],
+        "rows": [
+          [
+            "表头",
+            "",
+          ],
+          [
+            "A",
+            "B",
+          ],
+        ],
+      },
+      "text": "表头 | 
+A | B",
+      "type": "TABLE",
+    },
+  ],
+  "format": "HTML",
+  "inspection": {
+    "archiveDepth": null,
+    "compressedSizeBytes": null,
+    "embeddedObjectCount": 0,
+    "encrypted": false,
+    "externalLinkCount": 0,
+    "hasMacros": false,
+    "pageCount": null,
+    "tableCellCount": 4,
+    "totalPixels": null,
+    "uncompressedSizeBytes": null,
+  },
+  "pages": [],
+  "targets": [],
+}
+`;
+
+exports[`[PAR-006][PAR-014] Node multi-format parser golden IMAGE 输出稳定统一 Block 1`] = `
+{
+  "blocks": [
+    {
+      "headingLevel": null,
+      "table": null,
+      "text": "",
+      "type": "IMAGE",
+    },
+  ],
+  "format": "IMAGE",
+  "inspection": {
+    "archiveDepth": null,
+    "compressedSizeBytes": null,
+    "embeddedObjectCount": 0,
+    "encrypted": false,
+    "externalLinkCount": 0,
+    "hasMacros": false,
+    "pageCount": 1,
+    "tableCellCount": 0,
+    "totalPixels": 1,
+    "uncompressedSizeBytes": null,
+  },
+  "pages": [
+    {
+      "imageOnly": true,
+      "pageNo": 1,
+      "textCharacterCount": 0,
+      "textCoverage": 0,
+    },
+  ],
+  "targets": [
+    {
+      "id": "whole-image",
+      "kind": "WHOLE_IMAGE",
+      "reason": "IMAGE_ONLY",
+    },
+  ],
+}
+`;
+
+exports[`[PAR-006][PAR-014] Node multi-format parser golden MARKDOWN 输出稳定统一 Block 1`] = `
+{
+  "blocks": [
+    {
+      "headingLevel": 1,
+      "table": null,
+      "text": "标题",
+      "type": "TITLE",
+    },
+    {
+      "headingLevel": null,
+      "table": null,
+      "text": "列表",
+      "type": "LIST",
+    },
+    {
+      "headingLevel": null,
+      "table": null,
+      "text": "const ok = true
+",
+      "type": "CODE",
+    },
+  ],
+  "format": "MARKDOWN",
+  "inspection": {
+    "archiveDepth": null,
+    "compressedSizeBytes": null,
+    "embeddedObjectCount": 0,
+    "encrypted": false,
+    "externalLinkCount": 0,
+    "hasMacros": false,
+    "pageCount": null,
+    "tableCellCount": 0,
+    "totalPixels": null,
+    "uncompressedSizeBytes": null,
+  },
+  "pages": [],
+  "targets": [],
+}
+`;
+
+exports[`[PAR-006][PAR-014] Node multi-format parser golden TEXT 输出稳定统一 Block 1`] = `
+{
+  "blocks": [
+    {
+      "headingLevel": null,
+      "table": null,
+      "text": "第一段",
+      "type": "PARAGRAPH",
+    },
+    {
+      "headingLevel": null,
+      "table": null,
+      "text": "第二段",
+      "type": "PARAGRAPH",
+    },
+  ],
+  "format": "TEXT",
+  "inspection": {
+    "archiveDepth": null,
+    "compressedSizeBytes": null,
+    "embeddedObjectCount": 0,
+    "encrypted": false,
+    "externalLinkCount": 0,
+    "hasMacros": false,
+    "pageCount": null,
+    "tableCellCount": 0,
+    "totalPixels": null,
+    "uncompressedSizeBytes": null,
+  },
+  "pages": [],
+  "targets": [],
+}
+`;

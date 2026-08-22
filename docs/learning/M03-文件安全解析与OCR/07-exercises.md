@@ -2,15 +2,15 @@
 
 ## 练习 1：解释一次正常 PDF 的完整路径
 
-从 Outbox event 开始，按源码顺序写出 Inbox、lease、MinIO stream、ClamAV、格式识别、Parser、OCR 选页、Block、derived 和 PG 状态变化。要求说明每一步失败后 Job 会处于什么状态。
+从 Outbox event 开始，按源码顺序写出 Inbox、lease、MinIO stream、内置 Scanner、格式识别、Node Parser、OCR Target、Block、derived 和 PG 状态变化。要求说明每一步失败后 Job 会处于什么状态。
 
 ## 练习 2：新增 TIFF 多页限制
 
 只修改领域/Provider 契约和测试，不把规则写进 Controller。设计页数、像素和 OCR 页的关系，并说明为何 `totalPixels` 需要独立上限。
 
-## 练习 3：实现内网 Parser Adapter 契约服务
+## 练习 3：扩展 Node Parser 契约服务
 
-实现 `/v1/parse`，返回完整 `ParserResultSchema`。故意删除 `inspection.hasMacros`、改协议版本、改 revision，观察平台如何分别报 `PARSER_SCHEMA_MISMATCH`、`PARSER_PROTOCOL_VERSION_MISMATCH`、`PARSER_REVISION_MISMATCH`。
+在现有 `/v1/parse` 中新增一种格式 Parser，返回完整 `ParserResultSchema`。故意删除 `inspection.hasMacros`、改协议版本、改 revision，观察 Registry 和平台 HTTP Adapter 如何分别 fail closed。
 
 ## 练习 4：验证 lease fencing
 
@@ -26,6 +26,6 @@
 
 - 为什么 Inbox 去重不能代替处理幂等？
 - 为什么短时 URL 也不能写日志？
-- 为什么 Docling 外网联调可用，但不能直接作为生产安全门禁？
+- 为什么内置 Scanner 不等价于病毒库，结构安全检查又为什么必须保留？
 - 什么时候重试，什么时候拒绝，什么时候人工复核？
 - 为什么 derived 对象成功而 PG 失败仍然可安全恢复？

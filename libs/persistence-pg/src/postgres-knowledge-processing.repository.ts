@@ -49,6 +49,7 @@ import { POSTGRES_POOL } from './postgres.tokens';
 interface ProcessingRunRow {
   id: string;
   job_id: string;
+  provider_profile: string;
   parse_run_id: string;
   document_version_id: string;
   content_revision: number;
@@ -224,12 +225,13 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
       await this.assertLease(client, command.input.jobId, command.workerId, 'CHUNK');
       const result = await client.query<ProcessingRunRow>(
         `INSERT INTO knowledge_processing_runs (
-           job_id, parse_run_id, document_version_id, content_revision, file_format, status,
+           job_id, provider_profile, parse_run_id, document_version_id, content_revision, file_format, status,
            chunker_profile_id, chunker_revision, tokenizer_profile_id, tokenizer_revision,
            quality_rule_version
-         ) VALUES ($1,$2,$3,$4,$5,'RUNNING',$6,$7,$8,$9,$10)
+         ) VALUES ($1,$2,$3,$4,$5,$6,'RUNNING',$7,$8,$9,$10,$11)
          ON CONFLICT (job_id) DO UPDATE SET
            status = 'RUNNING', failure_code = NULL, failure_message = NULL,
+           provider_profile = EXCLUDED.provider_profile,
            chunker_profile_id = EXCLUDED.chunker_profile_id,
            chunker_revision = EXCLUDED.chunker_revision,
            tokenizer_profile_id = EXCLUDED.tokenizer_profile_id,
@@ -239,6 +241,7 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
          RETURNING *`,
         [
           command.input.jobId,
+          command.providerProfile,
           command.input.parseRunId,
           command.input.documentVersionId,
           command.input.contentRevision,
@@ -1070,6 +1073,7 @@ function mapRun(row: ProcessingRunRow): KnowledgeProcessingRun {
   return KnowledgeProcessingRunSchema.parse({
     id: row.id,
     jobId: row.job_id,
+    providerProfile: row.provider_profile,
     parseRunId: row.parse_run_id,
     documentVersionId: row.document_version_id,
     contentRevision: row.content_revision,

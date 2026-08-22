@@ -1,8 +1,8 @@
 /** 创建 M00 本地开发所需的对象存储 Bucket；操作可重复执行。 */
-import { loadAppConfig } from '@rag/config';
+import { loadAppConfig, loadProfileEnvironment } from '@rag/config';
 import { Client } from 'minio';
 
-const config = loadAppConfig(process.env);
+const config = loadAppConfig(loadProfileEnvironment(process.env));
 const endpoint = new URL(config.minio.endpoint);
 const client = new Client({
   endPoint: endpoint.hostname,

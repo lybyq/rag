@@ -1,6 +1,6 @@
-/** M03 Provider Port 契约测试：成功、429、Schema 漂移、版本漂移与 ClamAV 协议。 */
+/** M03 Provider Port 契约测试：成功、429、Schema 漂移、版本漂移与内置流式安全扫描。 */
 import type { ParserResult } from '@rag/contracts';
-import { parseClamdResponse } from './clamd-scanner.adapter';
+import { BuiltinContentSafetyScannerAdapter } from './builtin-content-safety-scanner.adapter';
 import { HttpParserAdapter } from './http-parser.adapter';
 import type { ProcessingProviderError } from './provider.error';
 
@@ -17,6 +17,7 @@ const validResult: ParserResult = {
   protocolVersion: '1',
   blocks: [],
   pages: [{ pageNo: 1, textCharacterCount: 0, textCoverage: 0, imageOnly: true }],
+  ocrCandidates: [],
   inspection: {
     encrypted: false,
     hasMacros: false,
@@ -49,13 +50,41 @@ function adapter(fetchImplementation: typeof fetch): HttpParserAdapter {
 }
 
 describe('M03 provider adapters', () => {
-  it('[PAR-002] 解析 clamd CLEAN 与 FOUND，未知协议 fail closed', () => {
-    expect(parseClamdResponse('stream: OK\0')).toEqual({ verdict: 'CLEAN', signatureName: null });
-    expect(parseClamdResponse('stream: Eicar-Test-Signature FOUND\0')).toEqual({
-      verdict: 'INFECTED',
-      signatureName: 'Eicar-Test-Signature',
+  it('[PAR-002] 内置扫描能跨 chunk 命中 EICAR，并拒绝可执行文件魔数', async () => {
+    const scanner = new BuiltinContentSafetyScannerAdapter({
+      profileId: 'builtin-test',
+      revision: '1.0.0',
+      maxBytes: 1_024,
+      timeoutMs: 1_000,
     });
-    expect(() => parseClamdResponse('stream: ERROR\0')).toThrow('未知协议响应');
+    const eicar = new TextEncoder().encode(
+      ['X5O!P%@AP[4\\PZX54(P^)7CC)7}$', 'EICAR-STANDARD-ANTIVIRUS-TEST-FILE!', '$H+H*'].join(''),
+    );
+    const eicarResult = await scanner.scan(
+      (async function* () {
+        yield eicar.slice(0, 20);
+        yield eicar.slice(20);
+        // 命中后仍必须把共享观察流消费到底，否则下游 Hash/魔数观察器无法完成确定性校验。
+        yield Uint8Array.of(0x00, 0x01, 0x02);
+      })(),
+      new AbortController().signal,
+    );
+    expect(eicarResult).toMatchObject({
+      verdict: 'INFECTED',
+      signatureName: 'BUILTIN_EICAR_TEST_FILE',
+      scannedBytes: eicar.byteLength + 3,
+    });
+
+    const executableResult = await scanner.scan(
+      (async function* () {
+        yield Uint8Array.of(0x4d, 0x5a, 0x90, 0x00);
+      })(),
+      new AbortController().signal,
+    );
+    expect(executableResult).toMatchObject({
+      verdict: 'INFECTED',
+      signatureName: 'BUILTIN_EXECUTABLE_PE',
+    });
   });
 
   it('[PAR-005] 标准 HTTP Parser 成功响应必须通过运行时 Schema 和协议版本', async () => {

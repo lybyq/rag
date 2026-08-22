@@ -5552,6 +5552,16 @@
                       "minLength": 1,
                       "maxLength": 300
                     },
+                    "providerProfile": {
+                      "type": "string",
+                      "enum": [
+                        "test",
+                        "external-dev",
+                        "external-ci",
+                        "intranet-staging",
+                        "intranet-production"
+                      ]
+                    },
                     "documentVersionId": {
                       "type": "string",
                       "format": "uuid",
@@ -5806,6 +5816,7 @@
                   "required": [
                     "id",
                     "jobId",
+                    "providerProfile",
                     "documentVersionId",
                     "contentRevision",
                     "status",
@@ -5885,6 +5896,16 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 300
+                  },
+                  "providerProfile": {
+                    "type": "string",
+                    "enum": [
+                      "test",
+                      "external-dev",
+                      "external-ci",
+                      "intranet-staging",
+                      "intranet-production"
+                    ]
                   },
                   "documentVersionId": {
                     "type": "string",
@@ -6140,6 +6161,7 @@
                 "required": [
                   "id",
                   "jobId",
+                  "providerProfile",
                   "documentVersionId",
                   "contentRevision",
                   "status",
@@ -6801,6 +6823,16 @@
                       "minLength": 1,
                       "maxLength": 300
                     },
+                    "providerProfile": {
+                      "type": "string",
+                      "enum": [
+                        "test",
+                        "external-dev",
+                        "external-ci",
+                        "intranet-staging",
+                        "intranet-production"
+                      ]
+                    },
                     "parseRunId": {
                       "type": "string",
                       "format": "uuid",
@@ -6940,6 +6972,7 @@
                   "required": [
                     "id",
                     "jobId",
+                    "providerProfile",
                     "parseRunId",
                     "documentVersionId",
                     "contentRevision",
@@ -7011,6 +7044,16 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 300
+                  },
+                  "providerProfile": {
+                    "type": "string",
+                    "enum": [
+                      "test",
+                      "external-dev",
+                      "external-ci",
+                      "intranet-staging",
+                      "intranet-production"
+                    ]
                   },
                   "parseRunId": {
                     "type": "string",
@@ -7151,6 +7194,7 @@
                 "required": [
                   "id",
                   "jobId",
+                  "providerProfile",
                   "parseRunId",
                   "documentVersionId",
                   "contentRevision",

@@ -1,4 +1,4 @@
-/** 四个 NestJS 进程共享的安全启动和优雅关闭流程。 */
+/** 核心 API、Worker 与独立 Provider Service 共享的安全启动和优雅关闭流程。 */
 import { type Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { APP_CONFIG, type AppConfig } from '@rag/config';
@@ -8,6 +8,8 @@ import { stopTracing } from './tracing';
 export interface BootstrapHttpOptions {
   /** HTTP 服务读取 httpPort；worker 的探针监听器读取 probePort。 */
   portKind: 'http' | 'probe';
+  /** 独立 Provider Service 可使用 `v1`；平台 API 默认保持 `api/v1`。 */
+  readonly globalPrefix?: string;
 }
 
 /**
@@ -21,7 +23,7 @@ export async function bootstrapHttpApplication(
   const application = await NestFactory.create(rootModule, { bufferLogs: true });
   const config = application.get<AppConfig>(APP_CONFIG);
   application.useLogger(application.get(Logger));
-  application.setGlobalPrefix('api/v1');
+  application.setGlobalPrefix(options.globalPrefix ?? 'api/v1');
   application.enableCors({
     origin: [...config.corsAllowedOrigins],
     credentials: true,

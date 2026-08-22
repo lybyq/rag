@@ -1,0 +1,74 @@
+# CFG-011：离线制品清单是“允许带入内网什么”的机器可读基线，不保存任何凭据。
+schemaVersion: 1
+
+toolchain:
+  node: 22.20.0
+  pnpm: 11.19.0
+
+targets:
+  - os: win32
+    cpu: x64
+    libc: none
+  - os: linux
+    cpu: x64
+    libc: glibc
+
+# 原生/平台相关包必须同时出现在 lockfile 与目标平台缓存中。新增条目前必须重新走安全审批。
+nativeModules:
+  - package: esbuild
+    version: 0.27.7
+    installScript: true
+    allowBuild: true
+    platformPackages:
+      - '@esbuild/win32-x64@0.27.7'
+      - '@esbuild/linux-x64@0.27.7'
+  - package: esbuild
+    version: 0.28.2
+    installScript: true
+    allowBuild: true
+    platformPackages:
+      - '@esbuild/win32-x64@0.28.2'
+      - '@esbuild/linux-x64@0.28.2'
+  - package: rollup
+    version: 4.62.4
+    installScript: false
+    allowBuild: false
+    platformPackages:
+      - '@rollup/rollup-win32-x64-msvc@4.62.4'
+      - '@rollup/rollup-linux-x64-gnu@4.62.4'
+  - package: protobufjs
+    version: 7.6.5
+    installScript: true
+    allowBuild: true
+    platformPackages: []
+  - package: '@scarf/scarf'
+    version: 1.4.0
+    installScript: true
+    allowBuild: false
+    platformPackages: []
+  - package: msgpackr-extract
+    version: 3.0.4
+    installScript: true
+    allowBuild: false
+    platformPackages:
+      - '@msgpackr-extract/msgpackr-extract-win32-x64@3.0.4'
+      - '@msgpackr-extract/msgpackr-extract-linux-x64@3.0.4'
+  - package: vue-demi
+    version: 0.14.10
+    installScript: true
+    allowBuild: false
+    platformPackages: []
+
+# 外网清单允许先记录待补 digest 的开发镜像；制品导出门禁使用 OFFLINE_AUDIT_STRICT=true 拒绝它们。
+imagePolicy:
+  externalFile: deploy/docker/images.external.env
+  intranetTemplateFile: deploy/docker/images.intranet.example.env
+  requireDigestInStrictMode: true
+
+forbiddenSources:
+  - 'git+'
+  - 'github:'
+  - 'gitlab:'
+  - 'bitbucket:'
+  - 'http://'
+  - 'https://'

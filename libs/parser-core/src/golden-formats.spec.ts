@@ -3,7 +3,7 @@ import { FixtureOcrAdapter, FixtureParserAdapter } from '@rag/file-processing-pr
 import { OcrResultSchema, ParserResultSchema, type SupportedFileFormat } from '@rag/contracts';
 import goldenManifest from '../../../test/fixtures/m03/golden-manifest.json';
 import { detectFileFormat } from './file-detection';
-import { selectOcrPages } from './block-normalization';
+import { selectOcrPages, selectOcrTargets } from './block-normalization';
 
 describe('[PAR-006][PAR-014] supported format golden manifest', () => {
   it.each(goldenManifest)('$name 路由到 $expectedFormat 并输出版本化统一契约', async (fixture) => {
@@ -25,6 +25,10 @@ describe('[PAR-006][PAR-014] supported format golden manifest', () => {
     const ocrPages = selectOcrPages(parsed.pages, 0.02);
     if (ocrPages.length > 0) {
       const ocr = new FixtureOcrAdapter('golden-ocr', 'golden-r1', '1', 1_000);
+      const ocrTargets = selectOcrTargets(parsed.pages, parsed.ocrCandidates, 0.02);
+      expect(ocrTargets.map((target) => target.targetId)).not.toEqual(
+        expect.arrayContaining(['whole-image', 'page-1']),
+      );
       expect(
         OcrResultSchema.parse(
           await ocr.recognize(
@@ -34,9 +38,9 @@ describe('[PAR-006][PAR-014] supported format golden manifest', () => {
               format: detected.format as SupportedFileFormat,
               declaredMime: fixture.declaredMime,
             },
-            ocrPages,
+            ocrTargets,
           ),
-        ).pages.map((page) => page.pageNo),
+        ).results.map((result) => result.pageNo),
       ).toEqual(ocrPages);
     }
     expect({

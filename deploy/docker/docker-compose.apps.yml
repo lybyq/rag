@@ -1,0 +1,158 @@
+name: enterprise-rag-local
+
+x-backend: &backend
+  restart: unless-stopped
+  env_file:
+    - path: ${RAG_ENV_FILE:-../../.env.external-dev.example}
+      required: true
+  environment: &local-backend-environment
+    DATABASE_URL: postgresql://rag:rag-local-only@postgres:5432/rag
+    REDIS_CACHE_URL: redis://redis-cache:6379/0
+    REDIS_BULLMQ_URL: redis://redis-bullmq:6379/0
+    MINIO_ENDPOINT: http://minio:9000
+    MILVUS_ADDRESS: milvus:19530
+    PARSER_BASE_URL: http://document-parser-service:8104
+    OCR_BASE_URL: http://docling:5001
+  networks: [rag-infra, rag-processing]
+
+services:
+  document-parser-service:
+    restart: unless-stopped
+    env_file:
+      - path: ${RAG_ENV_FILE:-../../.env.external-dev.example}
+        required: true
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:?NODE_IMAGE must be set}
+        APP_NAME: document-parser-service
+    environment:
+      APP_NAME: document-parser-service
+      HTTP_PORT: 8104
+      MINIO_ENDPOINT: http://minio:9000
+      PARSER_ALLOWED_SOURCE_HOSTS: minio
+    ports: ['8104:8104']
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 2g
+    cpus: 2
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+      - /app/.data:size=512m,mode=0700
+    networks: [rag-processing]
+    depends_on:
+      minio: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:8104/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    <<: *backend
+    restart: 'no'
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:?NODE_IMAGE must be set}
+        APP_NAME: platform-api
+    command: ['./node_modules/.bin/tsx', 'scripts/migrate.ts']
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  platform-api:
+    <<: *backend
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:?NODE_IMAGE must be set}
+        APP_NAME: platform-api
+    environment:
+      <<: *local-backend-environment
+      APP_NAME: platform-api
+      HTTP_PORT: 3000
+    ports: ['3000:3000']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis-cache: { condition: service_healthy }
+      redis-bullmq: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      milvus: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+  rag-query-service:
+    <<: *backend
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:?NODE_IMAGE must be set}
+        APP_NAME: rag-query-service
+    environment:
+      <<: *local-backend-environment
+      APP_NAME: rag-query-service
+      HTTP_PORT: 3001
+    ports: ['3001:3001']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  ingestion-worker:
+    <<: *backend
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:?NODE_IMAGE must be set}
+        APP_NAME: ingestion-worker
+    environment:
+      <<: *local-backend-environment
+      APP_NAME: ingestion-worker
+      PROBE_PORT: 3002
+    ports: ['3002:3002']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis-bullmq: { condition: service_healthy }
+      minio: { condition: service_healthy }
+      document-parser-service: { condition: service_healthy }
+      docling: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+  scheduler-worker:
+    <<: *backend
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.backend
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:?NODE_IMAGE must be set}
+        APP_NAME: scheduler-worker
+    environment:
+      <<: *local-backend-environment
+      APP_NAME: scheduler-worker
+      PROBE_PORT: 3003
+    ports: ['3003:3003']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  web-console:
+    restart: unless-stopped
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.web
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:?NODE_IMAGE must be set}
+        NGINX_IMAGE: ${NGINX_IMAGE:?NGINX_IMAGE must be set}
+    ports: ['5173:8080']
+    networks: [rag-infra]
+    depends_on:
+      platform-api: { condition: service_started }

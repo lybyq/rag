@@ -180,6 +180,7 @@ describeWithInfra('[KNO-011][KNO-012][KNO-013][KNO-014] M04 PostgreSQL transacti
       knowledge,
       new Cl100kTextTokenizer('integration-cl100k'),
       {
+        providerProfile: 'external-ci',
         chunkerProfileId: 'integration-structure-aware',
         chunkerRevision: '1',
         qualityRuleVersion: 'integration-quality-v1',
@@ -229,6 +230,7 @@ describeWithInfra('[KNO-011][KNO-012][KNO-013][KNO-014] M04 PostgreSQL transacti
     const input = await parsing.loadInput(completed.job.id, workerId);
     const parseRun = await parsing.beginRun({
       input: input!,
+      providerProfile: 'external-ci',
       parserProfileId: 'm04-integration-parser',
       parserRevision: '1',
       ocrProfileId: 'm04-integration-ocr',
@@ -236,7 +238,7 @@ describeWithInfra('[KNO-011][KNO-012][KNO-013][KNO-014] M04 PostgreSQL transacti
     });
     const malware = {
       verdict: 'CLEAN' as const,
-      engine: 'ClamAV',
+      engine: 'RAG Builtin Content Safety',
       engineRevision: 'integration',
       signatureName: null,
       scannedBytes: input!.sizeBytes,
@@ -278,7 +280,7 @@ describeWithInfra('[KNO-011][KNO-012][KNO-013][KNO-014] M04 PostgreSQL transacti
         headingLevel: 1,
         confidence: null,
         table: null,
-        metadata: {},
+        metadata: { extractionSource: 'NATIVE' },
       },
       {
         type: 'PARAGRAPH' as const,
@@ -291,7 +293,8 @@ describeWithInfra('[KNO-011][KNO-012][KNO-013][KNO-014] M04 PostgreSQL transacti
         headingLevel: null,
         confidence: ocrConfidence,
         table: null,
-        metadata: {},
+        // 低置信度只对真实 OCR/MERGED Block 有意义；原生文本不能因为同文档调用过 OCR 就被误标。
+        metadata: { extractionSource: ocrConfidence === null ? 'NATIVE' : 'OCR' },
       },
     ];
     const parser = {
@@ -300,6 +303,7 @@ describeWithInfra('[KNO-011][KNO-012][KNO-013][KNO-014] M04 PostgreSQL transacti
       protocolVersion: '1',
       blocks: candidates,
       pages: [{ pageNo: 1, textCharacterCount: text.length, textCoverage: 0.8, imageOnly: false }],
+      ocrCandidates: [],
       inspection: {
         encrypted: false,
         hasMacros: false,

@@ -1,5 +1,5 @@
 /** M03 可替换 Provider Adapter 公共出口。 */
-export * from './clamd-scanner.adapter';
+export * from './builtin-content-safety-scanner.adapter';
 export * from './docling.adapter';
 export * from './file-processing-providers.module';
 export * from './fixture.adapters';
