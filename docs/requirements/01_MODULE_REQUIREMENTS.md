@@ -302,26 +302,30 @@ POST /v1/jobs/{jobId}/cancel
 
 ### 需求清单
 
-- [ ] `RUN-001` 建立 Conversation、Message、ConversationState、RagRun、RagRunStep 数据模型。
-- [ ] `RUN-002` 创建 Run 使用 `Idempotency-Key`，同用户重复请求返回同一 Run。
-- [ ] `RUN-003` Run 创建快速返回 `ACCEPTED`、events URL 和过期时间，不同步等待模型。
-- [ ] `RUN-004` Run 锁定 flow、policy、prompt、embedding、reranker、LLM、validator、manifest 和 authz 版本快照。
-- [ ] `RUN-005` 实现 Run 状态机、乐观锁、Deadline 和终态不可逆规则。
-- [ ] `RUN-006` 每个 Graph 节点记录状态、输入/输出摘要、耗时、错误和 Trace，不保存不必要敏感全文。
-- [ ] `RUN-007` 每个 Run 使用 Redis Stream 保存顺序事件，事件有 sequence、schemaVersion 和可配置保留期。
-- [ ] `RUN-008` SSE 支持会话 Cookie或绑定 `runId + userId` 的短时一次性 Stream Ticket。
-- [ ] `RUN-009` 支持 `Last-Event-ID` 补发、心跳、慢客户端处理、完成后重连和 Stream 过期降级。
-- [ ] `RUN-010` 取消写入信号并传播 AbortSignal 到检索、Reranker 和 LLM。
-- [ ] `RUN-011` 最终结果先持久化，再发布 `answer.completed`；重放不能产生第二份答案事实。
-- [ ] `RUN-012` 会话仅保存短窗口、摘要、确认实体和最近引用；每轮重新鉴权历史来源。
-- [ ] `RUN-013` 实现 Run 创建、详情、事件、取消、会话列表/消息和反馈 API。
-- [ ] `RUN-014` 问题正文支持按合规策略脱敏、加密和保留期清理。
+- [x] `RUN-001` 建立 Conversation、Message、ConversationState、RagRun、RagRunStep 数据模型。
+- [x] `RUN-002` 创建 Run 使用 `Idempotency-Key`，同用户重复请求返回同一 Run。
+- [x] `RUN-003` Run 创建快速返回 `ACCEPTED`、events URL 和过期时间，不同步等待模型。
+- [x] `RUN-004` Run 锁定 flow、policy、prompt、embedding、reranker、LLM、validator、manifest 和 authz 版本快照。
+- [x] `RUN-005` 实现 Run 状态机、乐观锁、Deadline 和终态不可逆规则。
+- [x] `RUN-006` 每个 Graph 节点记录状态、输入/输出摘要、耗时、错误和 Trace，不保存不必要敏感全文。
+- [x] `RUN-007` 每个 Run 使用 Redis Stream 保存顺序事件，事件有 sequence、schemaVersion 和可配置保留期。
+- [x] `RUN-008` SSE 支持会话 Cookie或绑定 `runId + userId` 的短时一次性 Stream Ticket。
+- [x] `RUN-009` 支持 `Last-Event-ID` 补发、心跳、慢客户端处理、完成后重连和 Stream 过期降级。
+- [x] `RUN-010` 取消写入信号并传播 AbortSignal 到检索、Reranker 和 LLM。
+- [x] `RUN-011` 最终结果先持久化，再发布 `answer.completed`；重放不能产生第二份答案事实。
+- [x] `RUN-012` 会话仅保存短窗口、摘要、确认实体和最近引用；每轮重新鉴权历史来源。
+- [x] `RUN-013` 实现 Run 创建、详情、事件、取消、会话列表/消息和反馈 API。
+- [x] `RUN-014` 问题正文支持按合规策略脱敏、加密和保留期清理。
 
 ### 验收门禁
 
 - 断线续传无事件丢失或乱序；完成事件之前答案已可从 PG 查询。
 - 用户取消能中止下游调用；超时 Run 最终进入 EXPIRED/FAILED。
 - 不同用户无法读取对方 Run、事件、会话或引用。
+
+### 2026-08-23 实施证据
+
+需求到源码、自动化、真实 PostgreSQL/Redis、运行时烟测和内网补跑项的映射见 [M06 实施证据](./M06_IMPLEMENTATION_EVIDENCE.md) 与 [M06 验收清单](../acceptance/M06-acceptance.md)。M06 完成的是可持久化运行容器；真实检索和模型生成仍按基线由 M07/M08 实现，不以 Fixture 答案冒充。
 
 ---
 

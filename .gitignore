@@ -14,6 +14,7 @@ deploy/docker/images.intranet.env
 
 # 测试和工具缓存
 .eslintcache
+.tmp/
 .pnpm-store/
 test-results/
 playwright-report/

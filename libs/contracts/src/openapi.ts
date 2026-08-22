@@ -63,6 +63,21 @@ import {
   StartIndexRebuildEnvelopeSchema,
   StartIndexRebuildRequestSchema,
 } from './indexing';
+import {
+  CancelRagRunRequestSchema,
+  ConversationEnvelopeSchema,
+  ConversationListEnvelopeSchema,
+  ConversationMessageListEnvelopeSchema,
+  CreateConversationRequestSchema,
+  CreateMessageFeedbackRequestSchema,
+  CreateRagRunAcceptedEnvelopeSchema,
+  CreateRagRunRequestSchema,
+  MessageFeedbackEnvelopeSchema,
+  RagRunEnvelopeSchema,
+  RagRunEventPageEnvelopeSchema,
+  RagRunStepListEnvelopeSchema,
+  RunStreamTicketEnvelopeSchema,
+} from './rag-run';
 
 /** 生成文档所需的最小服务信息。 */
 export interface OpenApiDocumentOptions {
@@ -79,6 +94,8 @@ export interface OpenApiDocumentOptions {
   includeM04?: boolean;
   /** Platform API 注册 M05 索引运行、Manifest、回滚与重建路径。 */
   includeM05?: boolean;
+  /** Query Service 注册 M06 会话、Run、事件与反馈路径。 */
+  includeM06?: boolean;
 }
 
 /** OpenAPI 文档使用普通 JSON 对象表示，便于 NestJS 和生成脚本共同消费。 */
@@ -655,6 +672,204 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
+  const m06Security = [{ bearerAuth: [] }, { trustedUserHeader: [] }, { mockPreset: [] }];
+  const m06Paths: Record<string, unknown> = options.includeM06
+    ? {
+        '/api/v1/conversations': {
+          get: {
+            operationId: 'listConversations',
+            summary: '游标分页列出当前用户会话',
+            security: m06Security,
+            parameters: [
+              { name: 'cursor', in: 'query', schema: { type: 'string', maxLength: 500 } },
+              {
+                name: 'limit',
+                in: 'query',
+                schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+              },
+            ],
+            responses: {
+              '200': jsonResponse('会话列表', 'ConversationListEnvelope'),
+              ...securedResponses,
+            },
+          },
+          post: {
+            operationId: 'createConversation',
+            summary: '创建当前用户私有会话',
+            security: m06Security,
+            requestBody: jsonBody('CreateConversationRequest'),
+            responses: {
+              '201': jsonResponse('已创建会话', 'ConversationEnvelope'),
+              '400': errorResponse('请求参数非法'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/conversations/{conversationId}/messages': {
+          get: {
+            operationId: 'listConversationMessages',
+            summary: '读取短窗口消息和会话状态，并重新校验历史引用权限',
+            security: m06Security,
+            parameters: [uuidPathParameter('conversationId')],
+            responses: {
+              '200': jsonResponse('可见消息和短期状态', 'ConversationMessageListEnvelope'),
+              '404': errorResponse('会话不存在或无权访问'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/conversations/{conversationId}/runs': {
+          post: {
+            operationId: 'createRagRun',
+            summary: '幂等创建异步 RAG Run 并冻结执行快照',
+            security: m06Security,
+            parameters: [
+              uuidPathParameter('conversationId'),
+              {
+                name: 'Idempotency-Key',
+                in: 'header',
+                required: true,
+                schema: { type: 'string', minLength: 8, maxLength: 200 },
+              },
+            ],
+            requestBody: jsonBody('CreateRagRunRequest'),
+            responses: {
+              '202': jsonResponse('Run 已接受，不同步等待模型执行', 'CreateRagRunAcceptedEnvelope'),
+              '400': errorResponse('请求参数非法'),
+              '409': errorResponse('幂等键冲突或空间尚未发布'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/runs/{runId}': {
+          get: {
+            operationId: 'getRagRun',
+            summary: '读取 PostgreSQL 中的 Run 事实与终态',
+            security: m06Security,
+            parameters: [uuidPathParameter('runId')],
+            responses: {
+              '200': jsonResponse('Run 详情', 'RagRunEnvelope'),
+              '404': errorResponse('Run 不存在或无权访问'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/runs/{runId}/steps': {
+          get: {
+            operationId: 'listRagRunSteps',
+            summary: '读取脱敏 Graph 节点摘要与 Trace',
+            security: m06Security,
+            parameters: [uuidPathParameter('runId')],
+            responses: {
+              '200': jsonResponse('Run Step 列表', 'RagRunStepListEnvelope'),
+              '404': errorResponse('Run 不存在或无权访问'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/runs/{runId}/cancel': {
+          post: {
+            operationId: 'cancelRagRun',
+            summary: '请求取消 Run 并跨实例传播 AbortSignal',
+            security: m06Security,
+            parameters: [uuidPathParameter('runId')],
+            requestBody: jsonBody('CancelRagRunRequest'),
+            responses: {
+              '201': jsonResponse('正在取消或已确认的 Run', 'RagRunEnvelope'),
+              '409': errorResponse('Run 已处于不可取消终态'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/runs/{runId}/stream-ticket': {
+          post: {
+            operationId: 'issueRagRunStreamTicket',
+            summary: '签发绑定 runId 与 userId 的短时一次性 SSE Ticket',
+            security: m06Security,
+            parameters: [uuidPathParameter('runId')],
+            responses: {
+              '201': jsonResponse('一次性 Ticket 与 HttpOnly Cookie', 'RunStreamTicketEnvelope'),
+              '404': errorResponse('Run 不存在或无权访问'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/runs/{runId}/events': {
+          get: {
+            operationId: 'streamRagRunEventsAuthenticated',
+            summary: '认证 SSE；使用 Last-Event-ID 按 sequence 续传',
+            security: m06Security,
+            parameters: [
+              uuidPathParameter('runId'),
+              { name: 'Last-Event-ID', in: 'header', schema: { type: 'integer', minimum: 0 } },
+            ],
+            responses: {
+              '200': {
+                description: '顺序 Run 事件、心跳或 stream.expired 降级通知',
+                content: { 'text/event-stream': { schema: { type: 'string' } } },
+              },
+              '404': errorResponse('Run 不存在或无权访问'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/runs/{runId}/events/poll': {
+          get: {
+            operationId: 'pollRagRunEvents',
+            summary: '使用 sequence 与 ETag 轮询；Stream 过期后返回 PG Run 降级事实',
+            security: m06Security,
+            parameters: [
+              uuidPathParameter('runId'),
+              { name: 'after', in: 'query', schema: { type: 'integer', minimum: 0 } },
+              {
+                name: 'limit',
+                in: 'query',
+                schema: { type: 'integer', minimum: 1, maximum: 200 },
+              },
+              { name: 'If-None-Match', in: 'header', schema: { type: 'string' } },
+            ],
+            responses: {
+              '200': jsonResponse('事件页与 Run 降级事实', 'RagRunEventPageEnvelope'),
+              '304': { description: '事件与 Run 状态均未变化' },
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/run-streams/{runId}': {
+          get: {
+            operationId: 'streamRagRunEventsByTicket',
+            summary: '使用 HttpOnly 一次性 Ticket Cookie 建立 SSE',
+            security: [{ ragStreamTicket: [] }],
+            parameters: [
+              uuidPathParameter('runId'),
+              { name: 'Last-Event-ID', in: 'header', schema: { type: 'integer', minimum: 0 } },
+            ],
+            responses: {
+              '200': {
+                description: 'Ticket 兑换后的顺序 Run 事件',
+                content: { 'text/event-stream': { schema: { type: 'string' } } },
+              },
+              '400': errorResponse('Ticket Cookie 缺失或格式非法'),
+              '404': errorResponse('Ticket 不存在、已过期或已兑换'),
+            },
+          },
+        },
+        '/api/v1/messages/{messageId}/feedback': {
+          post: {
+            operationId: 'saveMessageFeedback',
+            summary: '新增或覆盖当前用户对可见助手消息的反馈',
+            security: m06Security,
+            parameters: [uuidPathParameter('messageId')],
+            requestBody: jsonBody('CreateMessageFeedbackRequest'),
+            responses: {
+              '201': jsonResponse('已保存反馈', 'MessageFeedbackEnvelope'),
+              '404': errorResponse('助手消息不存在或无权访问'),
+              ...securedResponses,
+            },
+          },
+        },
+      }
+    : {};
 
   return {
     openapi: '3.1.0',
@@ -709,12 +924,14 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
       ...m03Paths,
       ...m04Paths,
       ...m05Paths,
+      ...m06Paths,
     },
     components: {
       securitySchemes: {
         bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
         trustedUserHeader: { type: 'apiKey', in: 'header', name: 'X-Authenticated-User' },
         mockPreset: { type: 'apiKey', in: 'header', name: 'X-RAG-Mock-User' },
+        ragStreamTicket: { type: 'apiKey', in: 'cookie', name: 'rag_stream_ticket' },
       },
       schemas: {
         ApiError: z.toJSONSchema(ApiErrorSchema),
@@ -797,6 +1014,25 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               SpaceManifestListEnvelope: z.toJSONSchema(SpaceManifestListEnvelopeSchema),
               StartIndexRebuildEnvelope: z.toJSONSchema(StartIndexRebuildEnvelopeSchema),
               IndexRebuildEnvelope: z.toJSONSchema(IndexRebuildEnvelopeSchema),
+            }
+          : {}),
+        ...(options.includeM06
+          ? {
+              CreateConversationRequest: z.toJSONSchema(CreateConversationRequestSchema),
+              CreateRagRunRequest: z.toJSONSchema(CreateRagRunRequestSchema),
+              CancelRagRunRequest: z.toJSONSchema(CancelRagRunRequestSchema),
+              CreateMessageFeedbackRequest: z.toJSONSchema(CreateMessageFeedbackRequestSchema),
+              ConversationEnvelope: z.toJSONSchema(ConversationEnvelopeSchema),
+              ConversationListEnvelope: z.toJSONSchema(ConversationListEnvelopeSchema),
+              ConversationMessageListEnvelope: z.toJSONSchema(
+                ConversationMessageListEnvelopeSchema,
+              ),
+              CreateRagRunAcceptedEnvelope: z.toJSONSchema(CreateRagRunAcceptedEnvelopeSchema),
+              RagRunEnvelope: z.toJSONSchema(RagRunEnvelopeSchema),
+              RagRunStepListEnvelope: z.toJSONSchema(RagRunStepListEnvelopeSchema),
+              RagRunEventPageEnvelope: z.toJSONSchema(RagRunEventPageEnvelopeSchema),
+              RunStreamTicketEnvelope: z.toJSONSchema(RunStreamTicketEnvelopeSchema),
+              MessageFeedbackEnvelope: z.toJSONSchema(MessageFeedbackEnvelopeSchema),
             }
           : {}),
       },

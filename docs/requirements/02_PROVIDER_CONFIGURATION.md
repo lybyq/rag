@@ -295,6 +295,30 @@ MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI 
 
 `fixture + memory` 只用于流程与事务测试。真实 Recall、Milvus 性能和内网网络故障必须在 `intranet-staging` 复验。
 
+### 6.5 M06 Run、Redis Stream 与正文保护配置说明
+
+| 环境变量                           | 默认值                  | 合法范围/能力约束                                            | 敏感 | 热更新 | 回退方式                                         |
+| ---------------------------------- | ----------------------- | ------------------------------------------------------------ | ---- | ------ | ------------------------------------------------ |
+| `RUN_FLOW_VERSION`                 | `rag-flow-v1`           | Graph 结构或节点语义变化必须新版本                           | 否   | 否     | 滚动切回旧流程版本；在途 Run 使用冻结值          |
+| `RUN_POLICY_VERSION`               | `safe-answer-policy-v1` | 答案安全/拒答策略的不可变版本                                | 否   | 否     | 切回已验收策略版本                               |
+| `RUN_PROMPT_PROFILE_ID`            | `rag-prompt-v1`         | Prompt 含义不可原地修改                                      | 否   | 否     | 切回旧 Profile，新 Run 生效                      |
+| `RUN_VALIDATOR_PROFILE_ID`         | `answer-validator-v1`   | 答案验证器不可变 Profile                                     | 否   | 否     | 切回旧 Profile                                   |
+| `RUN_DEADLINE_SECONDS`             | `120`                   | `5..3600`；覆盖一次 Run 总时间，不替代 Provider 单次 timeout | 否   | 否     | 恢复旧 Deadline；在途 Run 保留创建时值           |
+| `RUN_EVENT_RETENTION_SECONDS`      | `86400`                 | `60..2592000`；大于客户端最大离线重连窗口                    | 否   | 否     | 延长 TTL；已过期 Stream 不能凭空恢复             |
+| `RUN_EVENT_STREAM_MAX_LENGTH`      | `10000`                 | `100..1000000`；按单 Run 最大事件量压测                      | 否   | 否     | 恢复旧上限并观察 Redis 内存                      |
+| `RUN_EVENT_PUBLISH_BATCH_SIZE`     | `100`                   | `1..1000`；与 PG/Redis 延迟共同压测                          | 否   | 否     | 降回安全批次                                     |
+| `RUN_EVENT_PUBLISH_LEASE_SECONDS`  | `30`                    | `5..600`；必须覆盖单批正常耗时                               | 否   | 否     | 等旧租约过期后恢复旧值                           |
+| `RUN_STREAM_TICKET_TTL_SECONDS`    | `60`                    | `10..300`；只够建立 SSE，不是会话 Token                      | 否   | 否     | 恢复旧 TTL，重新签发 Ticket                      |
+| `RUN_SSE_HEARTBEAT_SECONDS`        | `15`                    | `5..60`；必须小于 Ingress idle timeout                       | 否   | 否     | 恢复已验证 heartbeat                             |
+| `RUN_SHORT_WINDOW_MESSAGES`        | `20`                    | `2..100`；会话记忆上限，不等于 UI 历史总数                   | 否   | 否     | 恢复旧窗口；历史消息事实不删除                   |
+| `RUN_CONTENT_STORAGE`              | `AES_256_GCM`           | `AES_256_GCM/REDACTED/PLAIN`；production 禁止 PLAIN          | 否   | 否     | 切回已批准策略；不可恢复已脱敏原文               |
+| `RUN_CONTENT_ENCRYPTION_KEY`       | 外网固定测试值          | Base64 编码 32 字节；生产拒绝默认值，由 Secret 注入          | 是   | 否     | Secret 版本回滚；轮换前先实现 key version/重加密 |
+| `RUN_CONTENT_RETENTION_DAYS`       | `30`                    | `1..3650`；由企业合规审批                                    | 否   | 否     | 只能延长尚未清理内容，已清理正文不可恢复         |
+| `RUN_MAINTENANCE_INTERVAL_SECONDS` | `60`                    | `10..86400`                                                  | 否   | 否     | 恢复旧扫描周期                                   |
+| `RUN_MAINTENANCE_BATCH_SIZE`       | `100`                   | `1..10000`；有限批次避免长事务                               | 否   | 否     | 降低批次并增加运行频率                           |
+
+四套 Profile 示例均包含同名 `RUN_*` 配置。外网开发/CI 的固定密钥只用于合成数据；`intranet-staging/production` 示例故意使用不可启动占位符，必须由部署平台 Secret 覆盖。M06 Run 同时冻结 LLM、Embedding、Reranker 和 M05 Manifest 版本，因此 Provider 滚动升级不会改变在途问答。
+
 ## 7. Profile Registry
 
 Profile 必须是不可变、可引用的配置事实。修改模型或关键参数时创建新 Profile ID，不原地改变历史含义。

@@ -4,6 +4,7 @@
  *
  * @requirement BASE-010
  * @requirement CFG-003
+ * @requirement RUN-014
  */
 import { z } from 'zod';
 import { ProviderProfileSchema, type ProviderProfile } from './provider-profile';
@@ -19,6 +20,7 @@ const llmAdapters = ['openai-compatible', 'http', 'fixture'] as const;
 const embeddingAdapters = ['openai-compatible', 'http', 'fixture'] as const;
 const rerankerAdapters = ['http', 'fixture'] as const;
 const vectorStoreAdapters = ['milvus', 'memory'] as const;
+const sensitiveContentStorageModes = ['AES_256_GCM', 'REDACTED', 'PLAIN'] as const;
 
 /** 开发身份预置的默认值；选择的是 presetId，而不是让浏览器提交任意角色。 */
 const defaultMockPresets = JSON.stringify([
@@ -328,6 +330,33 @@ export const AppEnvironmentSchema = z
     INDEXING_ROLLOUT_MINIMUM_RECALL: z.coerce.number().min(0).max(1).default(0.9),
     INDEXING_ROLLOUT_LEASE_SECONDS: z.coerce.number().int().min(30).max(3_600).default(600),
     INDEXING_ROLLOUT_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(3),
+
+    RUN_FLOW_VERSION: z.string().min(1).max(100).default('rag-flow-v1'),
+    RUN_POLICY_VERSION: z.string().min(1).max(100).default('safe-answer-policy-v1'),
+    RUN_PROMPT_PROFILE_ID: z.string().min(1).max(100).default('rag-prompt-v1'),
+    RUN_VALIDATOR_PROFILE_ID: z.string().min(1).max(100).default('answer-validator-v1'),
+    RUN_DEADLINE_SECONDS: z.coerce.number().int().min(5).max(3_600).default(120),
+    RUN_EVENT_RETENTION_SECONDS: z.coerce.number().int().min(60).max(2_592_000).default(86_400),
+    RUN_EVENT_STREAM_MAX_LENGTH: z.coerce.number().int().min(100).max(1_000_000).default(10_000),
+    RUN_EVENT_PUBLISH_BATCH_SIZE: z.coerce.number().int().min(1).max(1_000).default(100),
+    RUN_EVENT_PUBLISH_LEASE_SECONDS: z.coerce.number().int().min(5).max(600).default(30),
+    RUN_STREAM_TICKET_TTL_SECONDS: z.coerce.number().int().min(10).max(300).default(60),
+    RUN_SSE_HEARTBEAT_SECONDS: z.coerce.number().int().min(5).max(60).default(15),
+    RUN_SHORT_WINDOW_MESSAGES: z.coerce.number().int().min(2).max(100).default(20),
+    RUN_CONTENT_STORAGE: z.enum(sensitiveContentStorageModes).default('AES_256_GCM'),
+    RUN_CONTENT_ENCRYPTION_KEY: z
+      .string()
+      .default('MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=')
+      .refine((value) => {
+        try {
+          return /^[A-Za-z0-9+/]{43}=$/.test(value) && Buffer.from(value, 'base64').length === 32;
+        } catch {
+          return false;
+        }
+      }, '必须是 Base64 编码的 32 字节 AES-256 密钥'),
+    RUN_CONTENT_RETENTION_DAYS: z.coerce.number().int().min(1).max(3_650).default(30),
+    RUN_MAINTENANCE_INTERVAL_SECONDS: z.coerce.number().int().min(10).max(86_400).default(60),
+    RUN_MAINTENANCE_BATCH_SIZE: z.coerce.number().int().min(1).max(10_000).default(100),
 
     RERANKER_ADAPTER: z.enum(rerankerAdapters).default('fixture'),
     RERANKER_BASE_URL: z.string().url().default('http://localhost:8102'),
@@ -661,6 +690,10 @@ export const AppEnvironmentSchema = z
     if (value.EMBEDDING_ADAPTER === 'fixture') insecureReasons.push('EMBEDDING_ADAPTER');
     if (value.RERANKER_ADAPTER === 'fixture') insecureReasons.push('RERANKER_ADAPTER');
     if (value.VECTOR_STORE_ADAPTER === 'memory') insecureReasons.push('VECTOR_STORE_ADAPTER');
+    if (value.RUN_CONTENT_STORAGE === 'PLAIN') insecureReasons.push('RUN_CONTENT_STORAGE');
+    if (value.RUN_CONTENT_ENCRYPTION_KEY === 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=') {
+      insecureReasons.push('RUN_CONTENT_ENCRYPTION_KEY');
+    }
 
     if (insecureReasons.length > 0) {
       context.addIssue({
@@ -814,6 +847,25 @@ export interface AppConfig {
     rolloutMinimumRecall: number;
     rolloutLeaseSeconds: number;
     rolloutMaxAttempts: number;
+  };
+  run: {
+    flowVersion: string;
+    policyVersion: string;
+    promptProfileId: string;
+    validatorProfileId: string;
+    deadlineSeconds: number;
+    eventRetentionSeconds: number;
+    eventStreamMaxLength: number;
+    eventPublishBatchSize: number;
+    eventPublishLeaseSeconds: number;
+    streamTicketTtlSeconds: number;
+    sseHeartbeatSeconds: number;
+    shortWindowMessages: number;
+    contentStorage: (typeof sensitiveContentStorageModes)[number];
+    contentEncryptionKey: string;
+    contentRetentionDays: number;
+    maintenanceIntervalSeconds: number;
+    maintenanceBatchSize: number;
   };
   reranker: {
     adapter: (typeof rerankerAdapters)[number];
@@ -1049,6 +1101,25 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       rolloutMinimumRecall: value.INDEXING_ROLLOUT_MINIMUM_RECALL,
       rolloutLeaseSeconds: value.INDEXING_ROLLOUT_LEASE_SECONDS,
       rolloutMaxAttempts: value.INDEXING_ROLLOUT_MAX_ATTEMPTS,
+    }),
+    run: Object.freeze({
+      flowVersion: value.RUN_FLOW_VERSION,
+      policyVersion: value.RUN_POLICY_VERSION,
+      promptProfileId: value.RUN_PROMPT_PROFILE_ID,
+      validatorProfileId: value.RUN_VALIDATOR_PROFILE_ID,
+      deadlineSeconds: value.RUN_DEADLINE_SECONDS,
+      eventRetentionSeconds: value.RUN_EVENT_RETENTION_SECONDS,
+      eventStreamMaxLength: value.RUN_EVENT_STREAM_MAX_LENGTH,
+      eventPublishBatchSize: value.RUN_EVENT_PUBLISH_BATCH_SIZE,
+      eventPublishLeaseSeconds: value.RUN_EVENT_PUBLISH_LEASE_SECONDS,
+      streamTicketTtlSeconds: value.RUN_STREAM_TICKET_TTL_SECONDS,
+      sseHeartbeatSeconds: value.RUN_SSE_HEARTBEAT_SECONDS,
+      shortWindowMessages: value.RUN_SHORT_WINDOW_MESSAGES,
+      contentStorage: value.RUN_CONTENT_STORAGE,
+      contentEncryptionKey: value.RUN_CONTENT_ENCRYPTION_KEY,
+      contentRetentionDays: value.RUN_CONTENT_RETENTION_DAYS,
+      maintenanceIntervalSeconds: value.RUN_MAINTENANCE_INTERVAL_SECONDS,
+      maintenanceBatchSize: value.RUN_MAINTENANCE_BATCH_SIZE,
     }),
     reranker: Object.freeze({
       adapter: value.RERANKER_ADAPTER,

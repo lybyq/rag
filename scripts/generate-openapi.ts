@@ -25,6 +25,7 @@ const documents = [
       title: 'Enterprise RAG Query API',
       description: '企业知识问答和证据检索 API',
       version: '0.1.0',
+      includeM06: true,
     }),
   },
 ] as const;

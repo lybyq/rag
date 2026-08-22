@@ -2502,6 +2502,11 @@
         "type": "apiKey",
         "in": "header",
         "name": "X-RAG-Mock-User"
+      },
+      "ragStreamTicket": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "rag_stream_ticket"
       }
     },
     "schemas": {

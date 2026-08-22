@@ -169,6 +169,24 @@ describe('[BASE-010] startup configuration', () => {
     ).toThrow(/必须与 APP_ENV=production 配套/);
   });
 
+  it('[RUN-014][CFG-003] 生产拒绝明文、默认测试密钥和非规范 Base64 密钥', () => {
+    expect(() =>
+      loadAppConfig({ ...validIntranetProductionEnvironment(), RUN_CONTENT_STORAGE: 'PLAIN' }),
+    ).toThrow(/RUN_CONTENT_STORAGE/);
+    expect(() =>
+      loadAppConfig({
+        ...validIntranetProductionEnvironment(),
+        RUN_CONTENT_ENCRYPTION_KEY: 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
+      }),
+    ).toThrow(/RUN_CONTENT_ENCRYPTION_KEY/);
+    expect(() =>
+      loadAppConfig({
+        ...validIntranetProductionEnvironment(),
+        RUN_CONTENT_ENCRYPTION_KEY: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!',
+      }),
+    ).toThrow(/Base64/);
+  });
+
   it('[CFG-004] 拒绝 Reranker TopN 越界及 Chunk 超过模型输入预算', () => {
     expect(() => loadAppConfig({ RERANKER_MAX_CANDIDATES: '10', RERANKER_TOP_N: '11' })).toThrow(
       /TopN/,
@@ -237,5 +255,6 @@ function validIntranetProductionEnvironment(): NodeJS.ProcessEnv {
     VECTOR_STORE_PROFILE_ID: 'milvus-intranet-production-v1',
     MILVUS_ADDRESS: 'milvus.internal:19530',
     MILVUS_DATABASE: 'rag',
+    RUN_CONTENT_ENCRYPTION_KEY: Buffer.from('m06-production-key-32-bytes!!!!!').toString('base64'),
   };
 }

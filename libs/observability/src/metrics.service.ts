@@ -5,7 +5,7 @@
  * @requirement BASE-008
  */
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
-import { collectDefaultMetrics, Counter, Histogram, Registry } from 'prom-client';
+import { collectDefaultMetrics, Counter, Gauge, Histogram, Registry } from 'prom-client';
 
 /** 为单个进程维护独立注册表，便于测试隔离和 worker 暴露指标。 */
 @Injectable()
@@ -96,6 +96,30 @@ export class MetricsService implements OnModuleDestroy {
     help: 'M05 向量化、索引、对账与发布耗时（秒）',
     labelNames: ['result'] as const,
     buckets: [0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300, 900],
+    registers: [this.registry],
+  });
+
+  /** M06 固定操作标签，不记录 userId、conversationId、runId、Ticket 或问题正文。 */
+  public readonly m06OperationsTotal = new Counter({
+    name: 'rag_m06_operations_total',
+    help: 'M06 会话、Run、事件、取消和维护操作累计次数',
+    labelNames: ['operation', 'result'] as const,
+    registers: [this.registry],
+  });
+
+  /** 当前 SSE 连接数按认证传输方式聚合，用于发现连接激增。 */
+  public readonly m06SseConnections = new Gauge({
+    name: 'rag_m06_sse_connections',
+    help: 'M06 当前活跃 SSE 连接数',
+    labelNames: ['transport'] as const,
+    registers: [this.registry],
+  });
+
+  /** PG Outbox 到 Redis Stream 的事件发布延迟。 */
+  public readonly m06EventPublishLagSeconds = new Histogram({
+    name: 'rag_m06_event_publish_lag_seconds',
+    help: 'M06 Run Event 从业务事务发生到 Redis Stream 可见的延迟',
+    buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60],
     registers: [this.registry],
   });
 
