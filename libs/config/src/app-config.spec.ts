@@ -196,6 +196,26 @@ describe('[BASE-010] startup configuration', () => {
     ).toThrow(/Embedding 最大输入/);
   });
 
+  it('[ANS-002][ANS-014][ANS-015] 固定一次重生成并启用严格答案发布门禁', () => {
+    const config = loadAppConfig({
+      ANSWER_CONTEXT_TOKEN_BUDGET: '16000',
+      ANSWER_MIN_CONFIDENCE: '0.7',
+      ANSWER_MAX_REGENERATIONS: '1',
+      ANSWER_STRICT_STREAMING: 'true',
+    });
+
+    expect(config.answer).toMatchObject({
+      contextTokenBudget: 16000,
+      minimumConfidence: 0.7,
+      maxRegenerations: 1,
+      strictStreaming: true,
+    });
+    expect(() => loadAppConfig({ ANSWER_MAX_REGENERATIONS: '2' })).toThrow(
+      /ANSWER_MAX_REGENERATIONS/,
+    );
+    expect(() => loadAppConfig({ ANSWER_STRICT_STREAMING: 'false' })).toThrow(/严格流式门禁/);
+  });
+
   it('[RET-014][RET-015] 检索 Profile 拒绝非法 TopK、空权重和开放循环', () => {
     expect(() =>
       loadAppConfig({ RETRIEVAL_INITIAL_TOP_K: '10', RETRIEVAL_FINAL_TOP_K: '11' }),

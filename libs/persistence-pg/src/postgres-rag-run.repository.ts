@@ -18,6 +18,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationError,
   type AccessContext,
+  type ClaimedRagRunExecution,
   type CompleteRagRunCommand,
   type ConversationPage,
   type CreateConversationCommand,
@@ -33,6 +34,7 @@ import {
   type UpdateConversationStateCommand,
 } from '@rag/application';
 import type {
+  CitationPreview,
   Conversation,
   CreateMessageFeedbackRequest,
   ListConversationsQuery,
@@ -43,6 +45,7 @@ import type {
   RagRunStepStatus,
 } from '@rag/contracts';
 import {
+  CitationPreviewSchema,
   ConversationMessageSchema,
   ConversationSchema,
   ConversationStateSchema,
@@ -50,6 +53,7 @@ import {
   RagRunEventSchema,
   RagRunSchema,
   RagRunStepSchema,
+  SemanticRoleSchema,
 } from '@rag/contracts';
 import {
   assertRagRunStepTransition,
@@ -57,6 +61,7 @@ import {
   isTerminalRagRunStatus,
 } from '@rag/domain';
 import type { Pool, PoolClient } from 'pg';
+import { createHash } from 'node:crypto';
 import { POSTGRES_POOL } from './postgres.tokens';
 
 interface ConversationRow {
@@ -121,6 +126,19 @@ interface RunRow {
   started_at: Date | null;
   completed_at: Date | null;
   updated_at: Date;
+  execution_roles: string[];
+  execution_authz_version: string | number;
+}
+
+interface CitationPreviewRow {
+  id: string;
+  title: string;
+  heading_path: unknown;
+  excerpt: string;
+  source_locations: unknown;
+  published_at: Date;
+  effective_from: Date;
+  effective_to: Date | null;
 }
 
 interface StepRow {
@@ -414,8 +432,9 @@ export class PostgresRagRunRepository implements RagRunRepository {
       const runResult = await client.query<RunRow>(
         `INSERT INTO rag_runs (
            conversation_id, owner_user_id, user_message_id, idempotency_key,
-           request_sha256, snapshot, deadline_at, event_expires_at, public_message
-         ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,'请求已接受，等待执行') RETURNING *`,
+           request_sha256, snapshot, deadline_at, event_expires_at, public_message,
+           execution_roles, execution_authz_version
+         ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,'请求已接受，等待执行',$9,$10) RETURNING *`,
         [
           command.conversationId,
           command.ownerUserId,
@@ -425,6 +444,8 @@ export class PostgresRagRunRepository implements RagRunRepository {
           JSON.stringify(command.snapshot),
           command.deadlineAt,
           command.eventExpiresAt,
+          [...context.user.roles],
+          context.user.authzVersion,
         ],
       );
       const run = requireRow(runResult.rows[0], 'Run 创建失败');
@@ -648,6 +669,76 @@ export class PostgresRagRunRepository implements RagRunRepository {
         ],
       );
       const assistantMessageId = requireRow(message.rows[0], '答案消息持久化失败').id;
+      if (command.citations && command.citations.length > 0) {
+        const citationFacts = command.citations.map((source) => ({
+          id: source.sourceId,
+          manifest_id: source.manifestId,
+          space_id: source.spaceId,
+          document_id: source.documentId,
+          document_version_id: source.documentVersionId,
+          content_revision: source.contentRevision,
+          chunk_id: source.chunkId,
+          relation: source.relation,
+          authority: source.authority,
+          title: source.title,
+          heading_path: source.headingPath,
+          excerpt: [...source.content].slice(0, 2_000).join(''),
+          source_locations: source.sourceLocations,
+          published_at: source.publishedAt,
+          effective_from: source.effectiveFrom,
+          effective_to: source.effectiveTo,
+          content_sha256: createHash('sha256').update(source.content, 'utf8').digest('hex'),
+        }));
+        await client.query(
+          `INSERT INTO answer_citations (
+             id, run_id, message_id, manifest_id, space_id, document_id,
+             document_version_id, content_revision, chunk_id, relation, authority,
+             title, heading_path, excerpt, source_locations, published_at,
+             effective_from, effective_to, content_sha256
+           )
+           SELECT item.id, $1, $2, item.manifest_id, item.space_id, item.document_id,
+                  item.document_version_id, item.content_revision, item.chunk_id,
+                  item.relation, item.authority, item.title, item.heading_path,
+                  item.excerpt, item.source_locations, item.published_at,
+                  item.effective_from, item.effective_to, item.content_sha256
+             FROM jsonb_to_recordset($3::jsonb) AS item(
+               id uuid, manifest_id uuid, space_id uuid, document_id uuid,
+               document_version_id uuid, content_revision integer, chunk_id text,
+               relation text, authority text, title text, heading_path jsonb,
+               excerpt text, source_locations jsonb, published_at timestamptz,
+               effective_from timestamptz, effective_to timestamptz, content_sha256 text
+             )`,
+          [runId, assistantMessageId, JSON.stringify(citationFacts)],
+        );
+        await client.query(
+          `UPDATE conversation_states
+              SET recent_citation_ids = $2::uuid[], updated_at = now()
+            WHERE conversation_id = $1`,
+          [row.conversation_id, command.citations.map((source) => source.sourceId)],
+        );
+      }
+      if (command.answerFacts) {
+        const facts = command.answerFacts;
+        await client.query(
+          `INSERT INTO answer_validation_reports (
+             run_id, message_id, bundle_sha256, evidence_route, final_status,
+             validation_report, reranker_model_id, reranker_revision,
+             llm_model_id, llm_revision
+           ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10)`,
+          [
+            runId,
+            assistantMessageId,
+            facts.bundleSha256,
+            facts.evidenceRoute,
+            facts.finalStatus,
+            JSON.stringify(facts.validation),
+            facts.reranker?.modelId ?? null,
+            facts.reranker?.revision ?? null,
+            facts.llm?.modelId ?? null,
+            facts.llm?.revision ?? null,
+          ],
+        );
+      }
       const updated = await client.query<RunRow>(
         `UPDATE rag_runs SET status = 'COMPLETED', assistant_message_id = $3,
                 answer_sha256 = $4, public_message = '回答已完成', completed_at = now(),
@@ -668,6 +759,103 @@ export class PostgresRagRunRepository implements RagRunRepository {
         answerSha256: command.answer.sha256,
       });
       return next;
+    });
+  }
+
+  /**
+   * 用 SKIP LOCKED 为答案执行器领取 Run。角色来自创建事务保存的可信快照；空角色的历史
+   * 数据不会被后台执行器猜测性接管。
+   */
+  public async claimAcceptedRuns(
+    workerId: string,
+    limit: number,
+    leaseSeconds: number,
+  ): Promise<readonly ClaimedRagRunExecution[]> {
+    const result = await this.pool.query<RunRow>(
+      `WITH candidates AS (
+         SELECT id FROM rag_runs
+          WHERE status = 'ACCEPTED' AND deadline_at > now()
+            AND cardinality(execution_roles) > 0
+            AND (execution_lease_expires_at IS NULL OR execution_lease_expires_at < now())
+          ORDER BY created_at, id FOR UPDATE SKIP LOCKED LIMIT $2
+       )
+       UPDATE rag_runs run
+          SET execution_lease_owner = $1,
+              execution_lease_expires_at = now() + make_interval(secs => $3),
+              execution_attempts = execution_attempts + 1,
+              updated_at = now()
+         FROM candidates WHERE run.id = candidates.id
+       RETURNING run.*`,
+      [workerId, limit, leaseSeconds],
+    );
+    return result.rows.map((row) => ({
+      run: mapRun(row),
+      ownerUserId: row.owner_user_id,
+      roles: SemanticRoleSchema.array().parse(row.execution_roles),
+      authzVersion: Number(row.execution_authz_version),
+    }));
+  }
+
+  /** 引用预览在每次读取时重新校验 owner、ACL、版本、Manifest 成员和生效窗口。 */
+  public async getCitationPreview(
+    context: AccessContext,
+    citationId: string,
+  ): Promise<CitationPreview> {
+    const result = await this.pool.query<CitationPreviewRow>(
+      `SELECT citation.id, citation.title, citation.heading_path, citation.excerpt,
+              citation.source_locations, citation.published_at,
+              citation.effective_from, citation.effective_to
+         FROM answer_citations citation
+         JOIN rag_runs run ON run.id = citation.run_id AND run.owner_user_id = $2
+         JOIN space_manifests manifest
+           ON manifest.id = citation.manifest_id
+          AND manifest.space_id = citation.space_id
+          AND manifest.status IN ('ACTIVE','SUPERSEDED','VERIFIED')
+         JOIN knowledge_spaces space ON space.id = citation.space_id AND space.status = 'ACTIVE'
+         JOIN knowledge_chunks chunk
+           ON chunk.id = citation.chunk_id
+          AND chunk.document_version_id = citation.document_version_id
+          AND chunk.content_revision = citation.content_revision
+         JOIN document_versions version
+           ON version.id = citation.document_version_id AND version.status = 'SUCCEEDED'
+         JOIN documents document
+           ON document.id = citation.document_id
+          AND document.id = version.document_id
+          AND document.space_id = citation.space_id
+          AND document.status = 'ACTIVE'
+         JOIN manifest_document_members member
+           ON member.manifest_id = citation.manifest_id
+          AND member.document_id = citation.document_id
+          AND member.document_version_id = citation.document_version_id
+          AND member.content_revision = citation.content_revision
+        WHERE citation.id = $1
+          AND ($3::boolean OR EXISTS (
+            SELECT 1 FROM resource_acl acl
+             WHERE acl.resource_id = citation.space_id
+               AND ((acl.subject_type = 'USER' AND acl.subject_id = $2)
+                 OR (acl.subject_type = 'ROLE' AND acl.subject_id = ANY($4::text[])))
+               AND acl.permissions && ARRAY['READ','WRITE','REVIEW','ADMIN']::text[]
+          ))
+          AND document.published_at IS NOT NULL AND document.published_at <= now()
+          AND document.effective_from IS NOT NULL AND document.effective_from <= now()
+          AND (document.effective_to IS NULL OR document.effective_to > now())`,
+      [
+        citationId,
+        context.user.userId,
+        context.user.roles.includes('SYSTEM_ADMIN'),
+        [...context.user.roles],
+      ],
+    );
+    const row = requireOwnedRow(result.rows[0], '引用不存在或当前无权访问');
+    return CitationPreviewSchema.parse({
+      citationId: row.id,
+      title: row.title,
+      headingPath: stringArray(row.heading_path),
+      excerpt: row.excerpt,
+      sourceLocations: unknownArray(row.source_locations),
+      publishedAt: toIso(row.published_at),
+      effectiveFrom: toIso(row.effective_from),
+      effectiveTo: row.effective_to ? toIso(row.effective_to) : null,
     });
   }
 
@@ -708,20 +896,34 @@ export class PostgresRagRunRepository implements RagRunRepository {
       rating: 'HELPFUL' | 'NOT_HELPFUL';
       reason: string | null;
       tags: string[];
+      error_types: string[];
+      comment: string | null;
       created_at: Date;
       updated_at: Date;
     }>(
-      `INSERT INTO message_feedback (message_id, owner_user_id, rating, reason, tags)
-       SELECT message.id, conversation.owner_user_id, $3, $4, $5
+      `INSERT INTO message_feedback (
+         message_id, owner_user_id, rating, reason, tags, error_types, comment
+       )
+       SELECT message.id, conversation.owner_user_id, $3, $4, $5, $6, $7
          FROM conversation_messages message
          JOIN conversations conversation ON conversation.id = message.conversation_id
         WHERE message.id = $1 AND conversation.owner_user_id = $2
           AND message.role = 'ASSISTANT' AND message.status = 'VISIBLE'
        ON CONFLICT (message_id, owner_user_id) DO UPDATE SET
          rating = EXCLUDED.rating, reason = EXCLUDED.reason,
-         tags = EXCLUDED.tags, updated_at = now()
-       RETURNING id, message_id, rating, reason, tags, created_at, updated_at`,
-      [messageId, context.user.userId, feedback.rating, feedback.reason ?? null, feedback.tags],
+         tags = EXCLUDED.tags, error_types = EXCLUDED.error_types,
+         comment = EXCLUDED.comment, updated_at = now()
+       RETURNING id, message_id, rating, reason, tags, error_types, comment,
+                 created_at, updated_at`,
+      [
+        messageId,
+        context.user.userId,
+        feedback.rating,
+        feedback.reason ?? null,
+        feedback.tags ?? [],
+        feedback.errorTypes ?? [],
+        feedback.comment ?? null,
+      ],
     );
     const row = requireOwnedRow(result.rows[0], '消息不存在');
     return MessageFeedbackSchema.parse({
@@ -730,6 +932,8 @@ export class PostgresRagRunRepository implements RagRunRepository {
       rating: row.rating,
       ...(row.reason ? { reason: row.reason } : {}),
       tags: row.tags,
+      errorTypes: row.error_types,
+      ...(row.comment ? { comment: row.comment } : {}),
       createdAt: toIso(row.created_at),
       updatedAt: toIso(row.updated_at),
     });
@@ -840,6 +1044,12 @@ export class PostgresRagRunRepository implements RagRunRepository {
               content_value = '[内容已按保留策略清理]', content_iv = NULL,
               content_auth_tag = NULL, citations_summary = NULL, updated_at = now()
          FROM expired_messages WHERE message.id = expired_messages.id RETURNING 1
+       ), redacted_citations AS (
+         UPDATE answer_citations citation
+            SET excerpt = '[引用内容已按保留策略清理]'
+           FROM expired_messages
+          WHERE citation.message_id = expired_messages.id
+         RETURNING 1
        ), expired_states AS (
          SELECT conversation_id FROM conversation_states
           WHERE summary_retention_expires_at <= now() AND summary_storage IS NOT NULL
@@ -1135,6 +1345,16 @@ function decodeConversationCursor(value: string): { updatedAt: string; id: strin
 
 function toIso(value: Date): string {
   return value.toISOString();
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
+}
+
+function unknownArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
 }
 
 function requireRow<T>(row: T | undefined, message: string): T {

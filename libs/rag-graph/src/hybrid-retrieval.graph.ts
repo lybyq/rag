@@ -35,6 +35,7 @@ import {
   RetrievalRouteSchema,
   type FusedRetrievalCandidate,
   type QueryEmbeddingCacheValue,
+  type RagRun,
   type RetrievalCandidate,
   type RetrievalDebugResult,
   type RetrievalEntity,
@@ -132,6 +133,12 @@ export interface HybridRetrievalGraphDependencies {
 
 /** 证据与答案生成 可直接消费的 查询规划与混合检索 内部结果。 */
 export interface HybridRetrievalResult {
+  /** 仅在服务端图之间传递的解密问题，不会进入 debug 或阶段事件。 */
+  readonly question: string;
+  /** 证据扩展继续使用的冻结 Run 事实。 */
+  readonly run: RagRun;
+  /** 经过当前 ACL 收窄的空间，不等同于 Run 创建时的请求集合。 */
+  readonly allowedSpaceIds: readonly string[];
   readonly route: 'CHAT' | 'KNOWLEDGE' | 'CLARIFY' | 'REJECT';
   readonly plan?: RetrievalPlan;
   readonly candidates: readonly RetrievalCandidate[];
@@ -394,6 +401,9 @@ export class HybridRetrievalService {
     });
     const route = requireRoute(state.route);
     return {
+      question,
+      run: input.run,
+      allowedSpaceIds,
       route,
       ...(state.plan ? { plan: state.plan } : {}),
       candidates: state.candidates,

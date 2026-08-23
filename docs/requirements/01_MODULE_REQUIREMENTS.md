@@ -371,26 +371,26 @@ POST /v1/jobs/{jobId}/cancel
 
 ### 需求清单
 
-- [ ] `ANS-001` 定义 RerankerPort、EvidenceBundle、AnswerDraft、ValidationReport 和 FinalAnswer 契约。
-- [ ] `ANS-002` 使用专用 Reranker 对最多配置数量候选精排，支持超时和受控降级。
-- [ ] `ANS-003` 扩展 Parent、Neighbor、Table Header 时重新执行文档和 Chunk 权限/版本校验。
-- [ ] `ANS-004` EvidenceBuilder 计算子问题 Coverage、权威级别、生效范围、冲突、缺失条件和置信度。
-- [ ] `ANS-005` Evidence Router 支持 ANSWER、LLM_RERANK、REWRITE_AND_RETRY、CLARIFY、CONFLICT、PARTIAL_ANSWER、REJECT。
-- [ ] `ANS-006` 低置信证据才允许条件式 LLM Evidence Rerank，不能改变权限和版本事实。
-- [ ] `ANS-007` ContextBuilder 进行 Token Budget、来源多样性和明确边界标记，来源中的指令只视为数据。
-- [ ] `ANS-008` 金额、日期和可程序化规则优先由确定性代码计算，并保存表达式、结果与来源。
-- [ ] `ANS-009` LLM 只生成符合 Zod Schema 的 summary、claims、caveats 和 follow-up，不直接生成最终无结构正文。
-- [ ] `ANS-010` 每个 FACT/CALCULATION/QUALIFICATION/WARNING Claim 必须引用 Evidence sourceId。
-- [ ] `ANS-011` Validator 检查引用存在性、当前权限、版本、生效时间、金额、日期、编号、覆盖和冲突。
-- [ ] `ANS-012` 确定性阻断问题不能被语义 Judge 判为通过。
-- [ ] `ANS-013` Semantic Grounding Judge 仅在规则无法判断时调用，并记录版本与使用原因。
-- [ ] `ANS-014` 可修复 Draft 最多重生成一次；超过上限转部分回答或拒答。
-- [ ] `ANS-015` 严格模式只发送阶段事件，校验通过后才发送正文和引用。
-- [ ] `ANS-016` FinalAnswer 支持 ANSWERED、PARTIAL、CLARIFICATION、CONFLICT 和 REJECTED。
-- [ ] `ANS-017` 引用 ID 使用服务端生成的不透明标识，预览时重新鉴权并返回最小必要内容。
-- [ ] `ANS-018` 用户可对答案提交有用/无用、错误类型和可选说明，反馈关联 Run、证据和版本。
-- [ ] `ANS-019` Prompt Injection、伪造引用、无证据结论和敏感正文泄漏进入安全回归集。
-- [ ] `ANS-020` 每条 Evidence Route、Validation Outcome 和降级路径都有 Golden Case。
+- [x] `ANS-001` 定义 RerankerPort、EvidenceBundle、AnswerDraft、ValidationReport 和 FinalAnswer 契约。
+- [x] `ANS-002` 使用专用 Reranker 对最多配置数量候选精排，支持超时和受控降级。
+- [x] `ANS-003` 扩展 Parent、Neighbor、Table Header 时重新执行文档和 Chunk 权限/版本校验。
+- [x] `ANS-004` EvidenceBuilder 计算子问题 Coverage、权威级别、生效范围、冲突、缺失条件和置信度。
+- [x] `ANS-005` Evidence Router 支持 ANSWER、LLM_RERANK、REWRITE_AND_RETRY、CLARIFY、CONFLICT、PARTIAL_ANSWER、REJECT。
+- [x] `ANS-006` 低置信证据才允许条件式 LLM Evidence Rerank，不能改变权限和版本事实。
+- [x] `ANS-007` ContextBuilder 进行 Token Budget、来源多样性和明确边界标记，来源中的指令只视为数据。
+- [x] `ANS-008` 金额、日期和可程序化规则优先由确定性代码计算，并保存表达式、结果与来源。
+- [x] `ANS-009` LLM 只生成符合 Zod Schema 的 summary、claims、caveats 和 follow-up，不直接生成最终无结构正文。
+- [x] `ANS-010` 每个 FACT/CALCULATION/QUALIFICATION/WARNING Claim 必须引用 Evidence sourceId。
+- [x] `ANS-011` Validator 检查引用存在性、当前权限、版本、生效时间、金额、日期、编号、覆盖和冲突。
+- [x] `ANS-012` 确定性阻断问题不能被语义 Judge 判为通过。
+- [x] `ANS-013` Semantic Grounding Judge 仅在规则无法判断时调用，并记录版本与使用原因。
+- [x] `ANS-014` 可修复 Draft 最多重生成一次；超过上限转部分回答或拒答。
+- [x] `ANS-015` 严格模式只发送阶段事件，校验通过后才发送正文和引用。
+- [x] `ANS-016` FinalAnswer 支持 ANSWERED、PARTIAL、CLARIFICATION、CONFLICT 和 REJECTED。
+- [x] `ANS-017` 引用 ID 使用服务端生成的不透明标识，预览时重新鉴权并返回最小必要内容。
+- [x] `ANS-018` 用户可对答案提交有用/无用、错误类型和可选说明，反馈关联 Run、证据和版本。
+- [x] `ANS-019` Prompt Injection、伪造引用、无证据结论和敏感正文泄漏进入安全回归集。
+- [x] `ANS-020` 每条 Evidence Route、Validation Outcome 和降级路径都有 Golden Case。
 
 ### 验收门禁
 

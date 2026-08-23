@@ -6,6 +6,7 @@
  */
 export const APPLICATION_BOUNDARY = 'application' as const;
 export * from './application.error';
+export * from './answer-generation.ports';
 export * from './authorization.service';
 export * from './document-ingestion.service';
 export * from './document-processing.ports';

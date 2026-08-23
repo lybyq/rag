@@ -1,0 +1,37 @@
+[
+  {
+    "name": "answer",
+    "route": "ANSWER",
+    "validation": "PASS",
+    "draft": true,
+    "expected": "ANSWERED"
+  },
+  {
+    "name": "partial",
+    "route": "PARTIAL_ANSWER",
+    "validation": "PASS",
+    "draft": true,
+    "expected": "PARTIAL"
+  },
+  {
+    "name": "clarification",
+    "route": "CLARIFY",
+    "validation": "PASS",
+    "draft": false,
+    "expected": "CLARIFICATION"
+  },
+  {
+    "name": "conflict",
+    "route": "CONFLICT",
+    "validation": "REJECT",
+    "draft": false,
+    "expected": "CONFLICT"
+  },
+  {
+    "name": "rejected",
+    "route": "REJECT",
+    "validation": "REJECT",
+    "draft": false,
+    "expected": "REJECTED"
+  }
+]

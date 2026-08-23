@@ -18,6 +18,7 @@ import type {
   Conversation,
   ConversationMessage,
   ConversationState,
+  CitationPreview,
   CreateConversationRequest,
   CreateMessageFeedbackRequest,
   CreateRagRunAccepted,
@@ -315,6 +316,11 @@ export class RagRunService {
     feedback: CreateMessageFeedbackRequest,
   ): Promise<MessageFeedback> {
     return this.repository.saveFeedback(context, messageId, feedback);
+  }
+
+  /** ANS-017：引用展开不是静态 URL，每次读取都交给事实源重新鉴权。 */
+  public getCitationPreview(context: AccessContext, citationId: string): Promise<CitationPreview> {
+    return this.repository.getCitationPreview(context, citationId);
   }
 
   private async toVisibleMessage(

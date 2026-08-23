@@ -6,4 +6,5 @@ export * from './authentication.guard';
 export * from './jwt-auth.adapter';
 export * from './mock-auth.adapter';
 export * from './role-mapper';
+export * from './run-identity.factory';
 export * from './trusted-header-auth.adapter';

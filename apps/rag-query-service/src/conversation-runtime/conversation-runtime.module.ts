@@ -179,6 +179,7 @@ import { RunsController, RunTicketStreamController } from './runs.controller';
     RunEventScheduler,
   ],
   exports: [
+    RagRunService,
     RagRunLifecycleService,
     AuthorizationService,
     SENSITIVE_TEXT_PROTECTOR,

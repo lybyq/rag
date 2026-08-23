@@ -272,9 +272,26 @@ export const CreateMessageFeedbackRequestSchema = z.object({
   rating: z.enum(['HELPFUL', 'NOT_HELPFUL']),
   reason: z.string().trim().max(1_000).optional(),
   tags: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
+  /** 可聚合的稳定错误类型；自由文本不得替代这些离线评测维度。 */
+  errorTypes: z
+    .array(
+      z.enum([
+        'UNSUPPORTED_CLAIM',
+        'WRONG_CITATION',
+        'OUTDATED_SOURCE',
+        'ACCESS_ERROR',
+        'CALCULATION_ERROR',
+        'INCOMPLETE_ANSWER',
+        'OTHER',
+      ]),
+    )
+    .max(7)
+    .default([]),
+  /** 用户可选补充说明；日志和事件不会复制该内容。 */
+  comment: z.string().trim().max(1_000).optional(),
 });
 /** 消息反馈请求 TypeScript 类型。 */
-export type CreateMessageFeedbackRequest = z.infer<typeof CreateMessageFeedbackRequestSchema>;
+export type CreateMessageFeedbackRequest = z.input<typeof CreateMessageFeedbackRequestSchema>;
 
 /** 已保存的消息反馈。 */
 export const MessageFeedbackSchema = CreateMessageFeedbackRequestSchema.extend({

@@ -9,9 +9,18 @@
  * @requirement RET-012
  * @requirement RET-013
  */
-import type { AccessContext, HydrateRetrievalCandidatesCommand } from '@rag/application';
+import type {
+  AccessContext,
+  ExpandEvidenceCommand,
+  HydrateRetrievalCandidatesCommand,
+} from '@rag/application';
 import { loadAppConfig } from '@rag/config';
-import { PostgresRetrievalRepository } from '@rag/persistence-pg';
+import type { RagRun } from '@rag/contracts';
+import {
+  PostgresEvidenceSourceRepository,
+  PostgresRagRunRepository,
+  PostgresRetrievalRepository,
+} from '@rag/persistence-pg';
 import { createTestUserContext } from '@rag/testing';
 import { createHash, randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
@@ -22,6 +31,8 @@ describeWithInfra('[RET-012][RET-013] 查询规划与混合检索 PostgreSQL ret
   const config = loadAppConfig(process.env);
   const pool = new Pool({ connectionString: config.databaseUrl, max: 4 });
   const repository = new PostgresRetrievalRepository(pool);
+  const evidenceRepository = new PostgresEvidenceSourceRepository(pool);
+  const runRepository = new PostgresRagRunRepository(pool);
   const suffix = randomUUID().slice(0, 8);
   const ids = {
     space: randomUUID(),
@@ -32,11 +43,16 @@ describeWithInfra('[RET-012][RET-013] 查询规划与混合检索 PostgreSQL ret
     manifest: randomUUID(),
     indexingRun: randomUUID(),
     embeddingFact: randomUUID(),
+    conversation: randomUUID(),
+    run: randomUUID(),
+    userMessage: randomUUID(),
   };
   const jobId = `hybrid-retrieval-source-${suffix}`;
   const profileId = `hybrid-retrieval-profile-${suffix}`;
   const parentChunkId = `hybrid-retrieval-parent-${suffix}`;
   const childChunkId = `hybrid-retrieval-child-${suffix}`;
+  const nextChunkId = `hybrid-retrieval-next-${suffix}`;
+  const tableHeaderBlockId = `hybrid-retrieval-header-${suffix}`;
   const vectorId = createHash('sha256')
     .update(`${ids.manifest}:${childChunkId}:${profileId}`)
     .digest('hex');
@@ -122,6 +138,107 @@ describeWithInfra('[RET-012][RET-013] 查询规划与混合检索 PostgreSQL ret
     });
   });
 
+  test('[ANS-003][ANS-011] 扩展父块、相邻块和表头后再次校验当前来源事实', async () => {
+    const hydrated = await repository.hydrateAndRecheck(context, command());
+    const expansion: ExpandEvidenceCommand = {
+      run: runFixture(),
+      candidates: hydrated.candidates,
+      manifests: command().manifests,
+      currentlyAllowedSpaceIds: [ids.space],
+      asOf: new Date(),
+    };
+    const expanded = await evidenceRepository.expandAndRecheck(context, expansion);
+    expect(expanded.materials.map((item) => item.relation)).toEqual([
+      'SELF',
+      'PARENT',
+      'NEXT',
+      'TABLE_HEADER',
+    ]);
+    expect(expanded.materials.find((item) => item.relation === 'TABLE_HEADER')).toMatchObject({
+      content: '报销项目 | 所需凭证',
+    });
+
+    const sources = expanded.materials.map((item, index) => ({
+      ...item,
+      headingPath: [...item.headingPath],
+      sourceLocations: [...item.sourceLocations],
+      sourceId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+      authority: 'POLICY' as const,
+      retrievalScore: 0.8,
+      rerankerScore: 0.9,
+      subQuestionIndexes: [0],
+    }));
+    await expect(
+      evidenceRepository.revalidateSources(context, sources, new Date()),
+    ).resolves.toHaveLength(4);
+    await pool.query(
+      `UPDATE documents SET effective_to = now() - interval '1 minute' WHERE id = $1`,
+      [ids.document],
+    );
+    await expect(
+      evidenceRepository.revalidateSources(context, sources, new Date()),
+    ).resolves.toEqual([]);
+    await pool.query(`UPDATE documents SET effective_to = NULL WHERE id = $1`, [ids.document]);
+
+    await seedAnswerRun(pool, runFixture());
+    const answerSha256 = createHash('sha256').update('校验后的答案').digest('hex');
+    const completed = await runRepository.completeRun(context.user.userId, ids.run, {
+      expectedVersion: 1,
+      answer: { storage: 'PLAIN', value: '校验后的答案', sha256: answerSha256 },
+      retentionExpiresAt: new Date(Date.now() + 86_400_000),
+      citationsSummary: { sourceIds: sources.map((source) => source.sourceId) },
+      citations: sources,
+      answerFacts: {
+        bundleSha256: 'c'.repeat(64),
+        evidenceRoute: 'ANSWER',
+        finalStatus: 'ANSWERED',
+        validation: {
+          outcome: 'PASS',
+          issues: [],
+          checkedClaimCount: 1,
+          validSourceIds: sources.map((source) => source.sourceId),
+          validatorProfileId: 'validator-v1',
+          semanticJudge: null,
+        },
+        reranker: { modelId: 'fixture-reranker', revision: 'r1' },
+        llm: { modelId: 'fixture-llm', revision: 'r1' },
+      },
+    });
+    expect(completed).toMatchObject({ status: 'COMPLETED' });
+    await expect(
+      runRepository.getCitationPreview(context, sources[0]!.sourceId),
+    ).resolves.toMatchObject({
+      citationId: sources[0]!.sourceId,
+      title: '查询规划与混合检索 合成制度',
+    });
+    await expect(
+      runRepository.saveFeedback(context, completed.assistantMessageId!, {
+        rating: 'NOT_HELPFUL',
+        errorTypes: ['WRONG_CITATION'],
+        comment: '定位不够精确',
+      }),
+    ).resolves.toMatchObject({
+      errorTypes: ['WRONG_CITATION'],
+      comment: '定位不够精确',
+    });
+    const report = await pool.query<{ final_status: string; citation_count: number }>(
+      `SELECT report.final_status,
+              (SELECT count(*)::int FROM answer_citations WHERE run_id = report.run_id) citation_count
+         FROM answer_validation_reports report WHERE report.run_id = $1`,
+      [ids.run],
+    );
+    expect(report.rows[0]).toEqual({ final_status: 'ANSWERED', citation_count: 4 });
+
+    await pool.query(
+      `UPDATE documents SET effective_to = now() - interval '1 minute' WHERE id = $1`,
+      [ids.document],
+    );
+    await expect(
+      runRepository.getCitationPreview(context, sources[0]!.sourceId),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await pool.query(`UPDATE documents SET effective_to = NULL WHERE id = $1`, [ids.document]);
+  });
+
   function command(): HydrateRetrievalCandidatesCommand {
     return {
       candidates: [
@@ -157,6 +274,98 @@ describeWithInfra('[RET-012][RET-013] 查询规划与混合检索 PostgreSQL ret
       },
       currentlyAllowedSpaceIds: [ids.space],
     };
+  }
+
+  function runFixture(): RagRun {
+    const now = new Date();
+    return {
+      id: randomUUID(),
+      conversationId: randomUUID(),
+      userMessageId: randomUUID(),
+      assistantMessageId: null,
+      status: 'RUNNING',
+      optimisticVersion: 1,
+      snapshot: {
+        flowVersion: 'answer-v1',
+        policyVersion: 'policy-v1',
+        promptProfileId: 'prompt-v1',
+        embeddingProfileId: profileId,
+        embeddingRevision: 'r1',
+        rerankerProfileId: 'reranker-v1',
+        rerankerRevision: 'r1',
+        llmProfileId: 'llm-v1',
+        llmRevision: 'r1',
+        validatorProfileId: 'validator-v1',
+        manifests: [...command().manifests],
+        authzVersion: 1,
+        rolesSha256: 'a'.repeat(64),
+        retrieval: {
+          profileId: 'hybrid-v1',
+          initialTopK: 40,
+          finalTopK: 12,
+          rrfK: 60,
+          denseWeight: 0.65,
+          sparseWeight: 0.35,
+          maxPerDocument: 3,
+          maxPerSection: 2,
+          minimumResults: 3,
+          maxRounds: 2,
+        },
+      },
+      deadlineAt: new Date(now.getTime() + 60_000).toISOString(),
+      eventExpiresAt: new Date(now.getTime() + 120_000).toISOString(),
+      cancelRequestedAt: null,
+      failureCode: null,
+      publicMessage: '正在执行',
+      createdAt: now.toISOString(),
+      startedAt: now.toISOString(),
+      completedAt: null,
+      updatedAt: now.toISOString(),
+    };
+  }
+
+  async function seedAnswerRun(database: Pool, run: RagRun): Promise<void> {
+    await database.query(
+      `INSERT INTO conversations (id, owner_user_id, title) VALUES ($1,$2,'答案引用集成会话')`,
+      [ids.conversation, context.user.userId],
+    );
+    await database.query(`INSERT INTO conversation_states (conversation_id) VALUES ($1)`, [
+      ids.conversation,
+    ]);
+    await database.query(
+      `INSERT INTO conversation_messages (
+         id, conversation_id, role, status, content_storage, content_value,
+         content_sha256, retention_expires_at
+       ) VALUES ($1,$2,'USER','VISIBLE','PLAIN','报销制度是什么',$3,now() + interval '1 day')`,
+      [
+        ids.userMessage,
+        ids.conversation,
+        createHash('sha256').update('报销制度是什么').digest('hex'),
+      ],
+    );
+    await database.query(
+      `INSERT INTO rag_runs (
+         id, conversation_id, owner_user_id, user_message_id, idempotency_key,
+         request_sha256, status, optimistic_version, snapshot, deadline_at,
+         event_expires_at, public_message, execution_roles, execution_authz_version
+       ) VALUES ($1,$2,$3,$4,$5,$6,'RUNNING',1,$7::jsonb,now() + interval '1 minute',
+                 now() + interval '1 day','正在执行',$8,$9)`,
+      [
+        ids.run,
+        ids.conversation,
+        context.user.userId,
+        ids.userMessage,
+        `answer-citation-${suffix}`,
+        createHash('sha256').update('answer-citation').digest('hex'),
+        JSON.stringify(run.snapshot),
+        [...context.user.roles],
+        context.user.authzVersion,
+      ],
+    );
+    await database.query(`UPDATE conversation_messages SET run_id = $2 WHERE id = $1`, [
+      ids.userMessage,
+      ids.run,
+    ]);
   }
 
   async function seed(database: Pool): Promise<void> {
@@ -195,6 +404,20 @@ describeWithInfra('[RET-012][RET-013] 查询规划与混合检索 PostgreSQL ret
         [ids.parseRun, jobId, ids.version],
       );
       await client.query(
+        `INSERT INTO document_blocks (
+           id, parse_run_id, document_version_id, content_revision, ordinal,
+           block_type, text_content, original_text, page_no, parser_name,
+           parser_revision, content_sha256
+         ) VALUES ($1,$2,$3,1,1,'TABLE_ROW','报销项目 | 所需凭证','报销项目 | 所需凭证',1,
+                   'hybrid-retrieval-parser','1',$4)`,
+        [
+          tableHeaderBlockId,
+          ids.parseRun,
+          ids.version,
+          createHash('sha256').update('报销项目 | 所需凭证').digest('hex'),
+        ],
+      );
+      await client.query(
         `INSERT INTO knowledge_processing_runs (
            id, job_id, parse_run_id, document_version_id, content_revision, file_format,
            status, chunker_profile_id, chunker_revision, tokenizer_profile_id,
@@ -213,11 +436,30 @@ describeWithInfra('[RET-012][RET-013] 查询规划与混合检索 PostgreSQL ret
            tokenizer_profile_id, tokenizer_revision, heading_path, source_locations,
            content_sha256, dedup_status, eligible_for_index, parent_chunk_id
          ) VALUES
-         ($1,$3,$4,1,1,'PARENT','PROSE','查询规划与混合检索 合成差旅制度正文','查询规划与混合检索 合成差旅制度正文',10,
-          'hybrid-retrieval-tokenizer','1','["差旅制度"]','[]',$5,'UNIQUE',false,NULL),
-         ($2,$3,$4,1,2,'CHILD','PROSE','查询规划与混合检索 合成差旅制度正文','查询规划与混合检索 合成差旅制度正文',10,
-          'hybrid-retrieval-tokenizer','1','["差旅制度","额度"]','[]',$5,'UNIQUE',true,$1)`,
-        [parentChunkId, childChunkId, ids.processingRun, ids.version, contentHash],
+         ($1,$4,$5,1,1,'PARENT','PROSE','查询规划与混合检索 合成差旅制度正文','查询规划与混合检索 合成差旅制度正文',10,
+          'hybrid-retrieval-tokenizer','1','["差旅制度"]','[]',$6,'UNIQUE',false,NULL),
+         ($2,$4,$5,1,2,'CHILD','PROSE','查询规划与混合检索 合成差旅制度正文','查询规划与混合检索 合成差旅制度正文',10,
+          'hybrid-retrieval-tokenizer','1','["差旅制度","额度"]','[]',$6,'UNIQUE',true,$1),
+         ($3,$4,$5,1,3,'CHILD','PROSE','相邻的报销材料说明','相邻的报销材料说明',8,
+          'hybrid-retrieval-tokenizer','1','["差旅制度","材料"]','[]',$7,'UNIQUE',true,$1)`,
+        [
+          parentChunkId,
+          childChunkId,
+          nextChunkId,
+          ids.processingRun,
+          ids.version,
+          contentHash,
+          createHash('sha256').update('相邻的报销材料说明').digest('hex'),
+        ],
+      );
+      await client.query(
+        `INSERT INTO chunk_relations (
+           processing_run_id, from_chunk_id, relation_type, to_chunk_id, to_block_id, ordinal
+         ) VALUES
+           ($1,$2,'PARENT_CHILD',$3,NULL,0),
+           ($1,$2,'NEXT',$4,NULL,0),
+           ($1,$2,'TABLE_HEADER',NULL,$5,0)`,
+        [ids.processingRun, childChunkId, parentChunkId, nextChunkId, tableHeaderBlockId],
       );
       await client.query(
         `INSERT INTO embedding_collection_registry (
@@ -291,6 +533,14 @@ describeWithInfra('[RET-012][RET-013] 查询规划与混合检索 PostgreSQL ret
   }
 
   async function cleanup(database: Pool): Promise<void> {
+    await database.query(`DELETE FROM rag_runs WHERE id = $1`, [ids.run]);
+    await database.query(`DELETE FROM conversation_messages WHERE conversation_id = $1`, [
+      ids.conversation,
+    ]);
+    await database.query(`DELETE FROM conversation_states WHERE conversation_id = $1`, [
+      ids.conversation,
+    ]);
+    await database.query(`DELETE FROM conversations WHERE id = $1`, [ids.conversation]);
     await database.query(`DELETE FROM resource_acl WHERE resource_id = $1`, [ids.space]);
     await database.query(`DELETE FROM chunk_embedding_refs WHERE indexing_run_id = $1`, [
       ids.indexingRun,
@@ -305,12 +555,16 @@ describeWithInfra('[RET-012][RET-013] 查询规划与混合检索 PostgreSQL ret
       `DELETE FROM embedding_collection_registry WHERE embedding_profile_id = $1`,
       [profileId],
     );
+    await database.query(`DELETE FROM chunk_relations WHERE processing_run_id = $1`, [
+      ids.processingRun,
+    ]);
     await database.query(`DELETE FROM knowledge_chunks WHERE processing_run_id = $1`, [
       ids.processingRun,
     ]);
     await database.query(`DELETE FROM knowledge_processing_runs WHERE id = $1`, [
       ids.processingRun,
     ]);
+    await database.query(`DELETE FROM document_blocks WHERE id = $1`, [tableHeaderBlockId]);
     await database.query(`DELETE FROM document_parse_runs WHERE id = $1`, [ids.parseRun]);
     await database.query(`DELETE FROM ingestion_jobs WHERE id = $1`, [jobId]);
     await database.query(`DELETE FROM document_versions WHERE id = $1`, [ids.version]);

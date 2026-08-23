@@ -1,0 +1,9 @@
+[
+  { "name": "reranker-fallback", "kind": "RERANKER_FAILURE", "reason": "RERANKER_UNAVAILABLE" },
+  {
+    "name": "llm-rerank-disabled",
+    "kind": "LLM_DISABLED",
+    "reason": "LLM_EVIDENCE_RERANK_DISABLED"
+  },
+  { "name": "llm-rerank-fallback", "kind": "LLM_FAILURE", "reason": "LLM_EVIDENCE_RERANK_FAILED" }
+]

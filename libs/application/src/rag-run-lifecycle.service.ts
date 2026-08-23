@@ -11,6 +11,7 @@
  * @requirement RUN-012
  */
 import {
+  type EvidenceSource,
   SaveConversationStateInputSchema,
   type ConversationState,
   type RagRun,
@@ -19,6 +20,7 @@ import {
 } from '@rag/contracts';
 import { ApplicationError } from './application.error';
 import type {
+  AnswerCompletionFacts,
   FinishRagRunStepCommand,
   RagRunCancellationPort,
   RagRunRepository,
@@ -108,12 +110,16 @@ export class RagRunLifecycleService {
     expectedVersion: number,
     answer: string,
     citationsSummary?: Readonly<Record<string, unknown>>,
+    citations?: readonly EvidenceSource[],
+    answerFacts?: AnswerCompletionFacts,
   ): Promise<RagRun> {
     const run = await this.repository.completeRun(ownerUserId, runId, {
       expectedVersion,
       answer: this.protector.protect(answer),
       retentionExpiresAt: new Date(Date.now() + this.config.contentRetentionDays * 86_400_000),
       ...(citationsSummary ? { citationsSummary } : {}),
+      ...(citations ? { citations } : {}),
+      ...(answerFacts ? { answerFacts } : {}),
     });
     this.cancellation.release(runId);
     return run;

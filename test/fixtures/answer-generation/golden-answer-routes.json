@@ -1,0 +1,86 @@
+[
+  {
+    "name": "fully-covered",
+    "retrievalRoute": "KNOWLEDGE",
+    "roundCount": 2,
+    "maximumRounds": 2,
+    "sourceCount": 2,
+    "coverage": ["COVERED"],
+    "confidence": 0.9,
+    "conflictCount": 0,
+    "llmRerankAlreadyUsed": false,
+    "expected": "ANSWER"
+  },
+  {
+    "name": "low-confidence",
+    "retrievalRoute": "KNOWLEDGE",
+    "roundCount": 2,
+    "maximumRounds": 2,
+    "sourceCount": 2,
+    "coverage": ["COVERED"],
+    "confidence": 0.4,
+    "conflictCount": 0,
+    "llmRerankAlreadyUsed": false,
+    "expected": "LLM_RERANK"
+  },
+  {
+    "name": "first-round-empty",
+    "retrievalRoute": "KNOWLEDGE",
+    "roundCount": 1,
+    "maximumRounds": 2,
+    "sourceCount": 0,
+    "coverage": ["MISSING"],
+    "confidence": 0,
+    "conflictCount": 0,
+    "llmRerankAlreadyUsed": false,
+    "expected": "REWRITE_AND_RETRY"
+  },
+  {
+    "name": "needs-scope",
+    "retrievalRoute": "CLARIFY",
+    "roundCount": 0,
+    "maximumRounds": 2,
+    "sourceCount": 0,
+    "coverage": [],
+    "confidence": 0,
+    "conflictCount": 0,
+    "llmRerankAlreadyUsed": false,
+    "expected": "CLARIFY"
+  },
+  {
+    "name": "conflicting-policy",
+    "retrievalRoute": "KNOWLEDGE",
+    "roundCount": 2,
+    "maximumRounds": 2,
+    "sourceCount": 2,
+    "coverage": ["COVERED"],
+    "confidence": 0.3,
+    "conflictCount": 1,
+    "llmRerankAlreadyUsed": false,
+    "expected": "CONFLICT"
+  },
+  {
+    "name": "partial-coverage",
+    "retrievalRoute": "KNOWLEDGE",
+    "roundCount": 2,
+    "maximumRounds": 2,
+    "sourceCount": 2,
+    "coverage": ["COVERED", "MISSING"],
+    "confidence": 0.5,
+    "conflictCount": 0,
+    "llmRerankAlreadyUsed": false,
+    "expected": "PARTIAL_ANSWER"
+  },
+  {
+    "name": "exhausted-empty",
+    "retrievalRoute": "KNOWLEDGE",
+    "roundCount": 2,
+    "maximumRounds": 2,
+    "sourceCount": 0,
+    "coverage": ["MISSING"],
+    "confidence": 0,
+    "conflictCount": 0,
+    "llmRerankAlreadyUsed": false,
+    "expected": "REJECT"
+  }
+]

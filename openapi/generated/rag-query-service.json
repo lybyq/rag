@@ -1024,6 +1024,76 @@
           }
         }
       }
+    },
+    "/api/v1/citations/{citationId}": {
+      "get": {
+        "operationId": "getCitationPreview",
+        "summary": "重新鉴权后读取答案引用的最小必要摘录",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "trustedUserHeader": []
+          },
+          {
+            "mockPreset": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "citationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "当前仍有权访问的引用预览",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationPreviewEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "身份缺失或无法验证",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "当前身份无权执行操作",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "引用不存在、已撤权、已过期或版本失效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1272,11 +1342,33 @@
               "minLength": 1,
               "maxLength": 50
             }
+          },
+          "errorTypes": {
+            "default": [],
+            "maxItems": 7,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "UNSUPPORTED_CLAIM",
+                "WRONG_CITATION",
+                "OUTDATED_SOURCE",
+                "ACCESS_ERROR",
+                "CALCULATION_ERROR",
+                "INCOMPLETE_ANSWER",
+                "OTHER"
+              ]
+            }
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 1000
           }
         },
         "required": [
           "rating",
-          "tags"
+          "tags",
+          "errorTypes"
         ],
         "additionalProperties": false
       },
@@ -3148,6 +3240,27 @@
                   "maxLength": 50
                 }
               },
+              "errorTypes": {
+                "default": [],
+                "maxItems": 7,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "UNSUPPORTED_CLAIM",
+                    "WRONG_CITATION",
+                    "OUTDATED_SOURCE",
+                    "ACCESS_ERROR",
+                    "CALCULATION_ERROR",
+                    "INCOMPLETE_ANSWER",
+                    "OTHER"
+                  ]
+                }
+              },
+              "comment": {
+                "type": "string",
+                "maxLength": 1000
+              },
               "id": {
                 "type": "string",
                 "format": "uuid",
@@ -3172,6 +3285,7 @@
             "required": [
               "rating",
               "tags",
+              "errorTypes",
               "id",
               "messageId",
               "createdAt",
@@ -3428,6 +3542,98 @@
               "routes",
               "removedByReason",
               "candidates"
+            ],
+            "additionalProperties": false
+          },
+          "meta": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "requestId",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "CitationPreviewEnvelope": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "traceId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "citationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "headingPath": {
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 500
+                }
+              },
+              "excerpt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "sourceLocations": {
+                "maxItems": 10000,
+                "type": "array",
+                "items": {}
+              },
+              "publishedAt": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              "effectiveFrom": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              "effectiveTo": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "citationId",
+              "title",
+              "headingPath",
+              "excerpt",
+              "sourceLocations",
+              "publishedAt",
+              "effectiveFrom",
+              "effectiveTo"
             ],
             "additionalProperties": false
           },

@@ -1,0 +1,6 @@
+[
+  { "name": "supported-claim", "mode": "SUPPORTED", "expected": "PASS" },
+  { "name": "repairable-amount", "mode": "UNSUPPORTED_AMOUNT", "expected": "REGENERATE" },
+  { "name": "missing-subquestion", "mode": "MISSING_COVERAGE", "expected": "PARTIAL" },
+  { "name": "revoked-citation", "mode": "REVOKED", "expected": "REJECT" }
+]

@@ -164,6 +164,39 @@ export class MetricsService implements OnModuleDestroy {
     registers: [this.registry],
   });
 
+  /** 证据路由只有七个固定值，用于观察澄清、冲突、部分回答与拒答占比。 */
+  public readonly answerEvidenceRoutesTotal = new Counter({
+    name: 'rag_answer_evidence_routes_total',
+    help: '证据、生成与答案校验 Evidence Router 路由累计次数',
+    labelNames: ['route'] as const,
+    registers: [this.registry],
+  });
+
+  /** Validator 结果只使用 PASS/REGENERATE/PARTIAL/REJECT 低基数标签。 */
+  public readonly answerValidationTotal = new Counter({
+    name: 'rag_answer_validation_total',
+    help: '证据、生成与答案校验 Validator 结果累计次数',
+    labelNames: ['outcome'] as const,
+    registers: [this.registry],
+  });
+
+  /** 可控降级原因计数，不包含 Provider URL、模型响应或资源标识。 */
+  public readonly answerDegradationsTotal = new Counter({
+    name: 'rag_answer_degradations_total',
+    help: '证据、生成与答案校验 可控降级累计次数',
+    labelNames: ['reason'] as const,
+    registers: [this.registry],
+  });
+
+  /** 答案 LangGraph 固定节点耗时。 */
+  public readonly answerStageDurationSeconds = new Histogram({
+    name: 'rag_answer_stage_duration_seconds',
+    help: '证据、生成与答案校验 LangGraph 节点执行耗时（秒）',
+    labelNames: ['stage', 'result'] as const,
+    buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30],
+    registers: [this.registry],
+  });
+
   public constructor() {
     this.registry.setDefaultLabels({ system: 'enterprise-rag' });
     collectDefaultMetrics({ register: this.registry });

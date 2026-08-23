@@ -383,6 +383,19 @@ export const AppEnvironmentSchema = z
     RERANKER_TOP_N: z.coerce.number().int().min(1).max(1_000).default(10),
     RERANKER_MAX_INPUT_TOKENS: z.coerce.number().int().min(64).max(131_072).default(8_192),
 
+    ANSWER_CONTEXT_TOKEN_BUDGET: z.coerce.number().int().min(512).max(131_072).default(12_000),
+    ANSWER_CONTEXT_MAX_PER_DOCUMENT: z.coerce.number().int().min(1).max(20).default(2),
+    ANSWER_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.58),
+    ANSWER_LLM_EVIDENCE_RERANK_ENABLED: z.enum(['true', 'false']).default('true'),
+    ANSWER_SEMANTIC_JUDGE_ENABLED: z.enum(['true', 'false']).default('true'),
+    ANSWER_RERANK_FALLBACK_ENABLED: z.enum(['true', 'false']).default('true'),
+    ANSWER_STRICT_STREAMING: z.enum(['true', 'false']).default('true'),
+    ANSWER_MAX_REGENERATIONS: z.coerce.number().int().min(1).max(1).default(1),
+    ANSWER_EXECUTION_INTERVAL_MS: z.coerce.number().int().min(100).max(60_000).default(1_000),
+    ANSWER_EXECUTION_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
+    ANSWER_EXECUTION_LEASE_SECONDS: z.coerce.number().int().min(10).max(900).default(60),
+    ANSWER_CITATION_PREVIEW_CHARS: z.coerce.number().int().min(100).max(5_000).default(1_200),
+
     VECTOR_STORE_ADAPTER: z.enum(vectorStoreAdapters).default('milvus'),
     VECTOR_STORE_PROFILE_ID: z.string().min(1).max(100).default('milvus-local-v1'),
 
@@ -560,6 +573,13 @@ export const AppEnvironmentSchema = z
         code: 'custom',
         path: ['RETRIEVAL_MAX_ROUNDS'],
         message: '查询规划与混合检索 固定最多两轮检索，不能配置成开放循环',
+      });
+    }
+    if (value.ANSWER_STRICT_STREAMING !== 'true') {
+      context.addIssue({
+        code: 'custom',
+        path: ['ANSWER_STRICT_STREAMING'],
+        message: '答案正文与引用必须在校验通过后一次性发布，禁止关闭严格流式门禁',
       });
     }
     if (value.CHUNK_CHILD_MAX_TOKENS >= value.EMBEDDING_MAX_INPUT_TOKENS) {
@@ -927,6 +947,21 @@ export interface AppConfig {
     topN: number;
     maxInputTokens: number;
   };
+  /** 证据构建、答案生成和发布门禁；这些开关不包含任何供应商专有配置。 */
+  answer: {
+    contextTokenBudget: number;
+    contextMaxPerDocument: number;
+    minimumConfidence: number;
+    llmEvidenceRerankEnabled: boolean;
+    semanticJudgeEnabled: boolean;
+    rerankFallbackEnabled: boolean;
+    strictStreaming: true;
+    maxRegenerations: 1;
+    executionIntervalMs: number;
+    executionBatchSize: number;
+    executionLeaseSeconds: number;
+    citationPreviewChars: number;
+  };
   vectorStore: {
     adapter: (typeof vectorStoreAdapters)[number];
     profileId: string;
@@ -1193,6 +1228,22 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       maxCandidates: value.RERANKER_MAX_CANDIDATES,
       topN: value.RERANKER_TOP_N,
       maxInputTokens: value.RERANKER_MAX_INPUT_TOKENS,
+    }),
+    answer: Object.freeze({
+      contextTokenBudget: value.ANSWER_CONTEXT_TOKEN_BUDGET,
+      contextMaxPerDocument: value.ANSWER_CONTEXT_MAX_PER_DOCUMENT,
+      minimumConfidence: value.ANSWER_MIN_CONFIDENCE,
+      llmEvidenceRerankEnabled: value.ANSWER_LLM_EVIDENCE_RERANK_ENABLED === 'true',
+      semanticJudgeEnabled: value.ANSWER_SEMANTIC_JUDGE_ENABLED === 'true',
+      rerankFallbackEnabled: value.ANSWER_RERANK_FALLBACK_ENABLED === 'true',
+      // ANS-015：当前协议只允许“阶段事件”，答案正文必须在校验通过后一次性发布。
+      strictStreaming: true,
+      // ANS-014：最多重生成一次，防止模型失败后形成无界循环和费用失控。
+      maxRegenerations: 1,
+      executionIntervalMs: value.ANSWER_EXECUTION_INTERVAL_MS,
+      executionBatchSize: value.ANSWER_EXECUTION_BATCH_SIZE,
+      executionLeaseSeconds: value.ANSWER_EXECUTION_LEASE_SECONDS,
+      citationPreviewChars: value.ANSWER_CITATION_PREVIEW_CHARS,
     }),
     vectorStore: Object.freeze({
       adapter: value.VECTOR_STORE_ADAPTER,

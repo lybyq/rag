@@ -27,6 +27,7 @@ const documents = [
       version: '0.1.0',
       includeConversationRuntime: true,
       includeHybridRetrieval: true,
+      includeAnswerGeneration: true,
     }),
   },
 ] as const;

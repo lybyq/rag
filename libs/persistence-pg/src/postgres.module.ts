@@ -4,6 +4,7 @@ import {
   AUTHORIZATION_VERSION_PROVIDER,
   DOCUMENT_INGESTION_REPOSITORY,
   DOCUMENT_PROCESSING_REPOSITORY,
+  EVIDENCE_SOURCE_REPOSITORY,
   INDEXING_REPOSITORY,
   INDEX_MAINTENANCE_REPOSITORY,
   KNOWLEDGE_PROCESSING_REPOSITORY,
@@ -22,6 +23,7 @@ import { PostgresSecurityAuditAdapter } from './postgres-security-audit.adapter'
 import { PostgresHealthProbe } from './postgres-health.probe';
 import { PostgresDocumentIngestionRepository } from './postgres-document-ingestion.repository';
 import { PostgresDocumentProcessingRepository } from './postgres-document-processing.repository';
+import { PostgresEvidenceSourceRepository } from './postgres-evidence-source.repository';
 import { PostgresIndexingRepository } from './postgres-indexing.repository';
 import { PostgresKnowledgeProcessingRepository } from './postgres-knowledge-processing.repository';
 import { PostgresRagRunRepository } from './postgres-rag-run.repository';
@@ -46,6 +48,7 @@ import { POSTGRES_POOL } from './postgres.tokens';
     PostgresKnowledgeSpaceRepository,
     PostgresDocumentIngestionRepository,
     PostgresDocumentProcessingRepository,
+    PostgresEvidenceSourceRepository,
     PostgresIndexingRepository,
     PostgresKnowledgeProcessingRepository,
     PostgresRagRunRepository,
@@ -65,6 +68,7 @@ import { POSTGRES_POOL } from './postgres.tokens';
     { provide: PROFILE_ROLLOUT_REPOSITORY, useExisting: PostgresIndexingRepository },
     { provide: RAG_RUN_REPOSITORY, useExisting: PostgresRagRunRepository },
     { provide: RETRIEVAL_SOURCE_REPOSITORY, useExisting: PostgresRetrievalRepository },
+    { provide: EVIDENCE_SOURCE_REPOSITORY, useExisting: PostgresEvidenceSourceRepository },
   ],
   exports: [
     POSTGRES_POOL,
@@ -80,6 +84,7 @@ import { POSTGRES_POOL } from './postgres.tokens';
     PROFILE_ROLLOUT_REPOSITORY,
     RAG_RUN_REPOSITORY,
     RETRIEVAL_SOURCE_REPOSITORY,
+    EVIDENCE_SOURCE_REPOSITORY,
   ],
 })
 export class PostgresPersistenceModule {}

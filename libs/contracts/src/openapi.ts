@@ -79,6 +79,7 @@ import {
   RunStreamTicketEnvelopeSchema,
 } from './rag-run';
 import { RetrievalDebugEnvelopeSchema } from './retrieval';
+import { CitationPreviewEnvelopeSchema } from './answer-generation';
 
 /** 生成文档所需的最小服务信息。 */
 export interface OpenApiDocumentOptions {
@@ -99,6 +100,8 @@ export interface OpenApiDocumentOptions {
   includeConversationRuntime?: boolean;
   /** Query Service 注册 查询规划与混合检索 授权检索调试路径。 */
   includeHybridRetrieval?: boolean;
+  /** Query Service 注册校验后引用的最小预览路径。 */
+  includeAnswerGeneration?: boolean;
 }
 
 /** OpenAPI 文档使用普通 JSON 对象表示，便于 NestJS 和生成脚本共同消费。 */
@@ -895,6 +898,23 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
+  const answerGenerationPaths: Record<string, unknown> = options.includeAnswerGeneration
+    ? {
+        '/api/v1/citations/{citationId}': {
+          get: {
+            operationId: 'getCitationPreview',
+            summary: '重新鉴权后读取答案引用的最小必要摘录',
+            security: conversationRuntimeSecurity,
+            parameters: [uuidPathParameter('citationId')],
+            responses: {
+              '200': jsonResponse('当前仍有权访问的引用预览', 'CitationPreviewEnvelope'),
+              '404': errorResponse('引用不存在、已撤权、已过期或版本失效'),
+              ...securedResponses,
+            },
+          },
+        },
+      }
+    : {};
 
   return {
     openapi: '3.1.0',
@@ -951,6 +971,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
       ...indexingPublicationPaths,
       ...conversationRuntimePaths,
       ...hybridRetrievalPaths,
+      ...answerGenerationPaths,
     },
     components: {
       securitySchemes: {
@@ -1064,6 +1085,11 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         ...(options.includeHybridRetrieval
           ? {
               RetrievalDebugEnvelope: z.toJSONSchema(RetrievalDebugEnvelopeSchema),
+            }
+          : {}),
+        ...(options.includeAnswerGeneration
+          ? {
+              CitationPreviewEnvelope: z.toJSONSchema(CitationPreviewEnvelopeSchema),
             }
           : {}),
       },

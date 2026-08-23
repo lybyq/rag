@@ -16,7 +16,11 @@ import type {
   Conversation,
   ConversationMessage,
   ConversationState,
+  CitationPreview,
   CreateMessageFeedbackRequest,
+  EvidenceRoute,
+  EvidenceSource,
+  FinalAnswerStatus,
   ListConversationsQuery,
   MessageFeedback,
   RagRun,
@@ -26,6 +30,8 @@ import type {
   RagRunStepStatus,
   RunManifestSnapshot,
   SensitiveContentStorage,
+  SemanticRole,
+  ValidationReport,
 } from '@rag/contracts';
 import type { AccessContext } from './ports';
 
@@ -134,6 +140,28 @@ export interface CompleteRagRunCommand {
   readonly answer: ProtectedSensitiveText;
   readonly retentionExpiresAt: Date;
   readonly citationsSummary?: Readonly<Record<string, unknown>>;
+  /** 只有 Validator 最终认可的来源才能进入该集合。 */
+  readonly citations?: readonly EvidenceSource[];
+  /** 与答案同事务保存的路由、模型和校验审计事实。 */
+  readonly answerFacts?: AnswerCompletionFacts;
+}
+
+/** 答案完成时不可变的审计事实，不包含问题或完整答案正文。 */
+export interface AnswerCompletionFacts {
+  readonly bundleSha256: string;
+  readonly evidenceRoute: EvidenceRoute;
+  readonly finalStatus: FinalAnswerStatus;
+  readonly validation: ValidationReport;
+  readonly reranker?: { readonly modelId: string; readonly revision: string };
+  readonly llm?: { readonly modelId: string; readonly revision: string };
+}
+
+/** 数据库租约领取的待执行 Run；角色来自创建 Run 时的可信服务端上下文。 */
+export interface ClaimedRagRunExecution {
+  readonly run: RagRun;
+  readonly ownerUserId: string;
+  readonly roles: readonly SemanticRole[];
+  readonly authzVersion: number;
 }
 
 /** 待投递到 Redis Stream 的 PG Outbox 事件。 */
@@ -188,6 +216,12 @@ export interface RagRunRepository {
   startStep(runId: string, command: StartRagRunStepCommand): Promise<RagRunStep>;
   finishStep(runId: string, command: FinishRagRunStepCommand): Promise<RagRunStep>;
   completeRun(ownerUserId: string, runId: string, command: CompleteRagRunCommand): Promise<RagRun>;
+  claimAcceptedRuns(
+    workerId: string,
+    limit: number,
+    leaseSeconds: number,
+  ): Promise<readonly ClaimedRagRunExecution[]>;
+  getCitationPreview(context: AccessContext, citationId: string): Promise<CitationPreview>;
   failRun(
     ownerUserId: string,
     runId: string,
