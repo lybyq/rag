@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 import { createApiEnvelopeSchema } from './api-envelope';
+import { FeatureFlagDecisionSchema } from './operations';
 import { RetrievalProfileSnapshotSchema } from './retrieval';
 
 const TimestampSchema = z.iso.datetime({ offset: true });
@@ -137,6 +138,8 @@ export const RagRunSnapshotSchema = z.object({
   authzVersion: z.number().int().nonnegative(),
   rolesSha256: Sha256Schema,
   retrieval: RetrievalProfileSnapshotSchema,
+  /** 创建 Run 时已经完成灰度计算的 Flag 决策；后续节点不得重新读取当前值。 */
+  featureFlags: z.array(FeatureFlagDecisionSchema).max(200).optional(),
 });
 /** Run 冻结快照 TypeScript 类型。 */
 export type RagRunSnapshot = z.infer<typeof RagRunSnapshotSchema>;

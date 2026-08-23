@@ -90,6 +90,26 @@ export interface ProfileRolloutContext {
   readonly canaryPercent: number;
 }
 
+/**
+ * Milvus 短摘要最多保留 500 个 UTF-16 代码单元。
+ *
+ * 该限制与知识加工的摘要定位用途一致；它不是答案证据正文，截断不会改变 PG 中的权威 Chunk。
+ */
+export const INDEX_SHORT_SUMMARY_MAX_CHARACTERS = 500;
+
+/**
+ * Milvus VARCHAR 按 UTF-8 字节校验而不是 JavaScript 字符数校验。
+ *
+ * 500 个 UTF-16 代码单元最多需要 2,000 个 UTF-8 字节，预留到 2,048 可覆盖中文和
+ * 非 BMP 字符，同时避免把完整正文误存进向量库。
+ */
+export const INDEX_SHORT_SUMMARY_MAX_UTF8_BYTES = 2_048;
+
+/** 把 Chunk 展示正文规范化为可安全写入 Milvus 的短摘要。 */
+export function createIndexShortSummary(displayContent: string): string {
+  return displayContent.replace(/\s+/g, ' ').trim().slice(0, INDEX_SHORT_SUMMARY_MAX_CHARACTERS);
+}
+
 /** Milvus 只保存短摘要、检索过滤字段与向量；不保存完整 display/embedding 正文。 */
 export interface IndexVectorRecord {
   readonly vectorId: string;
@@ -102,6 +122,7 @@ export interface IndexVectorRecord {
   readonly ordinal: number;
   readonly contentSha256: string;
   readonly embeddingProfileId: string;
+  /** 最多 500 个 UTF-16 代码单元、2,048 个 UTF-8 字节；完整正文始终回 PG 读取。 */
   readonly shortSummary: string;
   readonly headingPath: readonly string[];
   readonly sourceLocations: readonly unknown[];

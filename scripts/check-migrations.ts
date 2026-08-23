@@ -4,7 +4,8 @@ import { resolve } from 'node:path';
 
 const migrationDirectory = resolve(process.cwd(), 'database/migrations');
 const namePattern = /^\d{14}_[a-z0-9_]+\.sql$/;
-const destructivePattern = /\b(DROP\s+(TABLE|COLUMN)|TRUNCATE\s+TABLE)\b/i;
+const destructivePattern =
+  /\b(DROP\s+(TABLE|COLUMN|INDEX)|TRUNCATE\s+TABLE|ALTER\s+COLUMN\s+[^;]+\s+SET\s+NOT\s+NULL|ALTER\s+TYPE|RENAME\s+(TABLE|COLUMN))\b/i;
 
 async function main(): Promise<void> {
   const entries = await readdir(migrationDirectory, { withFileTypes: true });
@@ -15,6 +16,9 @@ async function main(): Promise<void> {
     const sql = await readFile(resolve(migrationDirectory, file.name), 'utf8');
     if (destructivePattern.test(sql) && !sql.includes('-- reviewed-destructive-change')) {
       throw new Error(`Migration 包含未标记的破坏性操作: ${file.name}`);
+    }
+    if (destructivePattern.test(sql) && !sql.includes('-- migration-phase: contract')) {
+      throw new Error(`破坏性 Migration 必须声明 contract 阶段: ${file.name}`);
     }
   }
 

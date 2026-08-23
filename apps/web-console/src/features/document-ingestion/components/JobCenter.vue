@@ -45,6 +45,21 @@ async function cancel(job: IngestionJob): Promise<void> {
   await jobs.cancel(job.id, reason);
   ElMessage.success('任务已取消');
 }
+
+async function reprocess(job: IngestionJob): Promise<void> {
+  const result = await ElMessageBox.prompt('将创建新修订任务，不覆盖原失败记录。', '重处理文档', {
+    confirmButtonText: '创建重处理任务',
+    cancelButtonText: '返回',
+    inputPattern: /^.{2,300}$/,
+    inputErrorMessage: '原因需为 2～300 个字符',
+    type: 'warning',
+  }).catch(() => undefined);
+  const reason =
+    result && typeof result === 'object' && 'value' in result ? String(result.value) : '';
+  if (!reason) return;
+  await jobs.reprocess(job.documentVersionId, reason);
+  ElMessage.success('已创建新的重处理任务');
+}
 </script>
 
 <template>
@@ -126,8 +141,10 @@ async function cancel(job: IngestionJob): Promise<void> {
     <JobDetailDrawer
       :job="jobs.selectedJob.value"
       :events="jobs.events.value"
+      :stream-mode="jobs.streamMode.value"
       @close="jobs.closeDetail"
       @cancel="cancel"
+      @reprocess="reprocess"
     />
   </section>
 </template>

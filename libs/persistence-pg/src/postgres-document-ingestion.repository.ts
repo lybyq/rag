@@ -70,6 +70,8 @@ interface DocumentRow extends QueryResultRow {
   created_by: string;
   created_at: Date | string;
   updated_at: Date | string;
+  latest_file_name?: string | null;
+  latest_content_type?: string | null;
 }
 
 interface VersionRow extends QueryResultRow {
@@ -212,6 +214,10 @@ function mapDocument(row: DocumentRow): Document {
     createdBy: row.created_by,
     createdAt: iso(row.created_at),
     updatedAt: iso(row.updated_at),
+    ...(row.latest_file_name !== undefined ? { latestFileName: row.latest_file_name } : {}),
+    ...(row.latest_content_type !== undefined
+      ? { latestContentType: row.latest_content_type }
+      : {}),
   });
 }
 
@@ -613,8 +619,21 @@ export class PostgresDocumentIngestionRepository implements DocumentIngestionRep
     query: ListDocumentsQuery,
   ): Promise<CursorResult<Document>> {
     const cursor = parseCursor(query.cursor);
+    const ascending = query.sort === 'UPDATED_ASC';
+    // sort 只能来自 Zod 枚举，比较符与方向由服务端白名单映射，绝不拼接客户端 SQL。
+    const cursorComparator = ascending ? '>' : '<';
+    const orderDirection = ascending ? 'ASC' : 'DESC';
     const result = await this.pool.query<DocumentRow>(
-      `SELECT d.* FROM documents d
+      `SELECT d.*, latest_file.original_file_name AS latest_file_name,
+              latest_file.content_type AS latest_content_type
+         FROM documents d
+         LEFT JOIN LATERAL (
+           SELECT df.original_file_name,df.content_type
+             FROM document_versions dv
+             JOIN document_files df ON df.document_version_id=dv.id
+            WHERE dv.document_id=d.id
+            ORDER BY dv.version_number DESC,df.created_at DESC LIMIT 1
+         ) latest_file ON true
         WHERE ($1::boolean OR EXISTS (
           SELECT 1 FROM resource_acl acl
            WHERE acl.resource_id = d.space_id
@@ -625,9 +644,11 @@ export class PostgresDocumentIngestionRepository implements DocumentIngestionRep
           AND ($4::uuid IS NULL OR d.space_id = $4)
           AND ($5::text IS NULL OR d.status = $5)
           AND ($6::text IS NULL OR d.title ILIKE '%' || $6 || '%')
-          AND ($7::timestamptz IS NULL OR (d.updated_at, d.id) < ($7, $8::uuid))
-        ORDER BY d.updated_at DESC, d.id DESC
-        LIMIT $9`,
+          AND ($7::text IS NULL OR latest_file.content_type = $7)
+          AND ($8::integer IS NULL OR d.latest_version_number = $8)
+          AND ($9::timestamptz IS NULL OR (d.updated_at, d.id) ${cursorComparator} ($9, $10::uuid))
+        ORDER BY d.updated_at ${orderDirection}, d.id ${orderDirection}
+        LIMIT $11`,
       [
         this.isSystemAdmin(context),
         context.user.userId,
@@ -635,6 +656,8 @@ export class PostgresDocumentIngestionRepository implements DocumentIngestionRep
         query.spaceId ?? null,
         query.status ?? null,
         query.search ?? null,
+        query.contentType ?? null,
+        query.latestVersionNumber ?? null,
         cursor?.updatedAt ?? null,
         cursor?.id ?? null,
         query.limit + 1,

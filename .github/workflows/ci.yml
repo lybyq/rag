@@ -4,9 +4,11 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ['v*']
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   quality:
@@ -27,6 +29,10 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm boundary
       - run: pnpm test
+      - run: pnpm evaluation:golden
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
       - run: pnpm migration:check
       - run: pnpm build
       - run: pnpm openapi:generate
@@ -76,3 +82,79 @@ jobs:
       - run: pnpm test:integration
       - if: always()
         run: pnpm stop:infra
+
+  release-regression:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [quality, integration]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.20.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Compare real evaluation run with promoted baseline
+        env:
+          RAG_PLATFORM_URL: ${{ secrets.RAG_RELEASE_PLATFORM_URL }}
+          RELEASE_EVALUATION_RUN_ID: ${{ secrets.RAG_RELEASE_EVALUATION_RUN_ID }}
+          RAG_BEARER_TOKEN: ${{ secrets.RAG_RELEASE_BEARER_TOKEN }}
+        run: pnpm release:gate
+
+  immutable-images:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release-regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - platform-api
+          - rag-query-service
+          - ingestion-worker
+          - scheduler-worker
+          - document-parser-service
+          - web-console
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/enterprise-rag-${{ matrix.app }}
+          tags: type=sha,format=long
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+      - name: Build and push immutable OCI image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.app == 'web-console' && 'deploy/docker/Dockerfile.web' || 'deploy/docker/Dockerfile.backend' }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_NAME=${{ matrix.app }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+          provenance: mode=max
+          sbom: true
+      - name: Scan immutable image
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: image
+          image-ref: ${{ steps.meta.outputs.tags }}
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true

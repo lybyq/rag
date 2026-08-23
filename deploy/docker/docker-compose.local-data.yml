@@ -1,0 +1,24 @@
+name: enterprise-rag-local
+
+# 本地数据绑定到仓库所在盘；本项目位于 D 盘，因此不会继续占用 C 盘项目缓存目录。
+# 可用 RAG_LOCAL_DATA_ROOT=D:/rag-runtime/docker 覆盖为独立数据盘目录。
+services:
+  postgres:
+    volumes:
+      - ${RAG_LOCAL_DATA_ROOT:-../../.data/docker}/postgres:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+  redis-cache:
+    volumes:
+      - ${RAG_LOCAL_DATA_ROOT:-../../.data/docker}/redis-cache:/data
+  redis-bullmq:
+    volumes:
+      - ${RAG_LOCAL_DATA_ROOT:-../../.data/docker}/redis-bullmq:/data
+  minio:
+    volumes:
+      - ${RAG_LOCAL_DATA_ROOT:-../../.data/docker}/minio:/data
+  etcd:
+    volumes:
+      - ${RAG_LOCAL_DATA_ROOT:-../../.data/docker}/etcd:/etcd
+  milvus:
+    volumes:
+      - ${RAG_LOCAL_DATA_ROOT:-../../.data/docker}/milvus:/var/lib/milvus

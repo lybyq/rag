@@ -3,9 +3,18 @@ import { Module } from '@nestjs/common';
 import { RuntimeConfigModule } from '@rag/config';
 import { HealthModule } from '@rag/health';
 import { ObservabilityModule } from '@rag/observability';
+import { TrafficControlModule } from '@rag/reliability';
 import { AnswerGenerationModule } from './answer-generation/answer-generation.module';
+import { EvaluationExecutionModule } from './evaluation/evaluation.module';
 
 @Module({
-  imports: [RuntimeConfigModule, ObservabilityModule, HealthModule, AnswerGenerationModule],
+  imports: [
+    RuntimeConfigModule,
+    ObservabilityModule,
+    TrafficControlModule,
+    HealthModule,
+    AnswerGenerationModule,
+    EvaluationExecutionModule,
+  ],
 })
 export class RagQueryServiceModule {}

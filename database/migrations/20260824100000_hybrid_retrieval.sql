@@ -1,5 +1,7 @@
 -- 查询规划与混合检索：混合检索回源字段、可直接批量关联的 vector_id，以及旧 Run 的检索参数快照回填。
 -- PostgreSQL 继续作为正文、版本、Manifest 成员和生效时间的最终事实源。
+-- reviewed-destructive-change: vector_id 已在同一事务回填并验证后才收紧约束。
+-- migration-phase: contract
 
 ALTER TABLE documents
   ADD COLUMN published_at timestamptz,

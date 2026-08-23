@@ -32,6 +32,7 @@ import type {
   ProviderCallOptions,
   VectorIndexPort,
 } from './indexing.ports';
+import { createIndexShortSummary } from './indexing.ports';
 
 /** 索引构建与发布 有限资源和重试配置；进程启动后不可热变更。 */
 export interface IndexingServiceConfig {
@@ -384,7 +385,8 @@ function toVectorRecord(
     ordinal: chunk.ordinal,
     contentSha256: chunk.contentSha256,
     embeddingProfileId: input.run.embeddingProfileId,
-    shortSummary: chunk.displayContent.replace(/\s+/g, ' ').trim().slice(0, 500),
+    // IDX-006：统一使用 Port 层摘要规范；Milvus VARCHAR 按 UTF-8 字节而不是字符计数。
+    shortSummary: createIndexShortSummary(chunk.displayContent),
     headingPath: chunk.headingPath,
     sourceLocations: chunk.sourceLocations,
     dense: fact.dense,

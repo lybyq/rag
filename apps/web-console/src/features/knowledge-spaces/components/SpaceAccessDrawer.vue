@@ -4,6 +4,7 @@ import type {
   KnowledgeSpacePolicyVersion,
   SpaceGrant,
   UpsertSpaceGrantRequest,
+  SpaceManifest,
 } from '@rag/contracts';
 import GrantEditor from './GrantEditor.vue';
 import GrantTable from './GrantTable.vue';
@@ -13,6 +14,7 @@ defineProps<{
   space?: KnowledgeSpace;
   grants: readonly SpaceGrant[];
   policyVersions: readonly KnowledgeSpacePolicyVersion[];
+  manifests: readonly SpaceManifest[];
   submitting: boolean;
 }>();
 
@@ -34,18 +36,57 @@ const emit = defineEmits<{
       <button type="button" aria-label="关闭治理面板" @click="emit('close')">×</button>
     </header>
 
-    <template v-if="space.effectivePermissions.includes('ADMIN')">
-      <GrantEditor :submitting="submitting" @submit="emit('grant', $event)" />
-      <section class="drawer-section">
-        <h3>当前授权</h3>
-        <GrantTable :items="grants" :submitting="submitting" @revoke="emit('revoke', $event)" />
-      </section>
-      <section class="drawer-section">
-        <h3>策略版本历史</h3>
-        <PolicyTimeline :items="policyVersions" />
-      </section>
-    </template>
-    <ElAlert v-else title="你拥有读取权限，但没有空间治理权限" type="info" :closable="false" />
+    <ElTabs>
+      <ElTabPane label="基本信息">
+        <ElDescriptions :column="1" border>
+          <ElDescriptionsItem label="描述">{{ space.description ?? '未填写' }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="状态">{{ space.status }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="文档量">{{ space.documentCount }}</ElDescriptionsItem>
+          <ElDescriptionsItem label="我的权限">
+            {{ space.effectivePermissions.join(', ') }}
+          </ElDescriptionsItem>
+        </ElDescriptions>
+      </ElTabPane>
+      <ElTabPane label="授权治理">
+        <template v-if="space.effectivePermissions.includes('ADMIN')">
+          <GrantEditor :submitting="submitting" @submit="emit('grant', $event)" />
+          <section class="drawer-section">
+            <h3>当前授权</h3>
+            <GrantTable :items="grants" :submitting="submitting" @revoke="emit('revoke', $event)" />
+          </section>
+        </template>
+        <ElAlert v-else title="你拥有读取权限，但没有空间治理权限" type="info" :closable="false" />
+      </ElTabPane>
+      <ElTabPane label="质量策略">
+        <ElAlert
+          title="质量规则由启动时锁定的 Quality Profile 执行；每个版本的自动裁决、人工审核和重处理原因保存在文档质量报告中。"
+          type="info"
+          :closable="false"
+        />
+        <p class="policy-fact">
+          空间策略版本 <strong>v{{ space.policyVersion }}</strong
+          >；发布只接纳质量门禁通过或已授权审核的内容修订。
+        </p>
+      </ElTabPane>
+      <ElTabPane label="检索 Profile / 版本">
+        <ElTable :data="[...manifests]" empty-text="空间尚未发布 Manifest">
+          <ElTableColumn prop="version" label="版本" width="70" /><ElTableColumn
+            prop="status"
+            label="状态"
+            width="100"
+          /><ElTableColumn
+            prop="embeddingProfileId"
+            label="Embedding Profile"
+            min-width="180"
+          /><ElTableColumn
+            prop="embeddingModelRevision"
+            label="Revision"
+            min-width="120"
+          /><ElTableColumn prop="expectedVectorCount" label="向量" width="90" />
+        </ElTable>
+      </ElTabPane>
+      <ElTabPane label="策略历史"><PolicyTimeline :items="policyVersions" /></ElTabPane>
+    </ElTabs>
   </aside>
 </template>
 

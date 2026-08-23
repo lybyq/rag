@@ -80,6 +80,30 @@ import {
 } from './rag-run';
 import { RetrievalDebugEnvelopeSchema } from './retrieval';
 import { CitationPreviewEnvelopeSchema } from './answer-generation';
+import {
+  CreateEvaluationDatasetRequestSchema,
+  CreateEvaluationRunRequestSchema,
+  EvaluationBaselineEnvelopeSchema,
+  EvaluationDatasetDetailEnvelopeSchema,
+  EvaluationDatasetEnvelopeSchema,
+  EvaluationDatasetListEnvelopeSchema,
+  EvaluationRunDetailEnvelopeSchema,
+  EvaluationRunEnvelopeSchema,
+  EvaluationRunListEnvelopeSchema,
+  PromoteEvaluationBaselineRequestSchema,
+} from './evaluation';
+import {
+  AuditLogPageEnvelopeSchema,
+  AuditLogQuerySchema,
+  FeatureFlagEnvelopeSchema,
+  FeatureFlagListEnvelopeSchema,
+  OperationalAlertEnvelopeSchema,
+  OperationsDashboardEnvelopeSchema,
+  PlatformOverviewEnvelopeSchema,
+  ProviderProfileStatusListEnvelopeSchema,
+  UpdateFeatureFlagRequestSchema,
+  UpdateOperationalAlertRequestSchema,
+} from './operations';
 
 /** 生成文档所需的最小服务信息。 */
 export interface OpenApiDocumentOptions {
@@ -102,6 +126,10 @@ export interface OpenApiDocumentOptions {
   includeHybridRetrieval?: boolean;
   /** Query Service 注册校验后引用的最小预览路径。 */
   includeAnswerGeneration?: boolean;
+  /** Platform API 注册 Golden Set、评测运行和基线路径。 */
+  includeEvaluation?: boolean;
+  /** Platform API 注册总览、运维、Provider、Flag 与审计路径。 */
+  includeOperations?: boolean;
 }
 
 /** OpenAPI 文档使用普通 JSON 对象表示，便于 NestJS 和生成脚本共同消费。 */
@@ -915,6 +943,204 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
+  const evaluationPaths: Record<string, unknown> = options.includeEvaluation
+    ? {
+        '/api/v1/evaluation/datasets': {
+          get: {
+            operationId: 'listEvaluationDatasets',
+            summary: '列出版本化评测数据集',
+            responses: {
+              '200': jsonResponse('评测数据集', 'EvaluationDatasetListEnvelope'),
+              ...securedResponses,
+            },
+          },
+          post: {
+            operationId: 'createEvaluationDataset',
+            summary: '创建包含稳定 Case 的 DRAFT 数据集版本',
+            requestBody: jsonBody('CreateEvaluationDatasetRequest'),
+            responses: {
+              '201': jsonResponse('已创建数据集', 'EvaluationDatasetEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/evaluation/datasets/{datasetId}': {
+          get: {
+            operationId: 'getEvaluationDataset',
+            summary: '读取评测集与稳定顺序 Case',
+            parameters: [uuidPathParameter('datasetId')],
+            responses: {
+              '200': jsonResponse('评测数据集详情', 'EvaluationDatasetDetailEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/evaluation/datasets/{datasetId}/activate': {
+          post: {
+            operationId: 'activateEvaluationDataset',
+            summary: '激活不可变评测集版本并归档同名旧版本',
+            parameters: [uuidPathParameter('datasetId')],
+            responses: {
+              '201': jsonResponse('已激活数据集', 'EvaluationDatasetEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/evaluation/runs': {
+          get: {
+            operationId: 'listEvaluationRuns',
+            summary: '列出异步评测运行',
+            responses: {
+              '200': jsonResponse('评测运行', 'EvaluationRunListEnvelope'),
+              ...securedResponses,
+            },
+          },
+          post: {
+            operationId: 'createEvaluationRun',
+            summary: '创建锁定版本快照的异步评测运行',
+            requestBody: jsonBody('CreateEvaluationRunRequest'),
+            responses: {
+              '201': jsonResponse('已创建评测运行', 'EvaluationRunEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/evaluation/runs/{runId}': {
+          get: {
+            operationId: 'getEvaluationRun',
+            summary: '读取指标、基线差异与失败样本',
+            parameters: [uuidPathParameter('runId')],
+            responses: {
+              '200': jsonResponse('评测运行详情', 'EvaluationRunDetailEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/evaluation/runs/{runId}/baselines': {
+          post: {
+            operationId: 'promoteEvaluationBaseline',
+            summary: '将全部门禁通过的运行提升为不可变基线',
+            parameters: [uuidPathParameter('runId')],
+            requestBody: jsonBody('PromoteEvaluationBaselineRequest'),
+            responses: {
+              '201': jsonResponse('已创建基线', 'EvaluationBaselineEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+      }
+    : {};
+  const operationsPaths: Record<string, unknown> = options.includeOperations
+    ? {
+        '/api/v1/platform/overview': {
+          get: {
+            operationId: 'getPlatformOverview',
+            summary: '读取知识运营与质量趋势总览',
+            responses: {
+              '200': jsonResponse('平台总览', 'PlatformOverviewEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/operations/dashboard': {
+          get: {
+            operationId: 'getOperationsDashboard',
+            summary: '读取服务、依赖、队列、SSE 和告警聚合状态',
+            responses: {
+              '200': jsonResponse('运维 Dashboard', 'OperationsDashboardEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/operations/providers': {
+          get: {
+            operationId: 'listProviderProfiles',
+            summary: '读取 Provider/Profile 非敏感状态',
+            responses: {
+              '200': jsonResponse('Provider 状态', 'ProviderProfileStatusListEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/operations/alerts/{alertId}': {
+          post: {
+            operationId: 'updateOperationalAlert',
+            summary: '确认或解决运维告警',
+            parameters: [uuidPathParameter('alertId')],
+            requestBody: jsonBody('UpdateOperationalAlertRequest'),
+            responses: {
+              '201': jsonResponse('已更新告警', 'OperationalAlertEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/operations/feature-flags': {
+          get: {
+            operationId: 'listFeatureFlags',
+            summary: '读取系统和空间级灰度开关',
+            responses: {
+              '200': jsonResponse('Feature Flag', 'FeatureFlagListEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/operations/feature-flags/{flagKey}': {
+          put: {
+            operationId: 'updateFeatureFlag',
+            summary: '使用乐观锁更新灰度开关',
+            parameters: [
+              textPathParameter('flagKey'),
+              { name: 'spaceId', in: 'query', schema: { type: 'string', format: 'uuid' } },
+            ],
+            requestBody: jsonBody('UpdateFeatureFlagRequest'),
+            responses: {
+              '200': jsonResponse('已更新 Flag', 'FeatureFlagEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/operations/audit': {
+          get: {
+            operationId: 'listAuditLogs',
+            summary: '使用白名单过滤和游标读取脱敏审计日志',
+            parameters: auditQueryParameters(),
+            responses: {
+              '200': jsonResponse('审计日志', 'AuditLogPageEnvelope'),
+              ...securedResponses,
+            },
+          },
+        },
+        '/api/v1/operations/audit/export': {
+          get: {
+            operationId: 'exportAuditLogs',
+            summary: '导出防公式注入的脱敏 CSV',
+            parameters: auditQueryParameters(),
+            responses: {
+              '200': {
+                description: 'UTF-8 CSV',
+                content: { 'text/csv': { schema: { type: 'string' } } },
+              },
+              ...securedResponses,
+            },
+          },
+        },
+      }
+    : {};
+
+  function auditQueryParameters(): readonly Record<string, unknown>[] {
+    return [
+      ...['userId', 'role', 'action', 'resourceType'].map((name) => ({
+        name,
+        in: 'query',
+        schema: { type: 'string' },
+      })),
+      { name: 'result', in: 'query', schema: { enum: ['SUCCESS', 'DENIED', 'FAILURE'] } },
+      { name: 'from', in: 'query', schema: { type: 'string', format: 'date-time' } },
+      { name: 'to', in: 'query', schema: { type: 'string', format: 'date-time' } },
+      { name: 'cursor', in: 'query', schema: { type: 'string' } },
+      { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 200 } },
+    ];
+  }
 
   return {
     openapi: '3.1.0',
@@ -972,6 +1198,8 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
       ...conversationRuntimePaths,
       ...hybridRetrievalPaths,
       ...answerGenerationPaths,
+      ...evaluationPaths,
+      ...operationsPaths,
     },
     components: {
       securitySchemes: {
@@ -1090,6 +1318,40 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         ...(options.includeAnswerGeneration
           ? {
               CitationPreviewEnvelope: z.toJSONSchema(CitationPreviewEnvelopeSchema),
+            }
+          : {}),
+        ...(options.includeEvaluation
+          ? {
+              CreateEvaluationDatasetRequest: z.toJSONSchema(CreateEvaluationDatasetRequestSchema),
+              CreateEvaluationRunRequest: z.toJSONSchema(CreateEvaluationRunRequestSchema),
+              PromoteEvaluationBaselineRequest: z.toJSONSchema(
+                PromoteEvaluationBaselineRequestSchema,
+              ),
+              EvaluationDatasetListEnvelope: z.toJSONSchema(EvaluationDatasetListEnvelopeSchema),
+              EvaluationDatasetEnvelope: z.toJSONSchema(EvaluationDatasetEnvelopeSchema),
+              EvaluationDatasetDetailEnvelope: z.toJSONSchema(
+                EvaluationDatasetDetailEnvelopeSchema,
+              ),
+              EvaluationRunListEnvelope: z.toJSONSchema(EvaluationRunListEnvelopeSchema),
+              EvaluationRunEnvelope: z.toJSONSchema(EvaluationRunEnvelopeSchema),
+              EvaluationRunDetailEnvelope: z.toJSONSchema(EvaluationRunDetailEnvelopeSchema),
+              EvaluationBaselineEnvelope: z.toJSONSchema(EvaluationBaselineEnvelopeSchema),
+            }
+          : {}),
+        ...(options.includeOperations
+          ? {
+              UpdateOperationalAlertRequest: z.toJSONSchema(UpdateOperationalAlertRequestSchema),
+              UpdateFeatureFlagRequest: z.toJSONSchema(UpdateFeatureFlagRequestSchema),
+              AuditLogQuery: z.toJSONSchema(AuditLogQuerySchema),
+              PlatformOverviewEnvelope: z.toJSONSchema(PlatformOverviewEnvelopeSchema),
+              OperationsDashboardEnvelope: z.toJSONSchema(OperationsDashboardEnvelopeSchema),
+              OperationalAlertEnvelope: z.toJSONSchema(OperationalAlertEnvelopeSchema),
+              ProviderProfileStatusListEnvelope: z.toJSONSchema(
+                ProviderProfileStatusListEnvelopeSchema,
+              ),
+              FeatureFlagListEnvelope: z.toJSONSchema(FeatureFlagListEnvelopeSchema),
+              FeatureFlagEnvelope: z.toJSONSchema(FeatureFlagEnvelopeSchema),
+              AuditLogPageEnvelope: z.toJSONSchema(AuditLogPageEnvelopeSchema),
             }
           : {}),
       },

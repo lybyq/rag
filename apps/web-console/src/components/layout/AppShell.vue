@@ -15,11 +15,15 @@ const route = useRoute();
 const identity = useIdentityStore();
 const mobileNavigationOpen = shallowRef(false);
 const navigation: readonly NavigationItem[] = [
-  { label: '工程总览', caption: 'FOUNDATION', path: '/', mark: '01' },
+  { label: '运营总览', caption: 'OVERVIEW', path: '/', mark: '01' },
   { label: '知识空间', caption: 'KNOWLEDGE', path: '/knowledge', mark: '02' },
   { label: '任务中心', caption: 'PIPELINE', path: '/tasks', mark: '03' },
-  { label: '知识问答', caption: 'ASSISTANT', path: '/assistant', mark: '04' },
-  { label: '评测观测', caption: 'OPERATIONS', path: '/evaluation', mark: '05' },
+  { label: '知识审核', caption: 'REVIEW', path: '/reviews', mark: '04' },
+  { label: '知识问答', caption: 'ASSISTANT', path: '/assistant', mark: '05' },
+  { label: '检索测试', caption: 'RETRIEVAL LAB', path: '/retrieval-lab', mark: '06' },
+  { label: '评测观测', caption: 'EVALUATION', path: '/evaluation', mark: '07' },
+  { label: '运行健康', caption: 'RELIABILITY', path: '/operations', mark: '08' },
+  { label: '审计导出', caption: 'AUDIT', path: '/audit', mark: '09' },
 ];
 const currentTitle = computed(() => String(route.meta.title ?? 'RAG Console'));
 const currentUserId = computed(() => identity.session?.user.userId ?? '身份解析中');

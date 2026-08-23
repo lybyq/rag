@@ -19,10 +19,16 @@ import type {
   VectorSearchHit,
   VectorWriteResult,
 } from '@rag/application';
+import { INDEX_SHORT_SUMMARY_MAX_UTF8_BYTES } from '@rag/application';
 import type { AppConfig } from '@rag/config';
 import type { EmbeddingProfile } from '@rag/contracts';
 import type { SparseVector } from '@rag/contracts';
 import { DataType, MetricType, MilvusClient } from '@zilliz/milvus2-sdk-node';
+
+/** Milvus SDK 客户端工厂仅用于隔离构造阶段的隐式连接副作用，并让回归测试可以核对惰性连接配置。 */
+type MilvusIndexSdkClientFactory = (
+  configuration: ConstructorParameters<typeof MilvusClient>[0],
+) => MilvusIndexSdkClient;
 
 /** 契约测试注入的最小 SDK 表面，隔离 Milvus SDK 的宽泛 any 类型。 */
 export interface MilvusIndexSdkClient {
@@ -44,7 +50,12 @@ export class MilvusVectorIndexAdapter implements VectorIndexPort, OnModuleDestro
   private client: MilvusIndexSdkClient | undefined;
   private readonly createClient: () => MilvusIndexSdkClient;
 
-  public constructor(config: AppConfig, client?: MilvusIndexSdkClient) {
+  public constructor(
+    config: AppConfig,
+    client?: MilvusIndexSdkClient,
+    clientFactory: MilvusIndexSdkClientFactory = (configuration) =>
+      new MilvusClient(configuration) as unknown as MilvusIndexSdkClient,
+  ) {
     if (client) {
       this.client = client;
       this.createClient = () => client;
@@ -53,15 +64,19 @@ export class MilvusVectorIndexAdapter implements VectorIndexPort, OnModuleDestro
     // Milvus SDK 构造器会立即连网。惰性工厂保证管理 API/测试不会因未使用的向量端口而连接 Milvus；
     // ingestion-worker 首次真正执行索引 RPC 时才建立连接，RPC 仍受 Deadline/Abort 约束。
     this.createClient = () =>
-      new MilvusClient({
+      clientFactory({
         address: config.milvus.address,
         timeout: config.milvus.requestTimeoutMs,
         ssl: config.milvus.tlsEnabled,
         database: config.milvus.database,
+        // IDX-006：3.0.4 SDK 构造器默认以“未 await”的方式立即 connect；端口不可用时会形成
+        // unhandledRejection 并杀死整个 Worker。关闭构造期连接后，首个业务 RPC 的 Promise
+        // 才承载连接失败，现有任务错误边界、Deadline 与 BullMQ 重试才能可靠接管。
+        __SKIP_CONNECT__: true,
         ...(config.milvus.username ? { username: config.milvus.username } : {}),
         ...(config.milvus.password ? { password: config.milvus.password } : {}),
         ...(config.milvus.token ? { token: config.milvus.token } : {}),
-      }) as unknown as MilvusIndexSdkClient;
+      });
   }
 
   /** 创建 Profile 专属 Schema；已存在时核验 Dense/Sparse 字段，禁止错误维度复用。 */
@@ -99,7 +114,12 @@ export class MilvusVectorIndexAdapter implements VectorIndexPort, OnModuleDestro
         { name: 'ordinal', data_type: DataType.Int64 },
         { name: 'content_sha256', data_type: DataType.VarChar, max_length: 64 },
         { name: 'embedding_profile_id', data_type: DataType.VarChar, max_length: 100 },
-        { name: 'short_summary', data_type: DataType.VarChar, max_length: 512 },
+        {
+          name: 'short_summary',
+          data_type: DataType.VarChar,
+          // IDX-006：Milvus 的 max_length 是 UTF-8 字节数；512 个“字符”会让中文摘要写入失败。
+          max_length: INDEX_SHORT_SUMMARY_MAX_UTF8_BYTES,
+        },
         { name: 'heading_path', data_type: DataType.JSON },
         { name: 'source_locations', data_type: DataType.JSON },
         { name: 'dense_vector', data_type: DataType.FloatVector, dim: profile.denseDimension },
@@ -449,6 +469,13 @@ function assertExistingSchemaCompatible(
   const hasSparse = fields.some((field) => field.name === 'sparse_vector');
   if (hasSparse !== Boolean(profile.sparseFormatVersion)) {
     throw new Error('Milvus Collection Sparse Schema 与 Embedding Profile 不兼容');
+  }
+  const shortSummary = fields.find((field) => field.name === 'short_summary');
+  const shortSummaryMaximumBytes = Number(
+    shortSummary?.max_length ?? asRecord(shortSummary?.type_params).max_length ?? 0,
+  );
+  if (shortSummaryMaximumBytes < INDEX_SHORT_SUMMARY_MAX_UTF8_BYTES) {
+    throw new Error('Milvus Collection short_summary 字节上限与索引契约不兼容');
   }
 }
 

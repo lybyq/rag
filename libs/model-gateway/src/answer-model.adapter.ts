@@ -11,13 +11,16 @@
  * @requirement ANS-014
  * @requirement CFG-001
  */
-import type {
-  AnswerModelPort,
-  GenerateAnswerDraftInput,
-  LlmEvidenceRerankInput,
-  LlmEvidenceRerankResult,
-  ProviderCallOptions,
-  SemanticGroundingInput,
+import {
+  CircuitBreaker,
+  executeResilientCall,
+  type RemoteFailureKind,
+  type AnswerModelPort,
+  type GenerateAnswerDraftInput,
+  type LlmEvidenceRerankInput,
+  type LlmEvidenceRerankResult,
+  type ProviderCallOptions,
+  type SemanticGroundingInput,
 } from '@rag/application';
 import type { AppConfig } from '@rag/config';
 import {
@@ -78,6 +81,12 @@ export class AnswerModelProviderError extends Error {
 
 /** DeepSeek/OpenAI-compatible 与企业 HTTP 共用的答案模型 Adapter。 */
 export class HttpAnswerModelAdapter implements AnswerModelPort {
+  /** 每个 Adapter 实例独立熔断；恢复后只允许一个 HALF_OPEN 探针。 */
+  private readonly circuitBreaker = new CircuitBreaker({
+    failureThreshold: 5,
+    openDurationMs: 30_000,
+  });
+
   public constructor(
     private readonly config: AppConfig,
     private readonly fetcher: typeof fetch = fetch,
@@ -219,17 +228,25 @@ export class HttpAnswerModelAdapter implements AnswerModelPort {
     body: unknown,
     options: ProviderCallOptions,
   ): Promise<unknown> {
-    let lastError: AnswerModelProviderError | undefined;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-      try {
-        return await this.invoke(url, body, options);
-      } catch (error) {
-        const classified = classifyAnswerModelError(error, options.signal);
-        lastError = classified;
-        if (!classified.retryable || attempt === 2) throw classified;
-      }
+    try {
+      return await executeResilientCall(
+        ({ signal }) => this.invoke(url, body, { ...options, signal }),
+        {
+          operation: 'answer-model',
+          deadlineAt: options.deadlineAt,
+          singleAttemptTimeoutMs: options.timeoutMs,
+          maxAttempts: 2,
+          retryBaseDelayMs: 100,
+          retryMaximumDelayMs: 500,
+          signal: options.signal,
+          classify: (error) => answerFailureKind(classifyAnswerModelError(error, options.signal)),
+          circuitBreaker: this.circuitBreaker,
+        },
+      );
+    } catch (error) {
+      // 通用执行器负责停止和退避；Adapter 仍把最终错误收敛到本能力的稳定公开分类。
+      throw classifyAnswerModelError(error, options.signal);
     }
-    throw lastError ?? new AnswerModelProviderError('NETWORK', true);
   }
 
   private async invoke(url: string, body: unknown, options: ProviderCallOptions): Promise<unknown> {
@@ -419,10 +436,25 @@ function classifyAnswerModelError(
 ): AnswerModelProviderError {
   if (error instanceof AnswerModelProviderError) return error;
   if (parentSignal.aborted) return new AnswerModelProviderError('CANCELLED', false);
+  if (error instanceof Error && error.message === '远程调用单次超时') {
+    return new AnswerModelProviderError('TIMEOUT', true);
+  }
   if (error instanceof DOMException && ['TimeoutError', 'AbortError'].includes(error.name)) {
     return new AnswerModelProviderError('TIMEOUT', true);
   }
   return new AnswerModelProviderError('NETWORK', true);
+}
+
+/** 将供应商稳定错误映射为通用重试白名单；正文和 Endpoint 不参与分类。 */
+function answerFailureKind(error: AnswerModelProviderError): RemoteFailureKind {
+  if (error.code === 'CANCELLED') return 'CANCELLED';
+  if (error.code === 'TIMEOUT') return 'TIMEOUT';
+  if (error.code === 'RATE_LIMITED') return 'RATE_LIMITED';
+  if (error.code === 'AUTHENTICATION') return 'AUTHENTICATION';
+  if (error.code === 'VERSION_MISMATCH') return 'VERSION';
+  if (error.code === 'SCHEMA_ERROR') return 'SCHEMA';
+  if (error.code === 'PARTIAL_RESULT') return 'TERMINAL';
+  return 'TRANSIENT';
 }
 
 function joinUrl(baseUrl: string, path: string): string {

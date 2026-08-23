@@ -191,21 +191,39 @@ function detectConflicts(sources: readonly EvidenceSource[]): EvidenceConflict[]
   ];
   const conflicts: EvidenceConflict[] = [];
   for (const definition of definitions) {
-    const values = sources.flatMap((source) => {
+    const scoped = new Map<
+      string,
+      { value: string; sourceId: string; documentVersionId: string }[]
+    >();
+    for (const source of sources) {
       const unique = [...new Set(source.content.match(definition.expression) ?? [])];
       // 一段材料本身包含多个值时无法确定它们是否描述同一字段，交给 Claim Validator 而不是误报冲突。
-      return unique.length === 1
-        ? [{ value: normalizeLiteral(unique[0] ?? ''), sourceId: source.sourceId }]
-        : [];
-    });
-    const distinct = [...new Set(values.map((value) => value.value))];
-    if (distinct.length < 2) continue;
-    conflicts.push({
-      kind: definition.kind,
-      normalizedValues: distinct,
-      sourceIds: [...new Set(values.map((value) => value.sourceId))],
-      description: `不同来源包含不一致的${conflictLabel(definition.kind)}`,
-    });
+      if (unique.length !== 1) continue;
+      // ANS-004：金额/日期只有落在同一子问题和同一末级章节时才可比较。企业制度通常在审批、
+      // 住宿、报销时限等不同章节合法出现不同数字；跨章节直接比字面值会把正常制度误判为冲突。
+      const scope = `${[...source.subQuestionIndexes].sort((left, right) => left - right).join(',')}:${
+        source.headingPath.at(-1)?.trim().toLowerCase() ?? ''
+      }`;
+      const values = scoped.get(scope) ?? [];
+      values.push({
+        value: normalizeLiteral(unique[0] ?? ''),
+        sourceId: source.sourceId,
+        documentVersionId: source.documentVersionId,
+      });
+      scoped.set(scope, values);
+    }
+    for (const values of scoped.values()) {
+      const distinct = [...new Set(values.map((value) => value.value))];
+      const documentVersions = new Set(values.map((value) => value.documentVersionId));
+      // 同一文档版本中的父子/相邻 Chunk 是一个权威来源的上下文展开，不能互相制造冲突。
+      if (distinct.length < 2 || documentVersions.size < 2) continue;
+      conflicts.push({
+        kind: definition.kind,
+        normalizedValues: distinct,
+        sourceIds: [...new Set(values.map((value) => value.sourceId))],
+        description: `不同来源包含不一致的${conflictLabel(definition.kind)}`,
+      });
+    }
   }
   return conflicts;
 }

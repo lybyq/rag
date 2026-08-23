@@ -408,25 +408,25 @@ POST /v1/jobs/{jobId}/cancel
 
 ### 需求清单
 
-- [ ] `OPS-001` 建立 evaluation dataset、case、run、metric 和 baseline 数据模型。
-- [ ] `OPS-002` 建立解析、Chunk、检索、引用、答案、拒答、冲突、权限和安全评分器。
-- [ ] `OPS-003` 评测保存模型、Prompt、Flow、Policy、Manifest、代码版本、均值、方差和失败样本。
-- [ ] `OPS-004` PR 对选定 Golden Set 回归；Profile/Prompt/Chunk/检索变更执行完整基线比较。
-- [ ] `OPS-005` 提供 API、Worker、PG、Redis、MinIO、Milvus、模型、队列和 SSE Dashboard。
-- [ ] `OPS-006` Trace 能定位 auth、planning、embedding、search、PG validation、rerank、evidence、LLM、validation、persistence、SSE 阶段。
-- [ ] `OPS-007` 对在线 Run、用户、角色和知识空间实施配置化限流与并发舱壁。
-- [ ] `OPS-008` 外部 Client 统一实现 Deadline、超时、重试白名单、指数退避、熔断和取消。
-- [ ] `OPS-009` 在线查询与离线任务使用隔离 Redis、连接池、队列优先级和资源配额。
-- [ ] `OPS-010` 使用 k6 覆盖基线、日常入库、批量导入、缓存冷热、单依赖故障和 SSE 断连场景。
+- [x] `OPS-001` 建立 evaluation dataset、case、run、metric 和 baseline 数据模型。
+- [x] `OPS-002` 建立解析、Chunk、检索、引用、答案、拒答、冲突、权限和安全评分器。
+- [x] `OPS-003` 评测保存模型、Prompt、Flow、Policy、Manifest、代码版本、均值、方差和失败样本。
+- [x] `OPS-004` PR 对选定 Golden Set 回归；Profile/Prompt/Chunk/检索变更执行完整基线比较。
+- [x] `OPS-005` 提供 API、Worker、PG、Redis、MinIO、Milvus、模型、队列和 SSE Dashboard。
+- [x] `OPS-006` Trace 能定位 auth、planning、embedding、search、PG validation、rerank、evidence、LLM、validation、persistence、SSE 阶段。
+- [x] `OPS-007` 对在线 Run、用户、角色和知识空间实施配置化限流与并发舱壁。
+- [x] `OPS-008` 外部 Client 统一实现 Deadline、超时、重试白名单、指数退避、熔断和取消。
+- [x] `OPS-009` 在线查询与离线任务使用隔离 Redis、连接池、队列优先级和资源配额。
+- [x] `OPS-010` 使用 k6 覆盖基线、日常入库、批量导入、缓存冷热、单依赖故障和 SSE 断连场景。
 - [ ] `OPS-011` 执行 24～72 小时 Soak，验证内存、连接、Stream、临时文件和队列无明显泄漏。
 - [ ] `OPS-012` 执行 Redis、Milvus、模型服务、Worker、API 单实例和网络延迟 Chaos。
-- [ ] `OPS-013` 实现 PostgreSQL、MinIO 和配置的备份恢复；Milvus 可从事实源重建。
+- [x] `OPS-013` 实现 PostgreSQL、MinIO 和配置的备份恢复；Milvus 可从事实源重建。
 - [ ] `OPS-014` 验证企业 RPO/RTO；具体值在内网上线评审前由业务确认，未确认标记 TBD。
-- [ ] `OPS-015` 使用 Expand→Migrate→Contract 数据迁移，禁止不可控整表锁和不可回滚发布。
-- [ ] `OPS-016` 应用、Flow、Profile、Prompt、Manifest 和 Feature Flag 均可独立灰度与回退。
-- [ ] `OPS-017` 完成卡住任务、DLQ、Parser/OCR 故障、索引不一致、Auth 故障、Streams 积压、模型超时、SSE 激增和备份恢复 Runbook。
-- [ ] `OPS-018` 完成数据保留、删除、审计导出、安全事件响应和密钥轮换流程。
-- [ ] `OPS-019` 生产发布使用不可变镜像、SBOM、依赖扫描、迁移门禁和自动回归报告。
+- [x] `OPS-015` 使用 Expand→Migrate→Contract 数据迁移，禁止不可控整表锁和不可回滚发布。
+- [x] `OPS-016` 应用、Flow、Profile、Prompt、Manifest 和 Feature Flag 均可独立灰度与回退。
+- [x] `OPS-017` 完成卡住任务、DLQ、Parser/OCR 故障、索引不一致、Auth 故障、Streams 积压、模型超时、SSE 激增和备份恢复 Runbook。
+- [x] `OPS-018` 完成数据保留、删除、审计导出、安全事件响应和密钥轮换流程。
+- [x] `OPS-019` 生产发布使用不可变镜像、SBOM、依赖扫描、迁移门禁和自动回归报告。
 - [ ] `OPS-020` 达到 PRD 中质量、性能、可靠性和权限总指标。
 
 ### 验收门禁
@@ -434,6 +434,13 @@ POST /v1/jobs/{jobId}/cancel
 - 目标并发和中型规模数据压测达标，资源余量 ≥ 30%。
 - 日常离线任务使在线 P95 上升不超过 10%。
 - 任意单实例重启不丢事实、不重复发布、不越权；备份恢复和回滚演练通过。
+
+### 2026-08-23 实施证据
+
+- 评测契约、评分器、Service/Repository/Worker、版本快照、Baseline 和失败样本已落地；PR Golden 为 6 个关键 Case、11 个指标。
+- 运维控制面聚合运行组件、Provider、队列、SSE Outbox、索引对账、告警、Feature Flag 和脱敏审计。
+- 多维 Redis 流控、统一 resilience、k6/Soak/Chaos、备份恢复/Milvus 重建、发布门禁与不可变 OCI 工作流已实现。
+- 自动化和人工验收边界见 `docs/acceptance/evaluation-production-reliability-acceptance.md`。OPS-011、OPS-012、OPS-014、OPS-020 必须取得真实内网长稳、故障、RPO/RTO 和容量报告后才能勾选。
 
 ---
 
@@ -467,36 +474,36 @@ POST /v1/jobs/{jobId}/cancel
 
 ### 需求清单
 
-- [ ] `WEB-001` 使用 Vue 3、TypeScript、Vite、Vue Router、Pinia 和 Composition API。
-- [ ] `WEB-002` Element Plus 按需导入并使用主题 Token；支持桌面优先和基础响应式布局。
-- [ ] `WEB-003` Element Plus X 经项目 Adapter 封装 BubbleList、Conversations、Sender/XSender、Thinking 等能力。
-- [ ] `WEB-004` 固定 Element Plus X 版本并建立 Adapter 组件测试，避免上游 breaking change 泄漏到业务页面。
+- [x] `WEB-001` 使用 Vue 3、TypeScript、Vite、Vue Router、Pinia 和 Composition API。
+- [x] `WEB-002` Element Plus 按需导入并使用主题 Token；支持桌面优先和基础响应式布局。
+- [x] `WEB-003` Element Plus X 经项目 Adapter 封装 BubbleList、Conversations、Sender/XSender、Thinking 等能力。
+- [x] `WEB-004` 固定 Element Plus X 版本并建立 Adapter 组件测试，避免上游 breaking change 泄漏到业务页面。
 - [x] `WEB-005` 提供开发环境身份/角色切换页；生产环境不展示 Mock 登录入口。
-- [ ] `WEB-006` 总览展示空间、文档、处理任务、失败、待审核、已发布、问答和质量趋势。
+- [x] `WEB-006` 总览展示空间、文档、处理任务、失败、待审核、已发布、问答和质量趋势。
 - [x] `WEB-007` 知识空间列表支持搜索、状态、负责人、文档量和更新时间；操作受权限控制。
-- [ ] `WEB-008` 知识空间详情支持基本信息、角色/用户授权、质量策略、检索 Profile 和版本历史。
-- [ ] `WEB-009` 文档列表支持批量上传、搜索、格式/状态/版本筛选、排序、分页和批量操作。
-- [ ] `WEB-010` 上传中心展示每个文件的网络上传进度、速度、剩余时间、取消、失败分片重试和完成确认。
-- [ ] `WEB-011` 入库进度展示真实步骤时间线：扫描→解析→OCR→标准化→Chunk→质量→审核→Embedding→索引→验证→发布。
-- [ ] `WEB-012` 每个步骤展示状态、阶段百分比、总体百分比、处理量、耗时、最近消息、Trace ID 和安全错误详情。
-- [ ] `WEB-013` 进度页支持刷新恢复、SSE 续传、断线提示和轮询降级，不使用前端定时器伪造进度。
-- [ ] `WEB-014` 失败任务提供是否可重试、建议动作、重试/重处理入口和 Runbook 链接；越权用户看不到内部错误。
-- [ ] `WEB-015` 文档详情包含概览、版本、质量、原文预览、Block、Chunk、处理历史和审计标签页。
-- [ ] `WEB-016` 审核台提供原文与解析/Chunk 对照、页码定位、OCR 置信度、问题列表和审核动作。
-- [ ] `WEB-017` 检索测试台展示 Query Plan、Dense/Sparse/RRF/Rerank 结果、来源预览和剔除原因摘要。
-- [ ] `WEB-018` 问答台包含会话分组/懒加载、欢迎问题、知识空间选择、模式选择、消息列表和输入区。
-- [ ] `WEB-019` 问答运行中展示公开阶段状态和取消按钮；不展示模型私有思维链、系统 Prompt 或隐藏候选。
-- [ ] `WEB-020` 答案支持 Markdown、代码、表格、Claim 级引用标记、警告、复制和用户反馈。
-- [ ] `WEB-021` 引用点击后打开抽屉，展示文档名、版本、页码、相关原文和预览；每次打开重新鉴权。
-- [ ] `WEB-022` 澄清、冲突、部分回答、拒答、超时、取消和降级使用不同但一致的状态视觉。
-- [ ] `WEB-023` 评测中心支持数据集、运行、基线对比、指标趋势和失败样本下钻。
-- [ ] `WEB-024` 系统配置展示 Provider/Profile 健康、兼容性元数据和非敏感配置；密钥只显示是否已配置。
-- [ ] `WEB-025` 任务与告警页支持队列积压、卡住任务、DLQ、对账结果和授权后的运维动作。
-- [ ] `WEB-026` 审计页面支持按用户、角色、动作、资源、结果和时间过滤并导出脱敏结果。
-- [ ] `WEB-027` 所有页面提供 loading、empty、error、retry、forbidden、cancelled 状态和键盘可达性。
-- [ ] `WEB-028` 关键流程通过组件测试和 Playwright E2E：上传发布、审核、检索测试、问答、引用、取消和续传。
-- [ ] `WEB-029` 视觉采用“企业知识工作台”方向：内容优先、低噪声、清晰层级，不照搬通用 ChatGPT 页面或模板化渐变卡片。
-- [ ] `WEB-030` 前端不得持有长期模型密钥、对象存储密钥或直接访问 Milvus/模型服务。
+- [x] `WEB-008` 知识空间详情支持基本信息、角色/用户授权、质量策略、检索 Profile 和版本历史。
+- [x] `WEB-009` 文档列表支持批量上传、搜索、格式/状态/版本筛选、排序、分页和批量操作。
+- [x] `WEB-010` 上传中心展示每个文件的网络上传进度、速度、剩余时间、取消、失败分片重试和完成确认。
+- [x] `WEB-011` 入库进度展示真实步骤时间线：扫描→解析→OCR→标准化→Chunk→质量→审核→Embedding→索引→验证→发布。
+- [x] `WEB-012` 每个步骤展示状态、阶段百分比、总体百分比、处理量、耗时、最近消息、Trace ID 和安全错误详情。
+- [x] `WEB-013` 进度页支持刷新恢复、SSE 续传、断线提示和轮询降级，不使用前端定时器伪造进度。
+- [x] `WEB-014` 失败任务提供是否可重试、建议动作、重试/重处理入口和 Runbook 链接；越权用户看不到内部错误。
+- [x] `WEB-015` 文档详情包含概览、版本、质量、原文预览、Block、Chunk、处理历史和审计标签页。
+- [x] `WEB-016` 审核台提供原文与解析/Chunk 对照、页码定位、OCR 置信度、问题列表和审核动作。
+- [x] `WEB-017` 检索测试台展示 Query Plan、Dense/Sparse/RRF/Rerank 结果、来源预览和剔除原因摘要。
+- [x] `WEB-018` 问答台包含会话分组/懒加载、欢迎问题、知识空间选择、模式选择、消息列表和输入区。
+- [x] `WEB-019` 问答运行中展示公开阶段状态和取消按钮；不展示模型私有思维链、系统 Prompt 或隐藏候选。
+- [x] `WEB-020` 答案支持 Markdown、代码、表格、Claim 级引用标记、警告、复制和用户反馈。
+- [x] `WEB-021` 引用点击后打开抽屉，展示文档名、版本、页码、相关原文和预览；每次打开重新鉴权。
+- [x] `WEB-022` 澄清、冲突、部分回答、拒答、超时、取消和降级使用不同但一致的状态视觉。
+- [x] `WEB-023` 评测中心支持数据集、运行、基线对比、指标趋势和失败样本下钻。
+- [x] `WEB-024` 系统配置展示 Provider/Profile 健康、兼容性元数据和非敏感配置；密钥只显示是否已配置。
+- [x] `WEB-025` 任务与告警页支持队列积压、卡住任务、DLQ、对账结果和授权后的运维动作。
+- [x] `WEB-026` 审计页面支持按用户、角色、动作、资源、结果和时间过滤并导出脱敏结果。
+- [x] `WEB-027` 所有页面提供 loading、empty、error、retry、forbidden、cancelled 状态和键盘可达性。
+- [x] `WEB-028` 关键流程通过组件测试和 Playwright E2E：上传发布、审核、检索测试、问答、引用、取消和续传。
+- [x] `WEB-029` 视觉采用“企业知识工作台”方向：内容优先、低噪声、清晰层级，不照搬通用 ChatGPT 页面或模板化渐变卡片。
+- [x] `WEB-030` 前端不得持有长期模型密钥、对象存储密钥或直接访问 Milvus/模型服务。
 
 ### 组件边界草案
 
@@ -531,6 +538,12 @@ components/ai-adapter
 - 普通用户可以从提问、观察阶段、查看答案、打开引用一直走到反馈。
 - SSE 断线、刷新、失败、取消、撤权和移动到后台再返回的交互均有自动化覆盖。
 - 不泄漏内部思维链、Prompt、敏感错误、隐藏候选和长期凭证。
+
+### 2026-08-23 实施证据
+
+- 运营、空间、文档/任务、审核、问答、检索、评测、运维、审计和配置页面已形成完整信息架构；Element Plus X 仅经 Adapter 使用。
+- 上传进度使用真实 XHR 字节，任务与问答均使用 SSE + 游标轮询恢复；引用每次打开重新鉴权。
+- `pnpm test:e2e` 的五条浏览器用例覆盖上传发布、审核、检索、问答续传、引用和取消，详见 `docs/acceptance/web-product-acceptance.md`。
 
 ---
 

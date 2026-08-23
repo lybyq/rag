@@ -36,7 +36,7 @@ export function setSelectedDevelopmentPreset(presetId: string): void {
  */
 export async function platformApiRawFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
-  headers.set('accept', 'application/json');
+  if (!headers.has('accept')) headers.set('accept', 'application/json');
   if (init.body !== undefined) headers.set('content-type', 'application/json');
 
   const selectedPreset = getSelectedDevelopmentPreset();

@@ -5,8 +5,11 @@
 import {
   CompleteUploadEnvelopeSchema,
   DocumentListEnvelopeSchema,
+  DocumentEnvelopeSchema,
+  DocumentVersionEnvelopeSchema,
   IngestionJobEnvelopeSchema,
   IngestionJobEventListEnvelopeSchema,
+  IngestionJobEventSchema,
   IngestionJobListEnvelopeSchema,
   UploadPartListEnvelopeSchema,
   UploadSessionEnvelopeSchema,
@@ -23,6 +26,7 @@ import {
   type CreateUploadSessionRequest,
   type CursorPage,
   type Document,
+  type DocumentVersion,
   type DocumentBlock,
   type DocumentParseRun,
   type IngestionExecutionStatus,
@@ -179,11 +183,34 @@ export async function cancelUploadSession(uploadId: string): Promise<void> {
 }
 
 /** 文档列表供上传完成后的结果区使用。 */
-export function listDocuments(spaceId?: string): Promise<{ items: Document[]; page: CursorPage }> {
-  const query = spaceId ? `?spaceId=${encodeURIComponent(spaceId)}` : '';
-  return platformApiFetch(`/api/v1/documents${query}`, DocumentListEnvelopeSchema).then(
+export function listDocuments(
+  filters: {
+    spaceId?: string;
+    status?: 'ACTIVE' | 'ARCHIVED';
+    search?: string;
+    contentType?: string;
+    latestVersionNumber?: number;
+    sort?: 'UPDATED_DESC' | 'UPDATED_ASC';
+    cursor?: string;
+  } = {},
+): Promise<{ items: Document[]; page: CursorPage }> {
+  const query = new URLSearchParams({ limit: '20', sort: filters.sort ?? 'UPDATED_DESC' });
+  for (const [key, value] of Object.entries(filters))
+    if (value !== undefined && value !== '') query.set(key, String(value));
+  return platformApiFetch(`/api/v1/documents?${query}`, DocumentListEnvelopeSchema).then(
     (response) => response.data,
   );
+}
+
+/** 文档详情与不可变版本历史。 */
+export function getDocument(documentId: string): Promise<{
+  document: Document;
+  versions: readonly DocumentVersion[];
+}> {
+  return platformApiFetch(
+    `/api/v1/documents/${encodeURIComponent(documentId)}`,
+    DocumentEnvelopeSchema,
+  ).then((response) => response.data);
 }
 
 /** 任务列表查询。 */
@@ -217,11 +244,84 @@ export function cancelIngestionJob(jobId: string, reason: string): Promise<Inges
   ).then((response) => response.data);
 }
 
+/** 失败版本重处理先读取当前乐观锁版本，再创建新修订任务，旧结果不会被覆盖。 */
+export async function reprocessDocumentVersion(
+  versionId: string,
+  reason: string,
+): Promise<IngestionJob> {
+  const detail = await platformApiFetch(
+    `/api/v1/document-versions/${encodeURIComponent(versionId)}`,
+    DocumentVersionEnvelopeSchema,
+  );
+  return platformApiFetch(
+    `/api/v1/document-versions/${encodeURIComponent(versionId)}/reprocess`,
+    IngestionJobEnvelopeSchema,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        expectedVersion: detail.data.version.optimisticVersion,
+        reason,
+      }),
+    },
+  ).then((response) => response.data);
+}
+
 export interface EventPollResult {
   readonly notModified: boolean;
   readonly etag?: string;
   readonly items: readonly IngestionJobEvent[];
   readonly nextCursor: number;
+}
+
+/**
+ * 使用 fetch 流读取已认证 SSE，因此开发 Mock Header、Trusted Header 和 JWT Cookie 都能复用。
+ * after 会写入 Last-Event-ID，刷新或断线后由服务端从同一数据库序号继续发送。
+ */
+export async function streamIngestionJobEvents(
+  jobId: string,
+  after: number,
+  signal: AbortSignal,
+  onEvent: (event: IngestionJobEvent) => void,
+): Promise<void> {
+  const response = await platformApiRawFetch(`/api/v1/jobs/${encodeURIComponent(jobId)}/events`, {
+    headers: { accept: 'text/event-stream', 'last-event-id': String(after) },
+    signal,
+  });
+  if (!response.ok || !response.body) {
+    throw new PlatformApiError(
+      'EVENT_STREAM_FAILED',
+      `任务事件流失败（HTTP ${response.status}）`,
+      response.status,
+    );
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    while (!signal.aborted) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      const frames = buffer.split(/\r?\n\r?\n/u);
+      buffer = frames.pop() ?? '';
+      for (const frame of frames) {
+        const data = frame
+          .split(/\r?\n/u)
+          .find((line) => line.startsWith('data:'))
+          ?.slice(5)
+          .trim();
+        if (!data) continue;
+        try {
+          const parsed = IngestionJobEventSchema.safeParse(JSON.parse(data) as unknown);
+          if (parsed.success) onEvent(parsed.data);
+        } catch {
+          // 单个损坏帧被隔离；后续 sequence 仍可继续，轮询对账会补齐缺口。
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 /** SSE 不可用时使用 If-None-Match + 游标恢复，不重复消费事件。 */

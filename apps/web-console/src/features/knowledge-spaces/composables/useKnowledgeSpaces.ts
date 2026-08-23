@@ -5,6 +5,8 @@ import {
   PolicyVersionListEnvelopeSchema,
   SpaceGrantListEnvelopeSchema,
   SpaceGrantSchema,
+  SpaceManifestListEnvelopeSchema,
+  type SpaceManifest,
   type CreateKnowledgeSpaceRequest,
   type KnowledgeSpace,
   type KnowledgeSpacePolicyVersion,
@@ -29,6 +31,7 @@ export interface KnowledgeSpacesComposable {
   selectedSpace: ShallowRef<KnowledgeSpace | undefined>;
   grants: ShallowRef<readonly SpaceGrant[]>;
   policyVersions: ShallowRef<readonly KnowledgeSpacePolicyVersion[]>;
+  manifests: ShallowRef<readonly SpaceManifest[]>;
   filters: KnowledgeSpaceFilters;
   loading: ShallowRef<boolean>;
   mutating: ShallowRef<boolean>;
@@ -53,6 +56,7 @@ export function useKnowledgeSpaces(): KnowledgeSpacesComposable {
   const selectedSpace = shallowRef<KnowledgeSpace>();
   const grants = shallowRef<readonly SpaceGrant[]>([]);
   const policyVersions = shallowRef<readonly KnowledgeSpacePolicyVersion[]>([]);
+  const manifests = shallowRef<readonly SpaceManifest[]>([]);
   const filters = reactive<KnowledgeSpaceFilters>({ search: '', status: '' });
   const loading = shallowRef(false);
   const mutating = shallowRef(false);
@@ -102,10 +106,17 @@ export function useKnowledgeSpaces(): KnowledgeSpacesComposable {
 
   async function selectSpace(space: KnowledgeSpace): Promise<void> {
     selectedSpace.value = space;
-    if (space.effectivePermissions.includes('ADMIN')) await loadGovernance(space.id);
-    else {
+    const manifestRequest = platformApiFetch(
+      `/api/v1/spaces/${space.id}/index/manifests`,
+      SpaceManifestListEnvelopeSchema,
+    );
+    if (space.effectivePermissions.includes('ADMIN')) {
+      const [, manifestResponse] = await Promise.all([loadGovernance(space.id), manifestRequest]);
+      manifests.value = manifestResponse.data.items;
+    } else {
       grants.value = [];
       policyVersions.value = [];
+      manifests.value = (await manifestRequest).data.items;
     }
   }
 
@@ -191,6 +202,7 @@ export function useKnowledgeSpaces(): KnowledgeSpacesComposable {
     selectedSpace,
     grants,
     policyVersions,
+    manifests,
     filters,
     loading,
     mutating,

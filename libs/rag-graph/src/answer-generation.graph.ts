@@ -184,7 +184,14 @@ export function createAnswerGenerationGraph(
       };
     } catch (error) {
       if (state.signal.aborted) throw state.signal.reason;
-      if (!dependencies.config.rerankFallbackEnabled || !isOperationalRerankerFailure(error)) {
+      if (
+        !featureEnabled(
+          state,
+          'ANSWER_RERANK_FALLBACK_ENABLED',
+          dependencies.config.rerankFallbackEnabled,
+        ) ||
+        !isOperationalRerankerFailure(error)
+      ) {
         throw error;
       }
       dependencies.telemetry.degradation('RERANKER_UNAVAILABLE');
@@ -245,7 +252,13 @@ export function createAnswerGenerationGraph(
 
   const llmRerankNode = timedNode('answer_llm_evidence_rerank', dependencies, async (state) => {
     const bundle = requireBundle(state.bundle);
-    if (!dependencies.config.llmEvidenceRerankEnabled) {
+    if (
+      !featureEnabled(
+        state,
+        'ANSWER_LLM_EVIDENCE_RERANK_ENABLED',
+        dependencies.config.llmEvidenceRerankEnabled,
+      )
+    ) {
       dependencies.telemetry.degradation('LLM_EVIDENCE_RERANK_DISABLED');
       return { llmRerankUsed: true, degraded: true };
     }
@@ -320,7 +333,15 @@ export function createAnswerGenerationGraph(
   const semanticJudgeNode = timedNode('answer_semantic_judge', dependencies, async (state) => {
     const draft = requireDraft(state.draft);
     const claimIds = semanticClaimIds(draft);
-    if (!dependencies.config.semanticJudgeEnabled || claimIds.length === 0) return {};
+    if (
+      !featureEnabled(
+        state,
+        'ANSWER_SEMANTIC_JUDGE_ENABLED',
+        dependencies.config.semanticJudgeEnabled,
+      ) ||
+      claimIds.length === 0
+    )
+      return {};
     const semanticJudge = await dependencies.model.judgeGrounding(
       {
         draft,
@@ -396,7 +417,13 @@ export function createAnswerGenerationGraph(
       const validation = requireValidation(state.validation);
       const hasBlocking = validation.issues.some((issue) => issue.severity === 'BLOCKING');
       const needsSemantic = semanticClaimIds(requireDraft(state.draft)).length > 0;
-      return !hasBlocking && needsSemantic && dependencies.config.semanticJudgeEnabled
+      return !hasBlocking &&
+        needsSemantic &&
+        featureEnabled(
+          state,
+          'ANSWER_SEMANTIC_JUDGE_ENABLED',
+          dependencies.config.semanticJudgeEnabled,
+        )
         ? 'semantic_judge'
         : 'final_validation';
     })
@@ -529,6 +556,21 @@ function requireRetrieval(value: HybridRetrievalResult | undefined): HybridRetri
 function requireRun(value: RagRun | undefined): RagRun {
   if (!value) throw new Error('答案图缺少 Run 快照');
   return value;
+}
+
+/**
+ * OPS-016：优先使用 Run 快照中的灰度决策；多空间存在专属决策时采用“全部开启才开启”的
+ * 保守语义，避免同一回答只对部分证据应用 Validator/重排策略。
+ */
+function featureEnabled(
+  state: AnswerGenerationStateValue,
+  key: string,
+  configuredDefault: boolean,
+): boolean {
+  const decisions = state.run?.snapshot.featureFlags?.filter((item) => item.key === key) ?? [];
+  const scoped = decisions.filter((item) => item.scope === 'SPACE');
+  if (scoped.length > 0) return scoped.every((item) => item.enabled);
+  return decisions.find((item) => item.scope === 'SYSTEM')?.enabled ?? configuredDefault;
 }
 
 function requireBundle(value: EvidenceBundle | undefined): EvidenceBundle {

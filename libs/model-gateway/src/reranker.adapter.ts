@@ -10,11 +10,14 @@
  * @requirement CFG-004
  * @requirement CFG-006
  */
-import type {
-  ProviderCallOptions,
-  RerankerMetadata,
-  RerankerPort,
-  RerankInput,
+import {
+  CircuitBreaker,
+  executeResilientCall,
+  type RemoteFailureKind,
+  type ProviderCallOptions,
+  type RerankerMetadata,
+  type RerankerPort,
+  type RerankInput,
 } from '@rag/application';
 import type { AppConfig } from '@rag/config';
 import { RerankResponseSchema, type RerankResponse } from '@rag/contracts';
@@ -58,6 +61,11 @@ export class RerankerProviderError extends Error {
 
 /** 标准内网 HTTP Reranker Adapter。 */
 export class HttpRerankerAdapter implements RerankerPort {
+  private readonly circuitBreaker = new CircuitBreaker({
+    failureThreshold: 5,
+    openDurationMs: 30_000,
+  });
+
   public constructor(
     private readonly config: AppConfig,
     private readonly fetcher: typeof fetch = fetch,
@@ -130,18 +138,24 @@ export class HttpRerankerAdapter implements RerankerPort {
     options: ProviderCallOptions,
     retry: boolean,
   ): Promise<unknown> {
-    let lastError: RerankerProviderError | undefined;
-    const attempts = retry ? 2 : 1;
-    for (let attempt = 1; attempt <= attempts; attempt += 1) {
-      try {
-        return await this.invoke(path, init, options);
-      } catch (error) {
-        const classified = classifyRerankerError(error, options.signal);
-        lastError = classified;
-        if (!classified.retryable || attempt === attempts) throw classified;
-      }
+    try {
+      return await executeResilientCall(
+        ({ signal }) => this.invoke(path, init, { ...options, signal }),
+        {
+          operation: 'reranker',
+          deadlineAt: options.deadlineAt,
+          singleAttemptTimeoutMs: options.timeoutMs,
+          maxAttempts: retry ? 2 : 1,
+          retryBaseDelayMs: 100,
+          retryMaximumDelayMs: 500,
+          signal: options.signal,
+          classify: (error) => rerankerFailureKind(classifyRerankerError(error, options.signal)),
+          circuitBreaker: this.circuitBreaker,
+        },
+      );
+    } catch (error) {
+      throw classifyRerankerError(error, options.signal);
     }
-    throw lastError ?? new RerankerProviderError('NETWORK', true);
   }
 
   private async invoke(
@@ -237,10 +251,25 @@ function assertMetadata(config: AppConfig, metadata: RerankerMetadata): void {
 function classifyRerankerError(error: unknown, parentSignal: AbortSignal): RerankerProviderError {
   if (error instanceof RerankerProviderError) return error;
   if (parentSignal.aborted) return new RerankerProviderError('CANCELLED', false);
+  if (error instanceof Error && error.message === '远程调用单次超时') {
+    return new RerankerProviderError('TIMEOUT', true);
+  }
   if (error instanceof DOMException && ['TimeoutError', 'AbortError'].includes(error.name)) {
     return new RerankerProviderError('TIMEOUT', true);
   }
   return new RerankerProviderError('NETWORK', true);
+}
+
+/** Reranker 错误到通用重试/熔断分类的无敏感映射。 */
+function rerankerFailureKind(error: RerankerProviderError): RemoteFailureKind {
+  if (error.code === 'CANCELLED') return 'CANCELLED';
+  if (error.code === 'TIMEOUT') return 'TIMEOUT';
+  if (error.code === 'RATE_LIMITED') return 'RATE_LIMITED';
+  if (error.code === 'AUTHENTICATION') return 'AUTHENTICATION';
+  if (error.code === 'VERSION_MISMATCH') return 'VERSION';
+  if (error.code === 'SCHEMA_ERROR') return 'SCHEMA';
+  if (error.code === 'PARTIAL_RESULT') return 'TERMINAL';
+  return 'TRANSIENT';
 }
 
 function joinUrl(baseUrl: string, path: string): string {

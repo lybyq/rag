@@ -17,6 +17,8 @@ const documents = [
       includeDocumentParsing: true,
       includeKnowledgeProcessing: true,
       includeIndexingPublication: true,
+      includeEvaluation: true,
+      includeOperations: true,
     }),
   },
   {

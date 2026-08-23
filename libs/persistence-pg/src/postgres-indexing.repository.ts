@@ -18,6 +18,7 @@ import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationError,
+  createIndexShortSummary,
   type AccessContext,
   type BeginIndexingRunCommand,
   type ChunkEmbeddingReference,
@@ -1692,7 +1693,9 @@ export class PostgresIndexingRepository
       ordinal: row.ordinal,
       contentSha256: row.content_sha256,
       embeddingProfileId: row.embedding_profile_id,
-      shortSummary: row.display_content.replace(/\s+/g, ' ').trim().slice(0, 500),
+      // IDX-006：重建路径必须与首次索引路径使用同一摘要规范，否则同一 Chunk 会因入口不同
+      // 产生不同的 Milvus 字段长度行为。
+      shortSummary: createIndexShortSummary(row.display_content),
       headingPath: Array.isArray(row.heading_path)
         ? row.heading_path.filter((item): item is string => typeof item === 'string')
         : [],

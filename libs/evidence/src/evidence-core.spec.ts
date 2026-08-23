@@ -34,7 +34,10 @@ describe('[ANS-004] evidence bundle', () => {
       candidates: [candidate('chunk-a', '北京住宿标准为 500 元。')],
       materials: [
         material('chunk-a', '差旅管理制度', '北京住宿标准为 500 元。'),
-        material('chunk-b', '旧版差旅管理制度', '北京住宿标准为 400 元。'),
+        material('chunk-b', '旧版差旅管理制度', '北京住宿标准为 400 元。', {
+          documentId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          documentVersionId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        }),
       ],
       rerankScores: [{ candidateId: 'chunk-a', score: 0.9, rank: 1 }],
       degraded: false,
@@ -43,6 +46,27 @@ describe('[ANS-004] evidence bundle', () => {
     expect(bundle.coverage[0]?.status).toBe('COVERED');
     expect(bundle.sources[0]?.authority).toBe('POLICY');
     expect(bundle.conflicts[0]).toMatchObject({ kind: 'AMOUNT' });
+  });
+
+  it('[ANS-004] 同一制度不同章节出现不同金额时不误判为证据冲突', () => {
+    const bundle = buildEvidenceBundle({
+      runId: ids.run,
+      subQuestions: ['差旅审批和报销规则是什么'],
+      candidates: [candidate('chunk-a', '住宿上限为 650 元。')],
+      materials: [
+        material('chunk-a', '差旅管理制度', '住宿上限为 650 元。', {
+          headingPath: ['住宿标准'],
+        }),
+        material('chunk-b', '差旅管理制度', '超过 20000 元需要副总经理审批。', {
+          headingPath: ['审批权限'],
+        }),
+      ],
+      rerankScores: [{ candidateId: 'chunk-a', score: 0.9, rank: 1 }],
+      degraded: false,
+      createSourceId: sourceIdSequence(),
+    });
+
+    expect(bundle.conflicts).toEqual([]);
   });
 });
 
@@ -113,18 +137,25 @@ function candidate(chunkId: string, content: string): RetrievalCandidate {
   };
 }
 
-function material(chunkId: string, title: string, content: string): ExpandedEvidenceMaterial {
+function material(
+  chunkId: string,
+  title: string,
+  content: string,
+  overrides: Partial<
+    Pick<ExpandedEvidenceMaterial, 'documentId' | 'documentVersionId' | 'headingPath'>
+  > = {},
+): ExpandedEvidenceMaterial {
   return {
     relation: chunkId === 'chunk-a' ? 'SELF' : 'PARENT',
     originCandidateId: 'chunk-a',
     manifestId: ids.manifest,
     spaceId: ids.space,
-    documentId: ids.document,
-    documentVersionId: ids.version,
+    documentId: overrides.documentId ?? ids.document,
+    documentVersionId: overrides.documentVersionId ?? ids.version,
     contentRevision: 1,
     chunkId,
     title,
-    headingPath: ['住宿'],
+    headingPath: overrides.headingPath ?? ['住宿'],
     content,
     sourceLocations: [],
     publishedAt: '2026-01-01T00:00:00.000Z',

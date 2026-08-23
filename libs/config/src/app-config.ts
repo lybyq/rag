@@ -395,6 +395,21 @@ export const AppEnvironmentSchema = z
     ANSWER_EXECUTION_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
     ANSWER_EXECUTION_LEASE_SECONDS: z.coerce.number().int().min(10).max(900).default(60),
     ANSWER_CITATION_PREVIEW_CHARS: z.coerce.number().int().min(100).max(5_000).default(1_200),
+    EVALUATION_WORKER_INTERVAL_MS: z.coerce.number().int().min(250).max(60_000).default(2_000),
+    EVALUATION_WORKER_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(5),
+    EVALUATION_WORKER_LEASE_SECONDS: z.coerce.number().int().min(10).max(900).default(60),
+    EVALUATION_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(3),
+    EVALUATION_PENDING_POLL_SECONDS: z.coerce.number().int().min(1).max(60).default(2),
+
+    TRAFFIC_GLOBAL_RATE_PER_MINUTE: z.coerce.number().int().min(1).max(100_000).default(600),
+    TRAFFIC_GLOBAL_CONCURRENCY: z.coerce.number().int().min(1).max(10_000).default(200),
+    TRAFFIC_USER_RATE_PER_MINUTE: z.coerce.number().int().min(1).max(10_000).default(60),
+    TRAFFIC_USER_CONCURRENCY: z.coerce.number().int().min(1).max(1_000).default(4),
+    TRAFFIC_ROLE_RATE_PER_MINUTE: z.coerce.number().int().min(1).max(100_000).default(300),
+    TRAFFIC_ROLE_CONCURRENCY: z.coerce.number().int().min(1).max(10_000).default(100),
+    TRAFFIC_SPACE_RATE_PER_MINUTE: z.coerce.number().int().min(1).max(100_000).default(300),
+    TRAFFIC_SPACE_CONCURRENCY: z.coerce.number().int().min(1).max(10_000).default(50),
+    TRAFFIC_LEASE_SECONDS: z.coerce.number().int().min(10).max(900).default(120),
 
     VECTOR_STORE_ADAPTER: z.enum(vectorStoreAdapters).default('milvus'),
     VECTOR_STORE_PROFILE_ID: z.string().min(1).max(100).default('milvus-local-v1'),
@@ -962,6 +977,26 @@ export interface AppConfig {
     executionLeaseSeconds: number;
     citationPreviewChars: number;
   };
+  /** 评测 Worker 的有限批量与数据库租约配置。 */
+  evaluation: {
+    workerIntervalMs: number;
+    workerBatchSize: number;
+    workerLeaseSeconds: number;
+    maxAttempts: number;
+    pendingPollSeconds: number;
+  };
+  /** 在线问答的分布式速率与并发舱壁。 */
+  trafficControl: {
+    globalRatePerMinute: number;
+    globalConcurrency: number;
+    userRatePerMinute: number;
+    userConcurrency: number;
+    roleRatePerMinute: number;
+    roleConcurrency: number;
+    spaceRatePerMinute: number;
+    spaceConcurrency: number;
+    leaseSeconds: number;
+  };
   vectorStore: {
     adapter: (typeof vectorStoreAdapters)[number];
     profileId: string;
@@ -1244,6 +1279,24 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       executionBatchSize: value.ANSWER_EXECUTION_BATCH_SIZE,
       executionLeaseSeconds: value.ANSWER_EXECUTION_LEASE_SECONDS,
       citationPreviewChars: value.ANSWER_CITATION_PREVIEW_CHARS,
+    }),
+    evaluation: Object.freeze({
+      workerIntervalMs: value.EVALUATION_WORKER_INTERVAL_MS,
+      workerBatchSize: value.EVALUATION_WORKER_BATCH_SIZE,
+      workerLeaseSeconds: value.EVALUATION_WORKER_LEASE_SECONDS,
+      maxAttempts: value.EVALUATION_MAX_ATTEMPTS,
+      pendingPollSeconds: value.EVALUATION_PENDING_POLL_SECONDS,
+    }),
+    trafficControl: Object.freeze({
+      globalRatePerMinute: value.TRAFFIC_GLOBAL_RATE_PER_MINUTE,
+      globalConcurrency: value.TRAFFIC_GLOBAL_CONCURRENCY,
+      userRatePerMinute: value.TRAFFIC_USER_RATE_PER_MINUTE,
+      userConcurrency: value.TRAFFIC_USER_CONCURRENCY,
+      roleRatePerMinute: value.TRAFFIC_ROLE_RATE_PER_MINUTE,
+      roleConcurrency: value.TRAFFIC_ROLE_CONCURRENCY,
+      spaceRatePerMinute: value.TRAFFIC_SPACE_RATE_PER_MINUTE,
+      spaceConcurrency: value.TRAFFIC_SPACE_CONCURRENCY,
+      leaseSeconds: value.TRAFFIC_LEASE_SECONDS,
     }),
     vectorStore: Object.freeze({
       adapter: value.VECTOR_STORE_ADAPTER,

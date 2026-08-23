@@ -33,6 +33,12 @@ export interface UploadQueueEntry {
   readonly strategy?: 'SINGLE' | 'MULTIPART';
   readonly status: UploadEntryStatus;
   readonly progressPercent: number;
+  /** 来自 XHR progress 事件的已发送字节，不是前端定时器估算。 */
+  readonly uploadedBytes: number;
+  /** 由实际字节增量计算的指数平滑速度；刷新恢复后为空。 */
+  readonly speedBytesPerSecond: number | null;
+  /** 由剩余字节和实际速度计算的秒数；速度不足时为空。 */
+  readonly etaSeconds: number | null;
   readonly retryCount: number;
   readonly message: string;
   readonly result?: CompleteUploadResult;
@@ -63,6 +69,10 @@ export function useDocumentUpload(): DocumentUploadComposable {
   const errorMessage = shallowRef('');
   const lastCreatedJobId = shallowRef<string>();
   const abortControllers = new Map<string, AbortController>();
+  const transferMetrics = new Map<
+    string,
+    { lastAtMs: number; lastBytes: number; speedBytesPerSecond: number }
+  >();
   const readyCount = computed(
     () => entries.value.filter((entry) => entry.file && entry.status === 'READY').length,
   );
@@ -81,6 +91,9 @@ export function useDocumentUpload(): DocumentUploadComposable {
         sizeBytes: file.size,
         status: 'READY',
         progressPercent: 0,
+        uploadedBytes: 0,
+        speedBytesPerSecond: null,
+        etaSeconds: null,
         retryCount: 0,
         message: '等待上传',
       }));
@@ -156,6 +169,9 @@ export function useDocumentUpload(): DocumentUploadComposable {
     updateEntry(clientFileId, {
       retryCount: entry.retryCount + 1,
       status: 'UPLOADING',
+      uploadedBytes: 0,
+      speedBytesPerSecond: null,
+      etaSeconds: null,
       message: '重新上传失败分片',
     });
     await uploadEntry(refreshed.id, { ...entry, file: entry.file }, plan).catch(
@@ -190,7 +206,19 @@ export function useDocumentUpload(): DocumentUploadComposable {
   ): Promise<void> {
     const controller = new AbortController();
     abortControllers.set(entry.clientFileId, controller);
-    updateEntry(entry.clientFileId, { status: 'UPLOADING', progressPercent: 0, message: '上传中' });
+    transferMetrics.set(entry.clientFileId, {
+      lastAtMs: performance.now(),
+      lastBytes: 0,
+      speedBytesPerSecond: 0,
+    });
+    updateEntry(entry.clientFileId, {
+      status: 'UPLOADING',
+      progressPercent: 0,
+      uploadedBytes: 0,
+      speedBytesPerSecond: null,
+      etaSeconds: null,
+      message: '上传中',
+    });
     try {
       const parts =
         plan.strategy === 'SINGLE'
@@ -199,6 +227,8 @@ export function useDocumentUpload(): DocumentUploadComposable {
       updateEntry(entry.clientFileId, {
         status: 'VERIFYING',
         progressPercent: 100,
+        uploadedBytes: entry.file.size,
+        etaSeconds: 0,
         message: '服务端 HEAD 校验并创建任务',
       });
       const result = await completeUpload(uploadId, { fileId: plan.fileId, parts });
@@ -218,6 +248,7 @@ export function useDocumentUpload(): DocumentUploadComposable {
       throw error;
     } finally {
       abortControllers.delete(entry.clientFileId);
+      transferMetrics.delete(entry.clientFileId);
     }
   }
 
@@ -261,7 +292,11 @@ export function useDocumentUpload(): DocumentUploadComposable {
           const etag = await putPresignedObject(instruction.uploadUrl, blob, {
             signal,
             onProgress: (uploadedBytes) => {
-              partProgress.set(partNumber, uploadedBytes);
+              // 分片失败重试时 progress 可能从 0 重新上报；只接受单调递增值，避免总进度倒退。
+              partProgress.set(
+                partNumber,
+                Math.max(partProgress.get(partNumber) ?? 0, uploadedBytes),
+              );
               const totalUploaded = [...partProgress.values()].reduce(
                 (sum, value) => sum + value,
                 0,
@@ -283,9 +318,29 @@ export function useDocumentUpload(): DocumentUploadComposable {
   }
 
   function updateProgress(clientFileId: string, uploadedBytes: number, totalBytes: number): void {
+    const now = performance.now();
+    const previous = transferMetrics.get(clientFileId);
+    const elapsedSeconds = previous ? Math.max((now - previous.lastAtMs) / 1_000, 0.001) : 0;
+    const byteDelta = previous ? Math.max(0, uploadedBytes - previous.lastBytes) : 0;
+    const instantaneous = elapsedSeconds > 0 ? byteDelta / elapsedSeconds : 0;
+    // 真实网络 progress 事件可能突发到达，EMA 可抑制瞬时抖动但不制造额外进度。
+    const speed = previous
+      ? previous.speedBytesPerSecond === 0
+        ? instantaneous
+        : previous.speedBytesPerSecond * 0.7 + instantaneous * 0.3
+      : 0;
+    transferMetrics.set(clientFileId, {
+      lastAtMs: now,
+      lastBytes: Math.max(previous?.lastBytes ?? 0, uploadedBytes),
+      speedBytesPerSecond: speed,
+    });
+    const stableUploaded = Math.max(previous?.lastBytes ?? 0, uploadedBytes);
     updateEntry(clientFileId, {
-      progressPercent: Math.min(99, Math.round((uploadedBytes / totalBytes) * 100)),
-      message: `${formatBytes(uploadedBytes)} / ${formatBytes(totalBytes)}`,
+      progressPercent: Math.min(99, Math.round((stableUploaded / totalBytes) * 100)),
+      uploadedBytes: stableUploaded,
+      speedBytesPerSecond: speed > 0 ? Math.round(speed) : null,
+      etaSeconds: speed > 0 ? Math.ceil((totalBytes - stableUploaded) / speed) : null,
+      message: `${formatBytes(stableUploaded)} / ${formatBytes(totalBytes)}`,
     });
   }
 
@@ -319,6 +374,9 @@ export function useDocumentUpload(): DocumentUploadComposable {
         strategy: plan.strategy,
         status: plan.completed ? 'QUEUED' : 'NEEDS_FILE',
         progressPercent: plan.completed ? 100 : 0,
+        uploadedBytes: plan.completed ? plan.sizeBytes : 0,
+        speedBytesPerSecond: null,
+        etaSeconds: plan.completed ? 0 : null,
         retryCount: 0,
         message: plan.completed ? '上传已完成，请在任务中心查看' : '会话已恢复，请重新选择原文件',
       }));

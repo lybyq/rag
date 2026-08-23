@@ -52,7 +52,7 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
       INGESTION_QUEUE_NAME,
       async (job) => {
         const event = OutboxEventSchema.parse(job.data);
-        const stage = classifyStage(event.eventType);
+        const stage = classifyIngestionQueueStage(event.eventType);
         if (stage === 'PROJECTION') {
           // 发布、回滚、废止、撤权都先失效跨实例 Redis 权限缓存，再写消费收据。
           // 若 Redis 失败则不落收据，BullMQ 会重试，避免“事件已消费但旧权限仍可见”。
@@ -62,6 +62,16 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
           await this.repository.recordConsumerReceipt('index-projection-worker', event.id);
           this.metrics.indexingPublicationOperationsTotal.inc({
             operation: 'projection_event',
+            result: 'received',
+          });
+          return;
+        }
+        if (stage === 'LIFECYCLE') {
+          // DOC-009：取消事件用于唤醒其他消费者终止工作；当前 Ingestion Worker 不能把它再次
+          // 当作处理命令。只落 Inbox 收据即可停止 BullMQ 重试，业务取消事实已由 PG 事务提交。
+          await this.repository.recordConsumerReceipt('ingestion-lifecycle-worker', event.id);
+          this.metrics.documentIngestionOperationsTotal.inc({
+            operation: 'lifecycle_event',
             result: 'received',
           });
           return;
@@ -164,12 +174,18 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
 }
 
 /** 未知阶段必须失败并进入队列失败记录，不能误用 文件解析与OCR/知识加工与质量 处理器消费。 */
-function classifyStage(
+export function classifyIngestionQueueStage(
   eventType: string,
-): 'DOCUMENT_PARSING' | 'KNOWLEDGE_PROCESSING' | 'INDEXING_PUBLICATION' | 'PROJECTION' {
+):
+  | 'DOCUMENT_PARSING'
+  | 'KNOWLEDGE_PROCESSING'
+  | 'INDEXING_PUBLICATION'
+  | 'PROJECTION'
+  | 'LIFECYCLE' {
   if (eventType === 'ingestion.requested') return 'DOCUMENT_PARSING';
   if (eventType === 'ingestion.knowledge_processing.requested') return 'KNOWLEDGE_PROCESSING';
   if (eventType === 'ingestion.indexing.requested') return 'INDEXING_PUBLICATION';
+  if (eventType === 'ingestion.cancelled') return 'LIFECYCLE';
   if (eventType.startsWith('index.') || eventType === 'cache.invalidate.space') {
     return 'PROJECTION';
   }

@@ -4,6 +4,8 @@ export * from './postgres-indexing.repository';
 export * from './postgres-rag-run.repository';
 export * from './postgres-retrieval.repository';
 export * from './postgres-evidence-source.repository';
+export * from './postgres-evaluation.repository';
+export * from './postgres-operations.repository';
 export * from './postgres.module';
 export * from './postgres-authorization-version.provider';
 export * from './postgres-document-ingestion.repository';

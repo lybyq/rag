@@ -25,6 +25,7 @@
     "src/**/*.ts",
     "src/**/*.vue",
     "src/**/*.d.ts",
+    "package.json",
     "auto-imports.d.ts",
     "components.d.ts",
     "../../libs/contracts/src/**/*.ts"

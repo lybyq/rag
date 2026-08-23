@@ -5,6 +5,7 @@ import { KnowledgeSpaceListEnvelopeSchema, type KnowledgeSpace } from '@rag/cont
 import { onMounted, shallowRef } from 'vue';
 import JobCenter from './JobCenter.vue';
 import UploadWorkbench from './UploadWorkbench.vue';
+import DocumentLibrary from './DocumentLibrary.vue';
 
 const spaces = shallowRef<readonly KnowledgeSpace[]>([]);
 const selectedSpaceId = shallowRef('');
@@ -31,6 +32,7 @@ onMounted(() => void loadSpaces());
       <div><span>04</span><strong>可恢复进度</strong><small>SSE / ETag 游标</small></div>
     </div>
     <UploadWorkbench v-model:space-id="selectedSpaceId" :spaces="spaces" />
+    <DocumentLibrary :spaces="spaces" />
     <JobCenter :spaces="spaces" />
   </div>
 </template>

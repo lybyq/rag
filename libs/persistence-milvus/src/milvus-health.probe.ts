@@ -23,6 +23,9 @@ export class MilvusHealthProbe implements HealthProbe, OnModuleDestroy {
     this.clientConfig = {
       address: config.milvus.address,
       timeout: config.dependencyHealthTimeoutMs,
+      // BASE-009：readiness 调用本身会 await `checkHealth`，因此禁止 SDK 构造器另起一个
+      // 无调用方接管的连接 Promise；探针失败只应返回 down，绝不能触发进程级未处理拒绝。
+      __SKIP_CONNECT__: true,
       ...(config.milvus.username ? { username: config.milvus.username } : {}),
       ...(config.milvus.password ? { password: config.milvus.password } : {}),
     };

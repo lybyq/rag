@@ -8,7 +8,14 @@
  * @requirement RET-004
  * @requirement RET-007
  */
-import type { ProviderCallOptions, QueryRewriteInput, QueryRewritePort } from '@rag/application';
+import {
+  CircuitBreaker,
+  executeResilientCall,
+  type ProviderCallOptions,
+  type QueryRewriteInput,
+  type QueryRewritePort,
+  type RemoteFailureKind,
+} from '@rag/application';
 import type { AppConfig } from '@rag/config';
 import { QueryRewriteSuggestionSchema, type QueryRewriteSuggestion } from '@rag/contracts';
 import { z } from 'zod';
@@ -52,6 +59,10 @@ export class QueryRewriteProviderError extends Error {
 /** 真实 HTTP/Chat Completions 改写 Adapter。 */
 export class HttpQueryRewriteAdapter implements QueryRewritePort {
   private readonly fetcher: typeof fetch;
+  private readonly circuitBreaker = new CircuitBreaker({
+    failureThreshold: 5,
+    openDurationMs: 30_000,
+  });
 
   public constructor(
     private readonly config: AppConfig,
@@ -65,17 +76,24 @@ export class HttpQueryRewriteAdapter implements QueryRewritePort {
     input: QueryRewriteInput,
     options: ProviderCallOptions,
   ): Promise<QueryRewriteSuggestion> {
-    let lastError: QueryRewriteProviderError | undefined;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
-      try {
-        return await this.invoke(input, options);
-      } catch (error) {
-        const classified = classifyError(error, options.signal);
-        lastError = classified;
-        if (!classified.retryable || attempt === 2) throw classified;
-      }
+    try {
+      return await executeResilientCall(
+        ({ signal }) => this.invoke(input, { ...options, signal }),
+        {
+          operation: 'query-rewrite',
+          deadlineAt: options.deadlineAt,
+          singleAttemptTimeoutMs: options.timeoutMs,
+          maxAttempts: 2,
+          retryBaseDelayMs: 100,
+          retryMaximumDelayMs: 500,
+          signal: options.signal,
+          classify: (error) => queryRewriteFailureKind(classifyError(error, options.signal)),
+          circuitBreaker: this.circuitBreaker,
+        },
+      );
+    } catch (error) {
+      throw classifyError(error, options.signal);
     }
-    throw lastError ?? new QueryRewriteProviderError('NETWORK', true);
   }
 
   private async invoke(
@@ -203,6 +221,9 @@ function parseSuggestion(content: string): QueryRewriteSuggestion {
 function classifyError(error: unknown, parentSignal: AbortSignal): QueryRewriteProviderError {
   if (error instanceof QueryRewriteProviderError) return error;
   if (parentSignal.aborted) return new QueryRewriteProviderError('CANCELLED', false);
+  if (error instanceof Error && error.message === '远程调用单次超时') {
+    return new QueryRewriteProviderError('TIMEOUT', true);
+  }
   if (error instanceof DOMException && error.name === 'TimeoutError') {
     return new QueryRewriteProviderError('TIMEOUT', true);
   }
@@ -210,6 +231,17 @@ function classifyError(error: unknown, parentSignal: AbortSignal): QueryRewriteP
     return new QueryRewriteProviderError('TIMEOUT', true);
   }
   return new QueryRewriteProviderError('NETWORK', true);
+}
+
+/** 查询改写错误到通用重试/熔断分类的无敏感映射。 */
+function queryRewriteFailureKind(error: QueryRewriteProviderError): RemoteFailureKind {
+  if (error.code === 'CANCELLED') return 'CANCELLED';
+  if (error.code === 'TIMEOUT') return 'TIMEOUT';
+  if (error.code === 'RATE_LIMITED') return 'RATE_LIMITED';
+  if (error.code === 'AUTHENTICATION') return 'AUTHENTICATION';
+  if (error.code === 'VERSION_MISMATCH') return 'VERSION';
+  if (error.code === 'SCHEMA_ERROR') return 'SCHEMA';
+  return 'TRANSIENT';
 }
 
 function joinUrl(baseUrl: string, path: string): string {

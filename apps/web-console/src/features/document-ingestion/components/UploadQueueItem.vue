@@ -38,6 +38,17 @@ function formatSize(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 }
+
+/** 只格式化由真实 progress 事件计算的速度。 */
+function formatSpeed(bytesPerSecond: number): string {
+  return `${formatSize(bytesPerSecond)}/s`;
+}
+
+/** 大于一小时仍以分钟展示，避免给出看似精确但无意义的秒数。 */
+function formatEta(seconds: number): string {
+  if (seconds < 60) return `约 ${Math.max(1, seconds)} 秒`;
+  return `约 ${Math.ceil(seconds / 60)} 分钟`;
+}
 </script>
 
 <template>
@@ -60,7 +71,15 @@ function formatSize(bytes: number): string {
               : undefined
         "
       />
-      <small>{{ entry.message }}</small>
+      <small>
+        {{ entry.message }}
+        <template v-if="entry.speedBytesPerSecond">
+          · {{ formatSpeed(entry.speedBytesPerSecond) }}
+          <template v-if="entry.etaSeconds !== null && entry.etaSeconds > 0">
+            · 剩余 {{ formatEta(entry.etaSeconds) }}
+          </template>
+        </template>
+      </small>
     </div>
     <div class="queue-actions">
       <ElTag :type="statusTone[entry.status]" effect="plain" size="small">

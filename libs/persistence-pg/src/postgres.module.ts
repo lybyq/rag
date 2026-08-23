@@ -4,12 +4,15 @@ import {
   AUTHORIZATION_VERSION_PROVIDER,
   DOCUMENT_INGESTION_REPOSITORY,
   DOCUMENT_PROCESSING_REPOSITORY,
+  EVALUATION_REPOSITORY,
+  FEATURE_FLAG_RESOLVER,
   EVIDENCE_SOURCE_REPOSITORY,
   INDEXING_REPOSITORY,
   INDEX_MAINTENANCE_REPOSITORY,
   KNOWLEDGE_PROCESSING_REPOSITORY,
   KNOWLEDGE_SPACE_REPOSITORY,
   PROFILE_ROLLOUT_REPOSITORY,
+  OPERATIONS_REPOSITORY,
   RAG_RUN_REPOSITORY,
   RETRIEVAL_SOURCE_REPOSITORY,
   SECURITY_AUDIT,
@@ -24,6 +27,10 @@ import { PostgresHealthProbe } from './postgres-health.probe';
 import { PostgresDocumentIngestionRepository } from './postgres-document-ingestion.repository';
 import { PostgresDocumentProcessingRepository } from './postgres-document-processing.repository';
 import { PostgresEvidenceSourceRepository } from './postgres-evidence-source.repository';
+import { PostgresEvaluationRepository } from './postgres-evaluation.repository';
+import { PostgresOperationsRepository } from './postgres-operations.repository';
+import { PostgresServiceHeartbeatReporter } from './postgres-service-heartbeat.reporter';
+import { PostgresFeatureFlagSeeder } from './postgres-feature-flag.seeder';
 import { PostgresIndexingRepository } from './postgres-indexing.repository';
 import { PostgresKnowledgeProcessingRepository } from './postgres-knowledge-processing.repository';
 import { PostgresRagRunRepository } from './postgres-rag-run.repository';
@@ -49,6 +56,10 @@ import { POSTGRES_POOL } from './postgres.tokens';
     PostgresDocumentIngestionRepository,
     PostgresDocumentProcessingRepository,
     PostgresEvidenceSourceRepository,
+    PostgresEvaluationRepository,
+    PostgresOperationsRepository,
+    PostgresServiceHeartbeatReporter,
+    PostgresFeatureFlagSeeder,
     PostgresIndexingRepository,
     PostgresKnowledgeProcessingRepository,
     PostgresRagRunRepository,
@@ -69,6 +80,9 @@ import { POSTGRES_POOL } from './postgres.tokens';
     { provide: RAG_RUN_REPOSITORY, useExisting: PostgresRagRunRepository },
     { provide: RETRIEVAL_SOURCE_REPOSITORY, useExisting: PostgresRetrievalRepository },
     { provide: EVIDENCE_SOURCE_REPOSITORY, useExisting: PostgresEvidenceSourceRepository },
+    { provide: EVALUATION_REPOSITORY, useExisting: PostgresEvaluationRepository },
+    { provide: OPERATIONS_REPOSITORY, useExisting: PostgresOperationsRepository },
+    { provide: FEATURE_FLAG_RESOLVER, useExisting: PostgresOperationsRepository },
   ],
   exports: [
     POSTGRES_POOL,
@@ -85,6 +99,9 @@ import { POSTGRES_POOL } from './postgres.tokens';
     RAG_RUN_REPOSITORY,
     RETRIEVAL_SOURCE_REPOSITORY,
     EVIDENCE_SOURCE_REPOSITORY,
+    EVALUATION_REPOSITORY,
+    OPERATIONS_REPOSITORY,
+    FEATURE_FLAG_RESOLVER,
   ],
 })
 export class PostgresPersistenceModule {}

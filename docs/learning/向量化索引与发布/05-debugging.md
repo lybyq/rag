@@ -43,3 +43,16 @@
 ## 8. 本机 C 盘已满
 
 TEMP/TMP、pnpm store、Parser 临时目录放 D 盘。不要为跑 Milvus 直接继续向 C 盘 Docker data-root 写镜像；先迁移 Docker data-root。测试时可用 Memory Vector 验证代码链路，但验收记录必须明确真实 Milvus 未跑。
+
+## 9. Milvus 未启动时 Ingestion Worker 整个退出
+
+如果日志先出现 `ECONNREFUSED 127.0.0.1:19530`，随后 Node.js 触发 `uncaughtException` 并结束进程，不能只在业务调用外层补一个 `try/catch`。Milvus Node SDK `3.0.4` 的客户端构造函数默认会立即发起一次未被调用方等待的异步连接；该连接失败后可能形成未处理的 Promise rejection，绕过当前索引步骤的错误分类和 BullMQ 重试边界。
+
+本项目在创建 Milvus SDK 客户端时显式传入 `__SKIP_CONNECT__: true`，把首次网络访问推迟到被 `await` 的 `insert`、`search` 或 `checkHealth` 调用。这样 Milvus 停机只会让当前步骤按 `UNAVAILABLE` 失败并重试，不会拖垮整个 Worker。不要通过全局吞掉 `unhandledRejection` 来掩盖问题，那会让任务状态、租约和真实进程状态相互矛盾。
+
+调试顺序：
+
+1. 确认 SDK 客户端配置包含 `__SKIP_CONNECT__: true`；
+2. 确认网络调用位于可观测、可超时、可取消的 Port 方法内；
+3. 确认错误被分类为可重试的基础设施错误，而不是手工把步骤标记成功；
+4. 在 Milvus 停机测试中同时断言“本次调用失败”和“Worker 进程仍然存活”。

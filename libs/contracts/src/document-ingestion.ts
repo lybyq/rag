@@ -75,6 +75,9 @@ export const DocumentSchema = z.object({
   status: DocumentStatusSchema,
   latestVersionNumber: z.number().int().positive(),
   version: z.number().int().positive(),
+  /** 列表查询通过 LATERAL JOIN 返回最新原始文件摘要；详情接口可不携带。 */
+  latestFileName: z.string().max(240).nullable().optional(),
+  latestContentType: z.string().max(160).nullable().optional(),
   createdBy: z.string().min(1).max(128),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
@@ -263,6 +266,9 @@ export const ListDocumentsQuerySchema = z.object({
   spaceId: z.uuid().optional(),
   status: DocumentStatusSchema.optional(),
   search: z.string().trim().max(100).optional(),
+  contentType: z.string().trim().max(160).optional(),
+  latestVersionNumber: z.coerce.number().int().positive().optional(),
+  sort: z.enum(['UPDATED_DESC', 'UPDATED_ASC']).default('UPDATED_DESC'),
   cursor: z.string().max(500).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });

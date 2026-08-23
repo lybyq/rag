@@ -71,6 +71,7 @@ export class AnswerGenerationExecutionService {
           status: state.finalAnswer.status,
           sourceIds: state.finalAnswer.citations,
           spaceIds: [...new Set(citations.map((source) => source.spaceId))],
+          degraded: state.degraded,
         },
         citations,
         {
@@ -87,6 +88,7 @@ export class AnswerGenerationExecutionService {
                 },
               }
             : {}),
+          evaluation: buildEvaluationFacts(state),
         },
       );
     } catch {
@@ -106,6 +108,55 @@ export class AnswerGenerationExecutionService {
       );
     }
   }
+}
+
+/**
+ * OPS-002：把评分需要的候选与 Claim 事实写入受控评测表，而不是用户可见消息元数据。
+ * supported 由 Validator/Judge 的稳定结果推导，不再次调用模型。
+ */
+function buildEvaluationFacts(state: {
+  readonly candidates: readonly { readonly documentId: string; readonly chunkId: string }[];
+  readonly draft?: {
+    readonly claims: readonly { readonly claimId: string; readonly text: string }[];
+  };
+  readonly finalAnswer?: {
+    readonly claims: readonly { readonly claimId: string; readonly text: string }[];
+  };
+  readonly validation?: {
+    readonly issues: readonly {
+      readonly claimId: string | null;
+      readonly code: string;
+      readonly severity: string;
+    }[];
+    readonly semanticJudge: { readonly unsupportedClaimIds: readonly string[] } | null;
+  };
+}): {
+  readonly retrievedDocumentIds: readonly string[];
+  readonly retrievedChunkIds: readonly string[];
+  readonly claims: readonly { readonly text: string; readonly supported: boolean }[];
+  readonly securityViolations: readonly string[];
+} {
+  const rejectedClaims = new Set(
+    state.validation?.issues
+      .filter((issue) => issue.claimId && issue.severity !== 'WARNING')
+      .map((issue) => issue.claimId as string) ?? [],
+  );
+  for (const claimId of state.validation?.semanticJudge?.unsupportedClaimIds ?? []) {
+    rejectedClaims.add(claimId);
+  }
+  const claims = state.draft?.claims ?? state.finalAnswer?.claims ?? [];
+  return {
+    retrievedDocumentIds: [...new Set(state.candidates.map((item) => item.documentId))],
+    retrievedChunkIds: [...new Set(state.candidates.map((item) => item.chunkId))],
+    claims: claims.map((claim) => ({
+      text: claim.text,
+      supported: !rejectedClaims.has(claim.claimId),
+    })),
+    securityViolations:
+      state.validation?.issues
+        .map((issue) => issue.code)
+        .filter((code) => /^(PROMPT|SECURITY|INJECTION|UNTRUSTED)_/.test(code)) ?? [],
+  };
 }
 
 function lifecycleAudit(lifecycle: RagRunLifecycleService): AnswerGenerationStageAudit {

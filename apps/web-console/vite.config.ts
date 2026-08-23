@@ -27,11 +27,25 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@rag/contracts': fileURLToPath(new URL('../../libs/contracts/src', import.meta.url)),
+      // Element Plus X 的发布包会从 ESM 入口级联加载 CSS；单测使用行为 Stub，
+      // 让测试只验证本项目 Adapter 契约，不把上游样式加载器当作业务行为。
+      ...(process.env.VITEST
+        ? {
+            'vue-element-plus-x': fileURLToPath(
+              new URL('./src/test/vue-element-plus-x.stub.ts', import.meta.url),
+            ),
+          }
+        : {}),
     },
   },
   server: {
     port: 5173,
     proxy: {
+      // 查询面路由必须在通用 platform-api 代理之前声明，否则本地开发会错误转发到 3000。
+      '/api/v1/conversations': 'http://localhost:3001',
+      '/api/v1/runs': 'http://localhost:3001',
+      '/api/v1/run-streams': 'http://localhost:3001',
+      '/api/v1/citations': 'http://localhost:3001',
       '/api': 'http://localhost:3000',
     },
   },
@@ -39,5 +53,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: true,
+    // Playwright 与 Vitest 都使用 *.spec.ts；目录边界防止两个 Runner 互相收集测试。
+    exclude: ['e2e/**', 'test-results/**', 'node_modules/**', 'dist/**'],
   },
 });

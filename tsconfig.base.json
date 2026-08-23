@@ -25,6 +25,7 @@
       "@rag/domain": ["libs/domain/src"],
       "@rag/document-parser-core": ["libs/document-parser-core/src"],
       "@rag/evidence": ["libs/evidence/src"],
+      "@rag/evaluation": ["libs/evaluation/src"],
       "@rag/file-processing-providers": ["libs/file-processing-providers/src"],
       "@rag/health": ["libs/health/src"],
       "@rag/ingestion-core": ["libs/ingestion-core/src"],
@@ -37,6 +38,7 @@
       "@rag/persistence-pg": ["libs/persistence-pg/src"],
       "@rag/persistence-redis": ["libs/persistence-redis/src"],
       "@rag/rag-graph": ["libs/rag-graph/src"],
+      "@rag/reliability": ["libs/reliability/src"],
       "@rag/retrieval": ["libs/retrieval/src"],
       "@rag/testing": ["libs/testing/src"]
     },

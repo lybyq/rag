@@ -154,6 +154,16 @@ export interface AnswerCompletionFacts {
   readonly validation: ValidationReport;
   readonly reranker?: { readonly modelId: string; readonly revision: string };
   readonly llm?: { readonly modelId: string; readonly revision: string };
+  /**
+   * 仅供受权限保护的离线评测使用的最小执行事实。
+   * 它独立于用户可见 citationsSummary，避免把隐藏候选泄漏给普通问答页面。
+   */
+  readonly evaluation?: {
+    readonly retrievedDocumentIds: readonly string[];
+    readonly retrievedChunkIds: readonly string[];
+    readonly claims: readonly { readonly text: string; readonly supported: boolean }[];
+    readonly securityViolations: readonly string[];
+  };
 }
 
 /** 数据库租约领取的待执行 Run；角色来自创建 Run 时的可信服务端上下文。 */

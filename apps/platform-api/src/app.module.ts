@@ -3,22 +3,28 @@ import { Module } from '@nestjs/common';
 import { RuntimeConfigModule } from '@rag/config';
 import { HealthModule } from '@rag/health';
 import { ObservabilityModule } from '@rag/observability';
+import { TrafficControlModule } from '@rag/reliability';
 import { IdentityAccessModule } from './identity-access/identity-access.module';
 import { DocumentIngestionModule } from './document-ingestion/document-ingestion.module';
 import { DocumentParsingModule } from './document-parsing/document-parsing.module';
 import { KnowledgeProcessingModule } from './knowledge-processing/knowledge-processing.module';
 import { IndexingPublicationModule } from './indexing-publication/indexing-publication.module';
+import { EvaluationModule } from './evaluation/evaluation.module';
+import { OperationsModule } from './operations/operations.module';
 
 @Module({
   imports: [
     RuntimeConfigModule,
     ObservabilityModule,
+    TrafficControlModule,
     HealthModule,
     IdentityAccessModule,
     DocumentIngestionModule,
     DocumentParsingModule,
     KnowledgeProcessingModule,
     IndexingPublicationModule,
+    EvaluationModule,
+    OperationsModule,
   ],
 })
 export class PlatformApiModule {}

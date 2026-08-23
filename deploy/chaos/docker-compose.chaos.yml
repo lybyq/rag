@@ -1,0 +1,20 @@
+name: enterprise-rag-chaos
+
+# 仅在隔离的 staging/测试环境使用。Provider/Milvus/Redis 地址改指向这些代理端口后，
+# scripts/run-chaos.ts 才能注入延迟、断连和限速；禁止在生产直接启动。
+services:
+  toxiproxy:
+    image: ${TOXIPROXY_IMAGE:-ghcr.io/shopify/toxiproxy:2.12.0}
+    ports:
+      - '8474:8474'
+      - '18637:18637'
+      - '19531:19531'
+      - '18101:18101'
+    networks: [rag-chaos]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+networks:
+  rag-chaos:
+    driver: bridge

@@ -738,6 +738,20 @@ export class PostgresRagRunRepository implements RagRunRepository {
             facts.llm?.revision ?? null,
           ],
         );
+        if (facts.evaluation) {
+          await client.query(
+            `INSERT INTO rag_run_evaluation_facts (
+               run_id,retrieved_document_ids,retrieved_chunk_ids,claims,security_violations
+             ) VALUES ($1,$2::uuid[],$3::text[],$4::jsonb,$5::text[])`,
+            [
+              runId,
+              facts.evaluation.retrievedDocumentIds,
+              facts.evaluation.retrievedChunkIds,
+              JSON.stringify(facts.evaluation.claims),
+              facts.evaluation.securityViolations,
+            ],
+          );
+        }
       }
       const updated = await client.query<RunRow>(
         `UPDATE rag_runs SET status = 'COMPLETED', assistant_message_id = $3,

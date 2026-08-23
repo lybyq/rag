@@ -15,8 +15,10 @@ export class ApplicationError extends Error {
       | 'CONTENT_REDACTED'
       | 'DEADLINE_EXCEEDED'
       | 'EMBEDDING_FAILED'
-      | 'RETRIEVAL_UNAVAILABLE',
-    public readonly httpStatus: 403 | 404 | 408 | 409 | 410 | 413 | 500 | 502 | 503,
+      | 'RETRIEVAL_UNAVAILABLE'
+      | 'RATE_LIMITED'
+      | 'TRAFFIC_CONTROL_UNAVAILABLE',
+    public readonly httpStatus: 403 | 404 | 408 | 409 | 410 | 413 | 429 | 500 | 502 | 503,
     message: string,
     public readonly retryable = false,
   ) {

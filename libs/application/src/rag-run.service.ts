@@ -46,6 +46,7 @@ import type {
   SensitiveTextProtectorPort,
   StoredConversationMessage,
 } from './rag-run.ports';
+import type { FeatureFlagResolverPort } from './operations.ports';
 
 /** Run 创建时冻结的配置和合规保留策略。 */
 export interface RagRunServiceConfig {
@@ -82,6 +83,7 @@ export class RagRunService {
     private readonly eventStream: RagRunEventStreamPort,
     private readonly cancellation: RagRunCancellationPort,
     private readonly config: RagRunServiceConfig,
+    private readonly featureFlags?: FeatureFlagResolverPort,
   ) {}
 
   /** 创建只属于当前 userId 的会话；标题不从问题正文自动推导。 */
@@ -149,6 +151,9 @@ export class RagRunService {
         '已发布索引与当前查询 Embedding Profile 不兼容',
       );
     }
+    const featureFlags = this.featureFlags
+      ? await this.featureFlags.resolveFeatureFlags(context.user, allowed)
+      : [];
     const snapshot: RagRunSnapshot = {
       flowVersion: this.config.flowVersion,
       policyVersion: this.config.policyVersion,
@@ -166,6 +171,7 @@ export class RagRunService {
         .update([...context.user.roles].sort().join('\u001f'))
         .digest('hex'),
       retrieval: this.config.retrieval,
+      featureFlags: [...featureFlags],
     };
     const now = Date.now();
     const result = await this.repository.createRun(context, {

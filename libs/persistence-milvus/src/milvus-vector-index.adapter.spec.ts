@@ -1,10 +1,39 @@
 /** 索引构建与发布 Milvus Adapter Schema、部分失败、取消、Filter 安全和维度门禁测试。 */
 import { loadAppConfig } from '@rag/config';
 import type { EmbeddingProfile } from '@rag/contracts';
-import type { IndexVectorRecord, ProviderCallOptions } from '@rag/application';
+import {
+  createIndexShortSummary,
+  INDEX_SHORT_SUMMARY_MAX_UTF8_BYTES,
+  type IndexVectorRecord,
+  type ProviderCallOptions,
+} from '@rag/application';
+import type { MilvusClient } from '@zilliz/milvus2-sdk-node';
 import { MilvusVectorIndexAdapter, type MilvusIndexSdkClient } from './milvus-vector-index.adapter';
 
 describe('[IDX-006][IDX-007][IDX-009][IDX-010] MilvusVectorIndexAdapter', () => {
+  it('[IDX-006] 真实 SDK 客户端必须关闭构造期隐式连接，避免 Milvus 停机拖垮 Worker', async () => {
+    const client = fakeClient();
+    let receivedConfiguration: ConstructorParameters<typeof MilvusClient>[0];
+    const adapter = new MilvusVectorIndexAdapter(config(), undefined, (configuration) => {
+      receivedConfiguration = configuration;
+      return client;
+    });
+
+    await adapter.ensureProfileCollection(
+      profile(),
+      'rag_chunks_abcd',
+      'rag_active_abcd',
+      options(),
+    );
+
+    expect(receivedConfiguration!).toEqual(
+      expect.objectContaining({
+        address: 'localhost:19530',
+        __SKIP_CONNECT__: true,
+      }),
+    );
+  });
+
   it('创建 Profile 专属 Collection，只有短摘要/定位元数据和 Dense/Sparse 向量', async () => {
     const client = fakeClient();
     const adapter = new MilvusVectorIndexAdapter(config(), client);
@@ -16,13 +45,21 @@ describe('[IDX-006][IDX-007][IDX-009][IDX-010] MilvusVectorIndexAdapter', () => 
     );
 
     const request = (client.createCollection as jest.Mock).mock.calls[0]?.[0] as {
-      fields: { name: string; dim?: number }[];
+      fields: { name: string; dim?: number; max_length?: number }[];
     };
     expect(request.fields.find((field) => field.name === 'dense_vector')?.dim).toBe(4);
     expect(request.fields.map((field) => field.name)).toContain('sparse_vector');
     expect(request.fields.map((field) => field.name)).toContain('short_summary');
     expect(request.fields.map((field) => field.name)).not.toEqual(
       expect.arrayContaining(['display_content', 'embedding_text', 'full_text']),
+    );
+    expect(request.fields.find((field) => field.name === 'short_summary')?.max_length).toBe(
+      INDEX_SHORT_SUMMARY_MAX_UTF8_BYTES,
+    );
+    const chineseSummary = createIndexShortSummary('中'.repeat(700));
+    expect(chineseSummary).toHaveLength(500);
+    expect(Buffer.byteLength(chineseSummary, 'utf8')).toBeLessThanOrEqual(
+      INDEX_SHORT_SUMMARY_MAX_UTF8_BYTES,
     );
   });
 
@@ -45,13 +82,38 @@ describe('[IDX-006][IDX-007][IDX-009][IDX-010] MilvusVectorIndexAdapter', () => 
     const client = fakeClient();
     client.hasCollection = jest.fn(async () => ({ value: true }));
     client.describeCollection = jest.fn(async () => ({
-      schema: { fields: [{ name: 'dense_vector', dim: 3 }, { name: 'sparse_vector' }] },
+      schema: {
+        fields: [
+          { name: 'dense_vector', dim: 3 },
+          { name: 'sparse_vector' },
+          { name: 'short_summary', max_length: INDEX_SHORT_SUMMARY_MAX_UTF8_BYTES },
+        ],
+      },
     }));
     const adapter = new MilvusVectorIndexAdapter(config(), client);
     await expect(
       adapter.ensureProfileCollection(profile(), 'rag_chunks_abcd', 'rag_active_abcd', options()),
     ).rejects.toThrow(/dimension/);
     expect(client.upsert).not.toHaveBeenCalled();
+  });
+
+  it('[IDX-006] 已存在 Collection 的中文摘要字节上限过小时拒绝复用', async () => {
+    const client = fakeClient();
+    client.hasCollection = jest.fn(async () => ({ value: true }));
+    client.describeCollection = jest.fn(async () => ({
+      schema: {
+        fields: [
+          { name: 'dense_vector', dim: 4 },
+          { name: 'sparse_vector' },
+          { name: 'short_summary', max_length: 512 },
+        ],
+      },
+    }));
+    const adapter = new MilvusVectorIndexAdapter(config(), client);
+
+    await expect(
+      adapter.ensureProfileCollection(profile(), 'rag_chunks_abcd', 'rag_active_abcd', options()),
+    ).rejects.toThrow(/short_summary/);
   });
 
   it('拒绝客户端式任意 Filter 输入，并传播父级取消', async () => {

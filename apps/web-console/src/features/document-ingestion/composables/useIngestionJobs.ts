@@ -6,6 +6,8 @@ import {
   getIngestionJob,
   listIngestionJobs,
   pollIngestionJobEvents,
+  reprocessDocumentVersion,
+  streamIngestionJobEvents,
 } from '../services/documentIngestionApi';
 
 export interface JobFilters {
@@ -20,10 +22,12 @@ export interface IngestionJobsComposable {
   filters: JobFilters;
   loading: ShallowRef<boolean>;
   errorMessage: ShallowRef<string>;
+  streamMode: ShallowRef<'idle' | 'connecting' | 'sse' | 'polling'>;
   load: () => Promise<void>;
   select: (job: IngestionJob) => Promise<void>;
   closeDetail: () => void;
   cancel: (jobId: string, reason: string) => Promise<void>;
+  reprocess: (versionId: string, reason: string) => Promise<void>;
 }
 
 /** 每三秒从后端事实刷新；进度值不在浏览器自增。 */
@@ -34,7 +38,9 @@ export function useIngestionJobs(): IngestionJobsComposable {
   const filters = reactive<JobFilters>({ spaceId: '', status: '' });
   const loading = shallowRef(false);
   const errorMessage = shallowRef('');
+  const streamMode = shallowRef<'idle' | 'connecting' | 'sse' | 'polling'>('idle');
   let timer: number | undefined;
+  let streamController: AbortController | undefined;
   let eventCursor = 0;
   let eventEtag: string | undefined;
 
@@ -58,14 +64,20 @@ export function useIngestionJobs(): IngestionJobsComposable {
   }
 
   async function select(job: IngestionJob): Promise<void> {
+    streamController?.abort();
     selectedJob.value = job;
     events.value = [];
     eventCursor = 0;
     eventEtag = undefined;
     await refreshSelected(job.id);
+    streamController = new AbortController();
+    void maintainEventStream(job.id, streamController.signal);
   }
 
   function closeDetail(): void {
+    streamController?.abort();
+    streamController = undefined;
+    streamMode.value = 'idle';
     selectedJob.value = undefined;
     events.value = [];
     eventCursor = 0;
@@ -86,9 +98,41 @@ export function useIngestionJobs(): IngestionJobsComposable {
     }
   }
 
+  /** SSE 为主；断线期间切换真实 ETag 轮询，随后携带 Last-Event-ID 重连。 */
+  async function maintainEventStream(jobId: string, signal: AbortSignal): Promise<void> {
+    while (!signal.aborted && selectedJob.value?.id === jobId) {
+      streamMode.value = 'connecting';
+      try {
+        streamMode.value = 'sse';
+        await streamIngestionJobEvents(jobId, eventCursor, signal, (event) => {
+          if (event.id <= eventCursor) return;
+          events.value = [...events.value, event];
+          eventCursor = event.id;
+          void getIngestionJob(jobId).then((job) => {
+            selectedJob.value = job;
+          });
+        });
+      } catch (error: unknown) {
+        if (signal.aborted) return;
+        errorMessage.value =
+          error instanceof Error ? `${error.message}，已切换轮询` : 'SSE 断开，已切换轮询';
+      }
+      if (signal.aborted) return;
+      streamMode.value = 'polling';
+      await refreshSelected(jobId).catch(() => undefined);
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 2_000));
+    }
+  }
+
   async function cancel(jobId: string, reason: string): Promise<void> {
     selectedJob.value = await cancelIngestionJob(jobId, reason);
     await load();
+  }
+
+  async function reprocess(versionId: string, reason: string): Promise<void> {
+    const job = await reprocessDocumentVersion(versionId, reason);
+    await load();
+    await select(job);
   }
 
   onMounted(() => {
@@ -96,6 +140,7 @@ export function useIngestionJobs(): IngestionJobsComposable {
     timer = window.setInterval(() => void load(), 3_000);
   });
   onBeforeUnmount(() => {
+    streamController?.abort();
     if (timer !== undefined) window.clearInterval(timer);
   });
   return {
@@ -105,9 +150,11 @@ export function useIngestionJobs(): IngestionJobsComposable {
     filters,
     loading,
     errorMessage,
+    streamMode,
     load,
     select,
     closeDetail,
     cancel,
+    reprocess,
   };
 }

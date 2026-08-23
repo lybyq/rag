@@ -112,6 +112,7 @@ async function revoke(grantRecord: SpaceGrant): Promise<void> {
       :space="model.selectedSpace.value"
       :grants="model.grants.value"
       :policy-versions="model.policyVersions.value"
+      :manifests="model.manifests.value"
       :submitting="model.mutating.value"
       @close="model.selectedSpace.value = undefined"
       @grant="grant"
