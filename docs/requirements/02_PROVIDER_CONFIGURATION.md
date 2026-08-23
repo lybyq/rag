@@ -319,6 +319,26 @@ MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI 
 
 四套 Profile 示例均包含同名 `RUN_*` 配置。外网开发/CI 的固定密钥只用于合成数据；`intranet-staging/production` 示例故意使用不可启动占位符，必须由部署平台 Secret 覆盖。M06 Run 同时冻结 LLM、Embedding、Reranker 和 M05 Manifest 版本，因此 Provider 滚动升级不会改变在途问答。
 
+### 6.6 M07 Query Plan 与混合检索配置说明
+
+| 环境变量                            | 默认值             | 合法范围/能力约束                           | 敏感 | 热更新 | 回退方式                |
+| ----------------------------------- | ------------------ | ------------------------------------------- | ---- | ------ | ----------------------- |
+| `RETRIEVAL_PROFILE_ID`              | `hybrid-medium-v1` | 语义变化必须新 ID                           | 否   | 否     | 新 Run 切回旧 Profile   |
+| `RETRIEVAL_INITIAL_TOP_K`           | `40`               | `1..100`                                    | 否   | 否     | 恢复黄金集基线          |
+| `RETRIEVAL_FINAL_TOP_K`             | `12`               | `1..50` 且不大于 initial                    | 否   | 否     | 恢复黄金集基线          |
+| `RETRIEVAL_RRF_K`                   | `60`               | `1..10000`                                  | 否   | 否     | 切回旧 Profile          |
+| `RETRIEVAL_DENSE_WEIGHT`            | `0.65`             | `0..10`，两路不能同时为 0                   | 否   | 否     | 切回旧权重              |
+| `RETRIEVAL_SPARSE_WEIGHT`           | `0.35`             | `0..10`，启用 Sparse 时用真实 Golden 调参   | 否   | 否     | 切回旧权重              |
+| `RETRIEVAL_MAX_PER_DOCUMENT`        | `3`                | `1..20`                                     | 否   | 否     | 恢复旧多样性配额        |
+| `RETRIEVAL_MAX_PER_SECTION`         | `2`                | `1..20`                                     | 否   | 否     | 恢复旧多样性配额        |
+| `RETRIEVAL_MINIMUM_RESULTS`         | `3`                | `1..20`，低于该值才进入第二轮               | 否   | 否     | 恢复旧阈值              |
+| `RETRIEVAL_MAX_ROUNDS`              | `2`                | M07 强制等于 2，禁止开放循环                | 否   | 否     | 不允许放宽              |
+| `RETRIEVAL_QUERY_CACHE_TTL_SECONDS` | `600`              | `10..86400`；Key 绑定 Profile/Plan/权限范围 | 否   | 否     | 降低 TTL 或清空命名空间 |
+
+这些参数全部冻结到 M06 Run snapshot。修改环境变量只影响新 Run；修改权重、TopK 或多样性配额必须
+重跑 M07 Golden。`LLM_ADAPTER/BASE_URL/API_KEY/MODEL_ID/REVISION` 同时服务 M07 受控 Query Rewrite；
+模型输出不能包含 Filter/SQL/Milvus expression。
+
 ## 7. Profile Registry
 
 Profile 必须是不可变、可引用的配置事实。修改模型或关键参数时创建新 Profile ID，不原地改变历史含义。

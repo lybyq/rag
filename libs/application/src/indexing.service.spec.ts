@@ -1,6 +1,6 @@
 /** M05 编排的幂等复用、不可见构建、对账和失败保持旧版本测试。 */
 import type { EmbeddingFact, EmbeddingPort, IndexingRepository } from './indexing.ports';
-import { IndexingService, assertProviderCompatible } from './indexing.service';
+import { IndexingService, assertProviderCompatible, createIndexVectorId } from './indexing.service';
 import { MemoryVectorIndexAdapter } from '@rag/persistence-milvus';
 import type { EmbeddingProfile, IndexingRun, SpaceManifest } from '@rag/contracts';
 
@@ -53,7 +53,17 @@ describe('[IDX-003][IDX-005][IDX-009][IDX-011][IDX-013] IndexingService', () => 
     expect(embedding.embedDocuments).not.toHaveBeenCalled();
     expect(repository.saveChunkEmbeddingReferences).toHaveBeenCalledWith(
       '11111111-1111-4111-8111-111111111111',
-      [{ chunkId: 'chunk-1', embeddingFactId: '33333333-3333-4333-8333-333333333333' }],
+      [
+        {
+          chunkId: 'chunk-1',
+          embeddingFactId: '33333333-3333-4333-8333-333333333333',
+          vectorId: createIndexVectorId(
+            '22222222-2222-4222-8222-222222222222',
+            'chunk-1',
+            profile.profileId,
+          ),
+        },
+      ],
       0,
       1,
     );

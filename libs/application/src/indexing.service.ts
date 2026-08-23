@@ -118,7 +118,15 @@ export class IndexingService {
       const references = build.chunks.map((chunk) => {
         const fact = factByHash.get(chunk.contentSha256);
         if (!fact) throw new Error(`Embedding 事实缺失：${chunk.chunkId}`);
-        return { chunkId: chunk.chunkId, embeddingFactId: fact.id };
+        return {
+          chunkId: chunk.chunkId,
+          embeddingFactId: fact.id,
+          vectorId: createIndexVectorId(
+            build.manifest.id,
+            chunk.chunkId,
+            build.run.embeddingProfileId,
+          ),
+        };
       });
       await this.repository.saveChunkEmbeddingReferences(
         build.run.id,
@@ -366,9 +374,7 @@ function toVectorRecord(
   fact: EmbeddingFact,
 ): IndexVectorRecord {
   return {
-    vectorId: createHash('sha256')
-      .update(`${input.manifest.id}:${chunk.chunkId}:${input.run.embeddingProfileId}`)
-      .digest('hex'),
+    vectorId: createIndexVectorId(input.manifest.id, chunk.chunkId, input.run.embeddingProfileId),
     manifestId: input.manifest.id,
     spaceId: input.run.spaceId,
     documentId: chunk.documentId,
@@ -384,6 +390,17 @@ function toVectorRecord(
     dense: fact.dense,
     sparse: fact.sparse,
   };
+}
+
+/** M05/M07 共享的稳定向量主键算法；任一输入变化都生成新主键。 */
+export function createIndexVectorId(
+  manifestId: string,
+  chunkId: string,
+  embeddingProfileId: string,
+): string {
+  return createHash('sha256')
+    .update(`${manifestId}:${chunkId}:${embeddingProfileId}`)
+    .digest('hex');
 }
 
 function requireFact(

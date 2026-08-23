@@ -196,6 +196,16 @@ describe('[BASE-010] startup configuration', () => {
     ).toThrow(/Embedding 最大输入/);
   });
 
+  it('[RET-014][RET-015] 检索 Profile 拒绝非法 TopK、空权重和开放循环', () => {
+    expect(() =>
+      loadAppConfig({ RETRIEVAL_INITIAL_TOP_K: '10', RETRIEVAL_FINAL_TOP_K: '11' }),
+    ).toThrow(/最终 TopK/);
+    expect(() =>
+      loadAppConfig({ RETRIEVAL_DENSE_WEIGHT: '0', RETRIEVAL_SPARSE_WEIGHT: '0' }),
+    ).toThrow(/权重不能同时为 0/);
+    expect(() => loadAppConfig({ RETRIEVAL_MAX_ROUNDS: '1' })).toThrow(/最多两轮/);
+  });
+
   it('[CFG-002][CFG-003][CFG-012] 仓库环境模板与启动契约保持同步', () => {
     for (const fileName of ['.env.external-dev.example', '.env.external-ci.example']) {
       expect(() => loadAppConfig(readExampleEnvironment(fileName))).not.toThrow();

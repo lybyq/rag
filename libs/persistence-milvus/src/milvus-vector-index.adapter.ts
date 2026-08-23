@@ -21,6 +21,7 @@ import type {
 } from '@rag/application';
 import type { AppConfig } from '@rag/config';
 import type { EmbeddingProfile } from '@rag/contracts';
+import type { SparseVector } from '@rag/contracts';
 import { DataType, MetricType, MilvusClient } from '@zilliz/milvus2-sdk-node';
 
 /** 契约测试注入的最小 SDK 表面，隔离 Milvus SDK 的宽泛 any 类型。 */
@@ -307,19 +308,54 @@ export class MilvusVectorIndexAdapter implements VectorIndexPort, OnModuleDestro
         options.signal,
       ),
     );
-    const raw =
-      Array.isArray(response.results) && Array.isArray(response.results[0])
-        ? response.results[0]
-        : (response.results ?? response.data);
-    return recordArray(raw)
-      .map((row) => ({
-        vectorId: String(row.vector_id ?? row.id ?? ''),
-        documentId: String(row.document_id ?? asRecord(row.entity).document_id ?? ''),
-        score: Number(row.score ?? row.distance ?? 0),
-      }))
-      .filter(
-        (row) => /^[a-f0-9]{64}$/.test(row.vectorId) && /^[a-f0-9-]{36}$/i.test(row.documentId),
-      );
+    return mapSearchHits(response);
+  }
+
+  /** Sparse 路线查询；只接受平台 SparseVector 值对象与服务端校验后的 Manifest UUID。 */
+  public async searchManifestSparse(
+    collectionName: string,
+    manifestId: string,
+    sparse: SparseVector,
+    limit: number,
+    options: ProviderCallOptions,
+  ): Promise<readonly VectorSearchHit[]> {
+    const client = this.getClient();
+    assertIdentifier(collectionName);
+    assertUuid(manifestId);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+      throw new Error('Milvus 查询 limit 非法');
+    if (
+      sparse.indices.length === 0 ||
+      sparse.indices.length !== sparse.values.length ||
+      sparse.indices.some(
+        (value, index) =>
+          !Number.isInteger(value) ||
+          value < 0 ||
+          (index > 0 && value <= (sparse.indices[index - 1] ?? -1)),
+      ) ||
+      sparse.values.some((value) => !Number.isFinite(value))
+    ) {
+      throw new Error('Milvus Sparse 查询向量非法');
+    }
+    const sparseRow = Object.fromEntries(
+      sparse.indices.map((index, offset) => [index, sparse.values[offset] ?? 0]),
+    );
+    const response = asRecord(
+      await abortable(
+        client.search({
+          collection_name: collectionName,
+          anns_field: 'sparse_vector',
+          data: [sparseRow],
+          filter: `manifest_id == "${manifestId}"`,
+          limit,
+          metric_type: MetricType.IP,
+          output_fields: ['vector_id', 'document_id'],
+          timeout: rpcTimeout(options),
+        }),
+        options.signal,
+      ),
+    );
+    return mapSearchHits(response);
   }
 
   /** 只允许按服务端 Manifest UUID 删除；调用方不能提交任意 Milvus Filter。 */
@@ -381,6 +417,22 @@ function toMilvusRow(record: IndexVectorRecord): Record<string, unknown> {
         }
       : {}),
   };
+}
+
+function mapSearchHits(response: Record<string, unknown>): readonly VectorSearchHit[] {
+  const raw =
+    Array.isArray(response.results) && Array.isArray(response.results[0])
+      ? response.results[0]
+      : (response.results ?? response.data);
+  return recordArray(raw)
+    .map((row) => ({
+      vectorId: String(row.vector_id ?? row.id ?? ''),
+      documentId: String(row.document_id ?? asRecord(row.entity).document_id ?? ''),
+      score: Number(row.score ?? row.distance ?? 0),
+    }))
+    .filter(
+      (row) => /^[a-f0-9]{64}$/.test(row.vectorId) && /^[a-f0-9-]{36}$/i.test(row.documentId),
+    );
 }
 
 function assertExistingSchemaCompatible(

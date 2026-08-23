@@ -559,9 +559,11 @@ export class PostgresIndexingRepository
       ]);
       for (const reference of references) {
         await client.query(
-          `INSERT INTO chunk_embedding_refs (indexing_run_id, manifest_id, chunk_id, embedding_fact_id)
-           SELECT id, manifest_id, $2, $3 FROM indexing_runs WHERE id = $1`,
-          [indexingRunId, reference.chunkId, reference.embeddingFactId],
+          `INSERT INTO chunk_embedding_refs (
+             indexing_run_id, manifest_id, chunk_id, embedding_fact_id, vector_id
+           )
+           SELECT id, manifest_id, $2, $3, $4 FROM indexing_runs WHERE id = $1`,
+          [indexingRunId, reference.chunkId, reference.embeddingFactId, reference.vectorId],
         );
       }
       await client.query(
@@ -766,6 +768,15 @@ export class PostgresIndexingRepository
         `UPDATE indexing_runs SET status = 'PUBLISHED', completed_at = now(), updated_at = now()
           WHERE id = $1`,
         [indexingRunId],
+      );
+      await client.query(
+        `UPDATE documents document
+            SET published_at = COALESCE(document.published_at, now()),
+                effective_from = COALESCE(document.effective_from, now()),
+                updated_at = now()
+           FROM document_versions version
+          WHERE version.id = $1 AND document.id = version.document_id`,
+        [run.document_version_id],
       );
       await this.completeJob(client, jobId, workerId, run.document_version_id);
       await this.insertJobEvent(client, jobId, 'ingestion.m05_published', {

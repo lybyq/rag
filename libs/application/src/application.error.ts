@@ -11,8 +11,12 @@ export class ApplicationError extends Error {
       | 'OBJECT_MISMATCH'
       | 'INVALID_STATE'
       | 'PROVIDER_PROFILE_MISMATCH'
-      | 'SCHEMA_MISMATCH',
-    public readonly httpStatus: 403 | 404 | 409 | 410 | 413 | 500 | 503,
+      | 'SCHEMA_MISMATCH'
+      | 'CONTENT_REDACTED'
+      | 'DEADLINE_EXCEEDED'
+      | 'EMBEDDING_FAILED'
+      | 'RETRIEVAL_UNAVAILABLE',
+    public readonly httpStatus: 403 | 404 | 408 | 409 | 410 | 413 | 500 | 502 | 503,
     message: string,
     public readonly retryable = false,
   ) {

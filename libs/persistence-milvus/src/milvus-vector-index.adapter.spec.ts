@@ -109,6 +109,38 @@ describe('[IDX-006][IDX-007][IDX-009][IDX-010] MilvusVectorIndexAdapter', () => 
       }),
     );
   });
+
+  it('[RET-007][RET-009] Sparse 查询使用结构化向量并强制绑定服务端 Manifest', async () => {
+    const client = fakeClient();
+    client.search = jest.fn(async () => ({
+      results: [
+        [
+          {
+            id: 'b'.repeat(64),
+            document_id: '33333333-3333-4333-8333-333333333333',
+            score: 8.2,
+          },
+        ],
+      ],
+    }));
+    const adapter = new MilvusVectorIndexAdapter(config(), client);
+    await expect(
+      adapter.searchManifestSparse(
+        'rag_chunks_abcd',
+        '11111111-1111-4111-8111-111111111111',
+        { indices: [2, 9], values: [0.8, 0.2] },
+        5,
+        options(),
+      ),
+    ).resolves.toHaveLength(1);
+    expect(client.search).toHaveBeenCalledWith(
+      expect.objectContaining({
+        anns_field: 'sparse_vector',
+        data: [{ 2: 0.8, 9: 0.2 }],
+        filter: 'manifest_id == "11111111-1111-4111-8111-111111111111"',
+      }),
+    );
+  });
 });
 
 function profile(): EmbeddingProfile {

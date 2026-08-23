@@ -190,6 +190,7 @@ function vectorMock(hit: boolean): VectorIndexPort {
           ]
         : [],
     ),
+    searchManifestSparse: jest.fn(async () => []),
     deleteManifestRecords: jest.fn(async () => undefined),
   };
 }

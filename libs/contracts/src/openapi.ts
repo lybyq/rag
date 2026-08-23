@@ -78,6 +78,7 @@ import {
   RagRunStepListEnvelopeSchema,
   RunStreamTicketEnvelopeSchema,
 } from './rag-run';
+import { RetrievalDebugEnvelopeSchema } from './retrieval';
 
 /** 生成文档所需的最小服务信息。 */
 export interface OpenApiDocumentOptions {
@@ -96,6 +97,8 @@ export interface OpenApiDocumentOptions {
   includeM05?: boolean;
   /** Query Service 注册 M06 会话、Run、事件与反馈路径。 */
   includeM06?: boolean;
+  /** Query Service 注册 M07 授权检索调试路径。 */
+  includeM07?: boolean;
 }
 
 /** OpenAPI 文档使用普通 JSON 对象表示，便于 NestJS 和生成脚本共同消费。 */
@@ -870,6 +873,24 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
+  const m07Paths: Record<string, unknown> = options.includeM07
+    ? {
+        '/api/v1/runs/{runId}/retrieval-debug': {
+          post: {
+            operationId: 'executeRetrievalDebug',
+            summary: '管理员/审计员执行脱敏的 M07 LangGraph 检索调试',
+            security: m06Security,
+            parameters: [uuidPathParameter('runId')],
+            responses: {
+              '201': jsonResponse('检索路线、排名、分数与移除原因摘要', 'RetrievalDebugEnvelope'),
+              '403': errorResponse('角色不足、Run 非本人或知识空间权限已撤销'),
+              '404': errorResponse('Run 不存在或无权访问'),
+              '503': errorResponse('Dense 与 Sparse 路线均不可用'),
+            },
+          },
+        },
+      }
+    : {};
 
   return {
     openapi: '3.1.0',
@@ -925,6 +946,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
       ...m04Paths,
       ...m05Paths,
       ...m06Paths,
+      ...m07Paths,
     },
     components: {
       securitySchemes: {
@@ -1033,6 +1055,11 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               RagRunEventPageEnvelope: z.toJSONSchema(RagRunEventPageEnvelopeSchema),
               RunStreamTicketEnvelope: z.toJSONSchema(RunStreamTicketEnvelopeSchema),
               MessageFeedbackEnvelope: z.toJSONSchema(MessageFeedbackEnvelopeSchema),
+            }
+          : {}),
+        ...(options.includeM07
+          ? {
+              RetrievalDebugEnvelope: z.toJSONSchema(RetrievalDebugEnvelopeSchema),
             }
           : {}),
       },

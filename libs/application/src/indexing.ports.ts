@@ -161,6 +161,13 @@ export interface VectorIndexPort {
     limit: number,
     options: ProviderCallOptions,
   ): Promise<readonly VectorSearchHit[]>;
+  searchManifestSparse(
+    collectionName: string,
+    manifestId: string,
+    sparse: SparseVector,
+    limit: number,
+    options: ProviderCallOptions,
+  ): Promise<readonly VectorSearchHit[]>;
   deleteManifestRecords(
     collectionName: string,
     manifestId: string,
@@ -181,6 +188,7 @@ export interface BeginIndexingRunCommand {
 export interface ChunkEmbeddingReference {
   readonly chunkId: string;
   readonly embeddingFactId: string;
+  readonly vectorId: string;
 }
 
 /** 原子发布结果用于触发异步旧向量清理。 */

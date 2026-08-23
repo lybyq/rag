@@ -13,6 +13,7 @@
  */
 import { z } from 'zod';
 import { createApiEnvelopeSchema } from './api-envelope';
+import { RetrievalProfileSnapshotSchema } from './retrieval';
 
 const TimestampSchema = z.iso.datetime({ offset: true });
 const Sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
@@ -135,6 +136,7 @@ export const RagRunSnapshotSchema = z.object({
   manifests: z.array(RunManifestSnapshotSchema).min(1).max(50),
   authzVersion: z.number().int().nonnegative(),
   rolesSha256: Sha256Schema,
+  retrieval: RetrievalProfileSnapshotSchema,
 });
 /** Run 冻结快照 TypeScript 类型。 */
 export type RagRunSnapshot = z.infer<typeof RagRunSnapshotSchema>;

@@ -126,6 +126,18 @@ import { RunsController, RunTicketStreamController } from './runs.controller';
           contentRetentionDays: config.run.contentRetentionDays,
           streamTicketTtlSeconds: config.run.streamTicketTtlSeconds,
           shortWindowMessages: config.run.shortWindowMessages,
+          retrieval: {
+            profileId: config.retrieval.profileId,
+            initialTopK: config.retrieval.initialTopK,
+            finalTopK: config.retrieval.finalTopK,
+            rrfK: config.retrieval.rrfK,
+            denseWeight: config.retrieval.denseWeight,
+            sparseWeight: config.retrieval.sparseWeight,
+            maxPerDocument: config.retrieval.maxPerDocument,
+            maxPerSection: config.retrieval.maxPerSection,
+            minimumResults: config.retrieval.minimumResults,
+            maxRounds: config.retrieval.maxRounds,
+          },
         }),
     },
     {
@@ -166,7 +178,12 @@ import { RunsController, RunTicketStreamController } from './runs.controller';
     { provide: APP_GUARD, useExisting: AuthenticationGuard },
     RunEventScheduler,
   ],
-  exports: [RagRunLifecycleService],
+  exports: [
+    RagRunLifecycleService,
+    AuthorizationService,
+    SENSITIVE_TEXT_PROTECTOR,
+    RagRunRedisModule,
+  ],
 })
 export class M06Module {}
 

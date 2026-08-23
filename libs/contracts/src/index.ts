@@ -10,6 +10,7 @@ export * from './event-envelope';
 export * from './health';
 export * from './indexing';
 export * from './rag-run';
+export * from './retrieval';
 export * from './knowledge-space';
 export * from './knowledge-processing';
 export * from './openapi';

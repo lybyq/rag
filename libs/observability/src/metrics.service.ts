@@ -123,6 +123,47 @@ export class MetricsService implements OnModuleDestroy {
     registers: [this.registry],
   });
 
+  /** M07 入口路由分布；标签是四个固定枚举，不包含问题原文。 */
+  public readonly m07RoutesTotal = new Counter({
+    name: 'rag_m07_routes_total',
+    help: 'M07 确定性查询路由累计次数',
+    labelNames: ['route'] as const,
+    registers: [this.registry],
+  });
+
+  /** Dense/Sparse 路线成功与降级计数。 */
+  public readonly m07RetrievalRoutesTotal = new Counter({
+    name: 'rag_m07_retrieval_routes_total',
+    help: 'M07 Dense/Sparse 检索路线结果累计次数',
+    labelNames: ['route', 'result'] as const,
+    registers: [this.registry],
+  });
+
+  /** 查询 Embedding 缓存命中、未命中和写降级计数。 */
+  public readonly m07CacheTotal = new Counter({
+    name: 'rag_m07_query_embedding_cache_total',
+    help: 'M07 查询 Embedding 缓存结果累计次数',
+    labelNames: ['result'] as const,
+    registers: [this.registry],
+  });
+
+  /** PG 回源复核移除计数，只记录稳定原因码。 */
+  public readonly m07RemovedCandidatesTotal = new Counter({
+    name: 'rag_m07_removed_candidates_total',
+    help: 'M07 回源复核与安全门禁移除候选累计数',
+    labelNames: ['reason'] as const,
+    registers: [this.registry],
+  });
+
+  /** LangGraph 固定节点耗时，不使用 Run ID 等高基数标签。 */
+  public readonly m07StageDurationSeconds = new Histogram({
+    name: 'rag_m07_stage_duration_seconds',
+    help: 'M07 LangGraph 节点执行耗时（秒）',
+    labelNames: ['stage', 'result'] as const,
+    buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30],
+    registers: [this.registry],
+  });
+
   public constructor() {
     this.registry.setDefaultLabels({ system: 'enterprise-rag' });
     collectDefaultMetrics({ register: this.registry });

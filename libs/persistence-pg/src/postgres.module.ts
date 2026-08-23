@@ -10,6 +10,7 @@ import {
   KNOWLEDGE_SPACE_REPOSITORY,
   PROFILE_ROLLOUT_REPOSITORY,
   RAG_RUN_REPOSITORY,
+  RETRIEVAL_SOURCE_REPOSITORY,
   SECURITY_AUDIT,
 } from '@rag/application';
 import { APP_CONFIG, type AppConfig } from '@rag/config';
@@ -24,6 +25,7 @@ import { PostgresDocumentProcessingRepository } from './postgres-document-proces
 import { PostgresIndexingRepository } from './postgres-indexing.repository';
 import { PostgresKnowledgeProcessingRepository } from './postgres-knowledge-processing.repository';
 import { PostgresRagRunRepository } from './postgres-rag-run.repository';
+import { PostgresRetrievalRepository } from './postgres-retrieval.repository';
 import { POSTGRES_POOL } from './postgres.tokens';
 
 @Module({
@@ -47,6 +49,7 @@ import { POSTGRES_POOL } from './postgres.tokens';
     PostgresIndexingRepository,
     PostgresKnowledgeProcessingRepository,
     PostgresRagRunRepository,
+    PostgresRetrievalRepository,
     PostgresSecurityAuditAdapter,
     { provide: AUTHORIZATION_VERSION_PROVIDER, useExisting: PostgresAuthorizationVersionProvider },
     { provide: KNOWLEDGE_SPACE_REPOSITORY, useExisting: PostgresKnowledgeSpaceRepository },
@@ -61,6 +64,7 @@ import { POSTGRES_POOL } from './postgres.tokens';
     { provide: INDEX_MAINTENANCE_REPOSITORY, useExisting: PostgresIndexingRepository },
     { provide: PROFILE_ROLLOUT_REPOSITORY, useExisting: PostgresIndexingRepository },
     { provide: RAG_RUN_REPOSITORY, useExisting: PostgresRagRunRepository },
+    { provide: RETRIEVAL_SOURCE_REPOSITORY, useExisting: PostgresRetrievalRepository },
   ],
   exports: [
     POSTGRES_POOL,
@@ -75,6 +79,7 @@ import { POSTGRES_POOL } from './postgres.tokens';
     INDEX_MAINTENANCE_REPOSITORY,
     PROFILE_ROLLOUT_REPOSITORY,
     RAG_RUN_REPOSITORY,
+    RETRIEVAL_SOURCE_REPOSITORY,
   ],
 })
 export class PostgresPersistenceModule {}

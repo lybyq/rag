@@ -17,6 +17,7 @@ import type {
   VectorWriteResult,
 } from '@rag/application';
 import type { EmbeddingProfile } from '@rag/contracts';
+import type { SparseVector } from '@rag/contracts';
 
 interface MemoryCollection {
   readonly compatibilityKey: string;
@@ -117,6 +118,31 @@ export class MemoryVectorIndexAdapter implements VectorIndexPort {
     );
   }
 
+  /** 用稀疏内积执行 BM25/BGE-M3 类路线的确定性测试检索。 */
+  public searchManifestSparse(
+    collectionName: string,
+    manifestId: string,
+    sparse: SparseVector,
+    limit: number,
+    options: ProviderCallOptions,
+  ): Promise<readonly VectorSearchHit[]> {
+    throwIfAborted(options.signal);
+    const collection = requireCollection(this.collections, collectionName);
+    return Promise.resolve(
+      [...collection.records.values()]
+        .filter((record) => record.manifestId === manifestId && record.sparse !== null)
+        .map((record) => ({
+          vectorId: record.vectorId,
+          documentId: record.documentId,
+          score: sparseInnerProduct(sparse, record.sparse ?? { indices: [], values: [] }),
+        }))
+        .sort(
+          (left, right) => right.score - left.score || left.vectorId.localeCompare(right.vectorId),
+        )
+        .slice(0, limit),
+    );
+  }
+
   public deleteManifestRecords(
     collectionName: string,
     manifestId: string,
@@ -144,6 +170,16 @@ function cosineSimilarity(left: readonly number[], right: readonly number[]): nu
     rightNorm += rightValue * rightValue;
   }
   return leftNorm > 0 && rightNorm > 0 ? dot / Math.sqrt(leftNorm * rightNorm) : -1;
+}
+
+function sparseInnerProduct(left: SparseVector, right: SparseVector): number {
+  const rightValues = new Map(
+    right.indices.map((index, offset) => [index, right.values[offset] ?? 0]),
+  );
+  return left.indices.reduce(
+    (sum, index, offset) => sum + (left.values[offset] ?? 0) * (rightValues.get(index) ?? 0),
+    0,
+  );
 }
 
 function requireCollection(

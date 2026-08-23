@@ -22,6 +22,7 @@ export * from './rag-run.service';
 export * from './rag-run-lifecycle.service';
 export * from './rag-run-event-publisher.service';
 export * from './rag-run-maintenance.service';
+export * from './retrieval.ports';
 export * from './indexing.service';
 export * from './knowledge-space.service';
 export * from './knowledge-processing.ports';

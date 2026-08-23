@@ -88,6 +88,18 @@ describeWithInfra('[RUN-001..014] M06 conversation and run', () => {
     contentRetentionDays: 30,
     streamTicketTtlSeconds: 60,
     shortWindowMessages: 20,
+    retrieval: {
+      profileId: 'hybrid-medium-v1',
+      initialTopK: 40,
+      finalTopK: 12,
+      rrfK: 60,
+      denseWeight: 0.65,
+      sparseWeight: 0.35,
+      maxPerDocument: 3,
+      maxPerSection: 2,
+      minimumResults: 3,
+      maxRounds: 2,
+    },
   });
   const lifecycle = new RagRunLifecycleService(repository, protector, stream, {
     contentRetentionDays: 30,

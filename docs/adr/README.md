@@ -18,3 +18,4 @@ ADR 记录“当时为什么这样选”，避免半年后只剩代码、没人�
 | [011](./011-node-parser-and-builtin-content-safety.md)            | 自有 Node Parser 与内置内容安全预检  | Accepted |
 | [012](./012-m05-atomic-index-publication-and-profile-rollout.md)  | M05 原子发布、对账与 Profile 灰度    | Accepted |
 | [013](./013-m06-postgres-run-facts-and-redis-event-projection.md) | M06 PG Run 事实与 Redis 事件投影     | Accepted |
+| [014](./014-m07-deterministic-langgraph-hybrid-retrieval.md)      | M07 确定性 LangGraph 混合检索子图    | Accepted |

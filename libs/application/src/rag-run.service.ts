@@ -27,6 +27,7 @@ import type {
   RagRun,
   RagRunEventPage,
   RagRunSnapshot,
+  RetrievalProfileSnapshot,
   RagRunStep,
   RunStreamTicket,
 } from '@rag/contracts';
@@ -62,6 +63,7 @@ export interface RagRunServiceConfig {
   readonly contentRetentionDays: number;
   readonly streamTicketTtlSeconds: number;
   readonly shortWindowMessages: number;
+  readonly retrieval: RetrievalProfileSnapshot;
 }
 
 /** Ticket 兑换后的可信绑定和 PG Run 快照。 */
@@ -133,6 +135,19 @@ export class RagRunService {
       });
       return selectedId === route.candidate.manifestId ? route.candidate : route.stable;
     });
+    if (
+      manifests.some(
+        (manifest) =>
+          manifest.embeddingProfileId !== this.config.embeddingProfileId ||
+          manifest.embeddingModelRevision !== this.config.embeddingRevision,
+      )
+    ) {
+      throw new ApplicationError(
+        'PROVIDER_PROFILE_MISMATCH',
+        409,
+        '已发布索引与当前查询 Embedding Profile 不兼容',
+      );
+    }
     const snapshot: RagRunSnapshot = {
       flowVersion: this.config.flowVersion,
       policyVersion: this.config.policyVersion,
@@ -149,6 +164,7 @@ export class RagRunService {
       rolesSha256: createHash('sha256')
         .update([...context.user.roles].sort().join('\u001f'))
         .digest('hex'),
+      retrieval: this.config.retrieval,
     };
     const now = Date.now();
     const result = await this.repository.createRun(context, {

@@ -149,6 +149,7 @@ describeWithInfra('[IDX-005][IDX-009][IDX-011][IDX-012][IDX-013][IDX-016] M05 pu
       listManifestRecordFacts: vector.listManifestRecordFacts.bind(vector),
       lookupRecordIds: vector.lookupRecordIds.bind(vector),
       searchManifestDense: vector.searchManifestDense.bind(vector),
+      searchManifestSparse: vector.searchManifestSparse.bind(vector),
       deleteManifestRecords: vector.deleteManifestRecords.bind(vector),
     };
     await expect(runIndexing(failed.jobId, failingVector)).resolves.toBe('FAILED');

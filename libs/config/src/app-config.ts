@@ -358,6 +358,18 @@ export const AppEnvironmentSchema = z
     RUN_MAINTENANCE_INTERVAL_SECONDS: z.coerce.number().int().min(10).max(86_400).default(60),
     RUN_MAINTENANCE_BATCH_SIZE: z.coerce.number().int().min(1).max(10_000).default(100),
 
+    RETRIEVAL_PROFILE_ID: z.string().min(1).max(100).default('hybrid-medium-v1'),
+    RETRIEVAL_INITIAL_TOP_K: z.coerce.number().int().min(1).max(100).default(40),
+    RETRIEVAL_FINAL_TOP_K: z.coerce.number().int().min(1).max(50).default(12),
+    RETRIEVAL_RRF_K: z.coerce.number().int().min(1).max(10_000).default(60),
+    RETRIEVAL_DENSE_WEIGHT: z.coerce.number().min(0).max(10).default(0.65),
+    RETRIEVAL_SPARSE_WEIGHT: z.coerce.number().min(0).max(10).default(0.35),
+    RETRIEVAL_MAX_PER_DOCUMENT: z.coerce.number().int().min(1).max(20).default(3),
+    RETRIEVAL_MAX_PER_SECTION: z.coerce.number().int().min(1).max(20).default(2),
+    RETRIEVAL_MINIMUM_RESULTS: z.coerce.number().int().min(1).max(20).default(3),
+    RETRIEVAL_MAX_ROUNDS: z.coerce.number().int().min(1).max(2).default(2),
+    RETRIEVAL_QUERY_CACHE_TTL_SECONDS: z.coerce.number().int().min(10).max(86_400).default(600),
+
     RERANKER_ADAPTER: z.enum(rerankerAdapters).default('fixture'),
     RERANKER_BASE_URL: z.string().url().default('http://localhost:8102'),
     RERANKER_API_KEY: z.string().default(''),
@@ -527,6 +539,27 @@ export const AppEnvironmentSchema = z
         code: 'custom',
         path: ['RERANKER_TOP_N'],
         message: 'Reranker TopN 不能大于最大候选数',
+      });
+    }
+    if (value.RETRIEVAL_FINAL_TOP_K > value.RETRIEVAL_INITIAL_TOP_K) {
+      context.addIssue({
+        code: 'custom',
+        path: ['RETRIEVAL_FINAL_TOP_K'],
+        message: '检索最终 TopK 不能大于初始召回 TopK',
+      });
+    }
+    if (value.RETRIEVAL_DENSE_WEIGHT + value.RETRIEVAL_SPARSE_WEIGHT <= 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['RETRIEVAL_DENSE_WEIGHT'],
+        message: 'Dense 与 Sparse 权重不能同时为 0',
+      });
+    }
+    if (value.RETRIEVAL_MAX_ROUNDS !== 2) {
+      context.addIssue({
+        code: 'custom',
+        path: ['RETRIEVAL_MAX_ROUNDS'],
+        message: 'M07 固定最多两轮检索，不能配置成开放循环',
       });
     }
     if (value.CHUNK_CHILD_MAX_TOKENS >= value.EMBEDDING_MAX_INPUT_TOKENS) {
@@ -867,6 +900,19 @@ export interface AppConfig {
     maintenanceIntervalSeconds: number;
     maintenanceBatchSize: number;
   };
+  retrieval: {
+    profileId: string;
+    initialTopK: number;
+    finalTopK: number;
+    rrfK: number;
+    denseWeight: number;
+    sparseWeight: number;
+    maxPerDocument: number;
+    maxPerSection: number;
+    minimumResults: number;
+    maxRounds: 2;
+    queryCacheTtlSeconds: number;
+  };
   reranker: {
     adapter: (typeof rerankerAdapters)[number];
     baseUrl: string;
@@ -1120,6 +1166,19 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       contentRetentionDays: value.RUN_CONTENT_RETENTION_DAYS,
       maintenanceIntervalSeconds: value.RUN_MAINTENANCE_INTERVAL_SECONDS,
       maintenanceBatchSize: value.RUN_MAINTENANCE_BATCH_SIZE,
+    }),
+    retrieval: Object.freeze({
+      profileId: value.RETRIEVAL_PROFILE_ID,
+      initialTopK: value.RETRIEVAL_INITIAL_TOP_K,
+      finalTopK: value.RETRIEVAL_FINAL_TOP_K,
+      rrfK: value.RETRIEVAL_RRF_K,
+      denseWeight: value.RETRIEVAL_DENSE_WEIGHT,
+      sparseWeight: value.RETRIEVAL_SPARSE_WEIGHT,
+      maxPerDocument: value.RETRIEVAL_MAX_PER_DOCUMENT,
+      maxPerSection: value.RETRIEVAL_MAX_PER_SECTION,
+      minimumResults: value.RETRIEVAL_MINIMUM_RESULTS,
+      maxRounds: 2,
+      queryCacheTtlSeconds: value.RETRIEVAL_QUERY_CACHE_TTL_SECONDS,
     }),
     reranker: Object.freeze({
       adapter: value.RERANKER_ADAPTER,

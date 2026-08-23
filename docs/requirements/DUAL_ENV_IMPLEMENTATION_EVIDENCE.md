@@ -38,7 +38,7 @@ Production dependency audit: critical/high/moderate 均为 0
 
 - M03 内网 Parser/PaddleOCR 的原始协议未知：先复用标准 HTTP Adapter；不兼容时基于真实样例新增 Adapter 和同一套契约测试。
 - M05 实现 EmbeddingPort、Milvus VectorStorePort、启动 metadata 握手、Collection/alias 发布与全量重建。
-- M07/M08 实现 Reranker/LLM Port 与 Adapter；当前只有配置契约和 fail-closed 规则。
+- M07 已实现 Query Rewrite LLM Port/Adapter、查询 Embedding、Milvus Dense/Sparse 与 PG 回源；M08 仍需实现 Reranker、答案生成和校验 Port/Adapter。
 - 所有后续 Index/Query/Answer Run 都要保存 Provider Profile、model/revision/protocol/capabilities 快照。
 - 内网完成 `pnpm install --offline`、`docker build --network=none`、企业 SCA、真实脱敏 Golden 和中型负载/Soak。
 

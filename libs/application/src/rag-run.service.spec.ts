@@ -4,7 +4,7 @@
  *
  * @requirement RUN-009
  */
-import type { RagRun } from '@rag/contracts';
+import type { RagRun, RetrievalProfileSnapshot } from '@rag/contracts';
 import { createTestUserContext } from '@rag/testing';
 import type { AuthorizationService } from './authorization.service';
 import type { AccessContext } from './ports';
@@ -47,6 +47,7 @@ describe('[RUN-009] RagRunService stream fallback', () => {
         contentRetentionDays: 30,
         streamTicketTtlSeconds: 60,
         shortWindowMessages: 20,
+        retrieval: retrievalProfile(),
       },
     );
 
@@ -99,6 +100,7 @@ function completedRun(): RagRun {
       ],
       authzVersion: 1,
       rolesSha256: 'a'.repeat(64),
+      retrieval: retrievalProfile(),
     },
     deadlineAt: now,
     eventExpiresAt: '2099-08-23T00:00:00.000Z',
@@ -109,5 +111,20 @@ function completedRun(): RagRun {
     startedAt: now,
     completedAt: now,
     updatedAt: now,
+  };
+}
+
+function retrievalProfile(): RetrievalProfileSnapshot {
+  return {
+    profileId: 'hybrid-medium-v1',
+    initialTopK: 40,
+    finalTopK: 12,
+    rrfK: 60,
+    denseWeight: 0.65,
+    sparseWeight: 0.35,
+    maxPerDocument: 3,
+    maxPerSection: 2,
+    minimumResults: 3,
+    maxRounds: 2 as const,
   };
 }

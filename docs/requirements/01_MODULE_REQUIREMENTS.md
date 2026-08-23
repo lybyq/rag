@@ -337,23 +337,23 @@ POST /v1/jobs/{jobId}/cancel
 
 ### 需求清单
 
-- [ ] `RET-001` 定义 RetrievalPlan、ExactLiteral、RetrievalCandidate 和 Filter 契约。
-- [ ] `RET-002` 先用确定性规则识别 CHAT、KNOWLEDGE、CLARIFY、REJECT 路由。
-- [ ] `RET-003` 提取金额、日期、版本、编号、名称和地区等字面量，Rewrite 后不得丢失。
-- [ ] `RET-004` 仅在必要时调用 LLM Rewrite/Decompose，并用 Zod 校验后重建安全约束。
-- [ ] `RET-005` 当前问题覆盖历史中冲突实体；最多生成 4 个子问题。
-- [ ] `RET-006` FilterCompiler 只允许白名单字段/操作符，并强制包含允许空间、Manifest 成员、发布和生效时间。
-- [ ] `RET-007` LLM、前端和原始用户文本不能提供 SQL/Milvus Filter 表达式。
-- [ ] `RET-008` Query Embedding 使用锁定 Profile，支持缓存但缓存 Key 包含 Profile、计划与权限范围 Hash。
-- [ ] `RET-009` Dense 与 Sparse 并行检索，单路失败时按策略安全降级并记录标志。
-- [ ] `RET-010` 实现加权 RRF，正确处理重复 ID、单路缺失、并列和配置权重。
-- [ ] `RET-011` 实现相同文档/章节去重与结果多样性，防止候选被单一文档占满。
-- [ ] `RET-012` 从 PostgreSQL 批量加载候选正文和当前事实，禁止 N+1。
-- [ ] `RET-013` PG 回源重新检查文档状态、Manifest、版本、生效时间和权限，失败候选直接剔除。
-- [ ] `RET-014` 初始 topK、RRF K、Dense/Sparse 权重按知识空间 Profile 配置并进入 Run 快照。
-- [ ] `RET-015` 检索最多两轮，Rewrite 重试不能形成循环。
-- [ ] `RET-016` 提供受权限保护的检索调试 API，展示各阶段排名、分数和剔除原因摘要。
-- [ ] `RET-017` 建立简称、错别字、精确编号、日期、版本、多跳、无答案和越权 Golden Case。
+- [x] `RET-001` 定义 RetrievalPlan、ExactLiteral、RetrievalCandidate 和 Filter 契约。
+- [x] `RET-002` 先用确定性规则识别 CHAT、KNOWLEDGE、CLARIFY、REJECT 路由。
+- [x] `RET-003` 提取金额、日期、版本、编号、名称和地区等字面量，Rewrite 后不得丢失。
+- [x] `RET-004` 仅在必要时调用 LLM Rewrite/Decompose，并用 Zod 校验后重建安全约束。
+- [x] `RET-005` 当前问题覆盖历史中冲突实体；最多生成 4 个子问题。
+- [x] `RET-006` FilterCompiler 只允许白名单字段/操作符，并强制包含允许空间、Manifest 成员、发布和生效时间。
+- [x] `RET-007` LLM、前端和原始用户文本不能提供 SQL/Milvus Filter 表达式。
+- [x] `RET-008` Query Embedding 使用锁定 Profile，支持缓存但缓存 Key 包含 Profile、计划与权限范围 Hash。
+- [x] `RET-009` Dense 与 Sparse 并行检索，单路失败时按策略安全降级并记录标志。
+- [x] `RET-010` 实现加权 RRF，正确处理重复 ID、单路缺失、并列和配置权重。
+- [x] `RET-011` 实现相同文档/章节去重与结果多样性，防止候选被单一文档占满。
+- [x] `RET-012` 从 PostgreSQL 批量加载候选正文和当前事实，禁止 N+1。
+- [x] `RET-013` PG 回源重新检查文档状态、Manifest、版本、生效时间和权限，失败候选直接剔除。
+- [x] `RET-014` 初始 topK、RRF K、Dense/Sparse 权重按知识空间 Profile 配置并进入 Run 快照。
+- [x] `RET-015` 检索最多两轮，Rewrite 重试不能形成循环。
+- [x] `RET-016` 提供受权限保护的检索调试 API，展示各阶段排名、分数和剔除原因摘要。
+- [x] `RET-017` 建立简称、错别字、精确编号、日期、版本、多跳、无答案和越权 Golden Case。
 
 ### 验收门禁
 

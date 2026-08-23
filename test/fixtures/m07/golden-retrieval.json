@@ -1,0 +1,103 @@
+{
+  "documents": [
+    {
+      "vectorId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "documentId": "11111111-1111-4111-8111-111111111111",
+      "spaceId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "version": "v2.1",
+      "status": "ACTIVE",
+      "effective": true
+    },
+    {
+      "vectorId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "documentId": "22222222-2222-4222-8222-222222222222",
+      "spaceId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "version": "v3",
+      "status": "ACTIVE",
+      "effective": true
+    },
+    {
+      "vectorId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "documentId": "33333333-3333-4333-8333-333333333333",
+      "spaceId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "version": "v1",
+      "status": "ACTIVE",
+      "effective": true
+    },
+    {
+      "vectorId": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "documentId": "44444444-4444-4444-8444-444444444444",
+      "spaceId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "version": "v1",
+      "status": "ARCHIVED",
+      "effective": true
+    }
+  ],
+  "cases": [
+    {
+      "id": "abbreviation",
+      "question": "HR BP 的差旅规则是什么？",
+      "expectedRoute": "KNOWLEDGE",
+      "expectedDocumentId": "11111111-1111-4111-8111-111111111111",
+      "expectedVersion": "v2.1",
+      "dense": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+      "sparse": [
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ]
+    },
+    {
+      "id": "typo",
+      "question": "差旅报消额度是多少？",
+      "expectedRoute": "KNOWLEDGE",
+      "expectedDocumentId": "11111111-1111-4111-8111-111111111111",
+      "expectedVersion": "v2.1",
+      "dense": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+      "sparse": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+    },
+    {
+      "id": "exact-code-date-version",
+      "question": "HR-2024-001 v2.1 在2026-08-20的￥5,000元上限",
+      "expectedRoute": "KNOWLEDGE",
+      "expectedLiteralKinds": ["CODE", "VERSION", "DATE", "AMOUNT"],
+      "expectedDocumentId": "11111111-1111-4111-8111-111111111111",
+      "expectedVersion": "v2.1",
+      "dense": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+      "sparse": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+    },
+    {
+      "id": "multi-hop",
+      "question": "对比差旅制度以及采购制度的审批区别",
+      "expectedRoute": "KNOWLEDGE",
+      "requiresRewrite": true,
+      "expectedDocumentId": "22222222-2222-4222-8222-222222222222",
+      "expectedVersion": "v3",
+      "dense": ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+      "sparse": ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+    },
+    {
+      "id": "no-answer",
+      "question": "火星基地补贴是多少？",
+      "expectedRoute": "KNOWLEDGE",
+      "expectedDocumentId": null,
+      "dense": [],
+      "sparse": []
+    },
+    {
+      "id": "unauthorized",
+      "question": "董事会机密预算是多少？",
+      "expectedRoute": "KNOWLEDGE",
+      "expectedDocumentId": null,
+      "dense": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
+      "sparse": ["cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"]
+    },
+    {
+      "id": "archived-version",
+      "question": "旧版福利制度是什么？",
+      "expectedRoute": "KNOWLEDGE",
+      "expectedDocumentId": null,
+      "dense": ["dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"],
+      "sparse": ["dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"]
+    }
+  ]
+}
