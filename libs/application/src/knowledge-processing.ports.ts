@@ -1,5 +1,5 @@
 /**
- * M04 知识加工、质量门禁和审核端口。
+ * 知识加工与质量 知识加工、质量门禁和审核端口。
  * Application 只依赖这些稳定接口，不知道 PostgreSQL 表结构、BullMQ 或 Tokenizer 包实现。
  *
  * @requirement KNO-001
@@ -25,7 +25,7 @@ import type {
 } from '@rag/chunking';
 import type { AccessContext } from './ports';
 
-/** Worker 从 PostgreSQL 加载的 M04 单一可信输入。 */
+/** Worker 从 PostgreSQL 加载的 知识加工与质量 单一可信输入。 */
 export interface KnowledgeProcessingInput {
   readonly jobId: string;
   readonly documentId: string;
@@ -39,7 +39,7 @@ export interface KnowledgeProcessingInput {
   readonly blocks: readonly DocumentBlock[];
 }
 
-/** 创建或恢复 M04 Run 时锁定全部算法 revision。 */
+/** 创建或恢复 知识加工与质量 Run 时锁定全部算法 revision。 */
 export interface BeginKnowledgeProcessingCommand {
   readonly input: KnowledgeProcessingInput;
   /** 当前 lease owner；Repository 必须用它执行 fencing，不能只检查“存在某个租约”。 */
@@ -64,7 +64,7 @@ export interface CompleteKnowledgeProcessingCommand {
   readonly durationMs: number;
 }
 
-/** M04 失败只保存稳定代码和公开消息，不保存文档正文。 */
+/** 知识加工与质量 失败只保存稳定代码和公开消息，不保存文档正文。 */
 export interface FailKnowledgeProcessingCommand {
   readonly jobId: string;
   readonly workerId: string;
@@ -94,7 +94,7 @@ export interface ReviewKnowledgeQualityResult {
   readonly reprocessJobId: string | null;
 }
 
-/** M04 PostgreSQL 事实源端口。 */
+/** 知识加工与质量 PostgreSQL 事实源端口。 */
 export interface KnowledgeProcessingRepository {
   loadInput(jobId: string, workerId: string): Promise<KnowledgeProcessingInput | undefined>;
   beginRun(command: BeginKnowledgeProcessingCommand): Promise<KnowledgeProcessingRun>;
@@ -131,5 +131,5 @@ export interface KnowledgeProcessingRepository {
   review(command: ReviewKnowledgeQualityCommand): Promise<ReviewKnowledgeQualityResult>;
 }
 
-/** M04 依赖注入 Token。 */
+/** 知识加工与质量 依赖注入 Token。 */
 export const KNOWLEDGE_PROCESSING_REPOSITORY = Symbol('KNOWLEDGE_PROCESSING_REPOSITORY');

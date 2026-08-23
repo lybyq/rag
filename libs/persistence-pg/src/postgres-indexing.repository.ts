@@ -1,5 +1,5 @@
 /**
- * M05 PostgreSQL Embedding 事实、Collection Registry、Manifest 与发布事务 Adapter。
+ * 索引构建与发布 PostgreSQL Embedding 事实、Collection Registry、Manifest 与发布事务 Adapter。
  *
  * PostgreSQL 是“哪个 Manifest 在线”的唯一事实源；本 Adapter 不调用模型或 Milvus。
  * begin/publish 使用空间行锁和 Worker lease fencing，保证并发发布、消息重投和事务失败时旧版本不受影响。
@@ -155,7 +155,7 @@ interface RebuildRow {
   completed_at: Date | string | null;
 }
 
-/** PostgreSQL M05 Repository。 */
+/** PostgreSQL 索引构建与发布 Repository。 */
 @Injectable()
 export class PostgresIndexingRepository
   implements IndexingRepository, IndexMaintenanceRepository, ProfileRolloutRepository
@@ -393,7 +393,7 @@ export class PostgresIndexingRepository
             expected,
           ],
         );
-        runId = requireRow(runResult.rows[0], 'M05 Run 创建失败').id;
+        runId = requireRow(runResult.rows[0], '索引构建与发布 Run 创建失败').id;
         await client.query(
           `INSERT INTO protected_resource_spaces (resource_type, resource_id, space_id)
            VALUES ('INDEX_RUN',$1,$2), ('SPACE_MANIFEST',$3,$2)
@@ -405,7 +405,7 @@ export class PostgresIndexingRepository
         `UPDATE indexing_runs SET status = 'EMBEDDING', updated_at = now() WHERE id = $1`,
         [runId],
       );
-      await this.insertJobEvent(client, command.jobId, 'ingestion.m05_started', {
+      await this.insertJobEvent(client, command.jobId, 'ingestion.indexing_publication_started', {
         indexingRunId: runId,
         embeddingProfileId: command.profile.profileId,
       });
@@ -419,7 +419,7 @@ export class PostgresIndexingRepository
     return runId ? this.loadBuildInput(runId) : undefined;
   }
 
-  /** 步骤进度来自真实处理单位；切换步骤时原子完成前一个 M05 步骤。 */
+  /** 步骤进度来自真实处理单位；切换步骤时原子完成前一个 索引构建与发布 步骤。 */
   public async startStep(
     jobId: string,
     workerId: string,
@@ -432,7 +432,7 @@ export class PostgresIndexingRepository
     try {
       await client.query('BEGIN');
       await this.assertLease(client, jobId, workerId);
-      const previous = previousM05Step(step);
+      const previous = previousIndexingStep(step);
       if (previous) {
         await client.query(
           `UPDATE ingestion_job_steps SET status = 'SUCCEEDED',
@@ -588,7 +588,7 @@ export class PostgresIndexingRepository
       [indexingRunId, indexedCount],
     );
     if (result.rowCount !== 1)
-      throw new ApplicationError('INVALID_STATE', 409, 'M05 Run 状态不允许确认索引');
+      throw new ApplicationError('INVALID_STATE', 409, '索引构建与发布 Run 状态不允许确认索引');
   }
 
   /** 对账报告和 VERIFIED 状态在一个事务内提交；未通过报告绝不推进状态。 */
@@ -605,9 +605,13 @@ export class PostgresIndexingRepository
         'SELECT * FROM indexing_runs WHERE id = $1 FOR UPDATE',
         [indexingRunId],
       );
-      const row = requireRow(run.rows[0], 'M05 Run 不存在');
+      const row = requireRow(run.rows[0], '索引构建与发布 Run 不存在');
       if (row.manifest_id !== report.manifestId || row.status !== 'VERIFYING') {
-        throw new ApplicationError('INVALID_STATE', 409, '对账报告与当前 M05 Run 不一致');
+        throw new ApplicationError(
+          'INVALID_STATE',
+          409,
+          '对账报告与当前 索引构建与发布 Run 不一致',
+        );
       }
       await client.query('DELETE FROM index_reconciliation_reports WHERE indexing_run_id = $1', [
         indexingRunId,
@@ -686,7 +690,7 @@ export class PostgresIndexingRepository
         `UPDATE ingestion_jobs SET public_message = 'Profile 候选已验证，等待离线评测' WHERE id = $1`,
         [jobId],
       );
-      await this.insertJobEvent(client, jobId, 'ingestion.m05_candidate_staged', {
+      await this.insertJobEvent(client, jobId, 'ingestion.indexing_publication_candidate_staged', {
         requestId,
         indexingRunId,
         manifestId: run.manifest_id,
@@ -728,7 +732,7 @@ export class PostgresIndexingRepository
         'SELECT * FROM indexing_runs WHERE id = $1 AND job_id = $2 FOR UPDATE',
         [indexingRunId, jobId],
       );
-      const run = requireRow(runResult.rows[0], 'M05 Run 不存在');
+      const run = requireRow(runResult.rows[0], '索引构建与发布 Run 不存在');
       if (run.status !== 'VERIFIED') {
         throw new ApplicationError('INVALID_STATE', 409, '只有 VERIFIED Run 可以发布');
       }
@@ -779,7 +783,7 @@ export class PostgresIndexingRepository
         [run.document_version_id],
       );
       await this.completeJob(client, jobId, workerId, run.document_version_id);
-      await this.insertJobEvent(client, jobId, 'ingestion.m05_published', {
+      await this.insertJobEvent(client, jobId, 'ingestion.indexing_publication_published', {
         indexingRunId,
         manifestId: run.manifest_id,
         manifestVersion: run.manifest_version,
@@ -864,7 +868,7 @@ export class PostgresIndexingRepository
           WHERE id = (SELECT document_version_id FROM ingestion_jobs WHERE id = $1)`,
         [jobId],
       );
-      await this.insertJobEvent(client, jobId, 'ingestion.m05_failed', {
+      await this.insertJobEvent(client, jobId, 'ingestion.indexing_publication_failed', {
         indexingRunId,
         failureCode,
       });
@@ -891,7 +895,7 @@ export class PostgresIndexingRepository
     );
   }
 
-  /** 按受保护资源映射读取 M05 Run。 */
+  /** 按受保护资源映射读取 索引构建与发布 Run。 */
   public async getRun(
     context: AccessContext,
     indexingRunId: string,
@@ -1141,7 +1145,7 @@ export class PostgresIndexingRepository
 
   /**
    * 选择稳定 Manifest 的一个代表文档创建新 contentRevision Job。
-   * M05 构建 Manifest 时会复制稳定版本的全部成员，因此一次 Job 即可对全空间用新 Profile 重建。
+   * 索引构建与发布 构建 Manifest 时会复制稳定版本的全部成员，因此一次 Job 即可对全空间用新 Profile 重建。
    */
   public async prepareProfileRebuild(
     requestId: string,
@@ -1872,7 +1876,7 @@ export class PostgresIndexingRepository
       'SELECT * FROM indexing_runs WHERE id = $1',
       [indexingRunId],
     );
-    const runRow = requireRow(runResult.rows[0], 'M05 Run 快照不存在');
+    const runRow = requireRow(runResult.rows[0], '索引构建与发布 Run 快照不存在');
     const manifestResult = await this.pool.query<ManifestRow>(
       'SELECT * FROM space_manifests WHERE id = $1',
       [runRow.manifest_id],
@@ -1938,7 +1942,11 @@ export class PostgresIndexingRepository
       [jobId, workerId, currentStep ?? null],
     );
     if (result.rowCount !== 1) {
-      throw new ApplicationError('INVALID_STATE', 409, 'Worker 租约已失效，禁止提交 M05 结果');
+      throw new ApplicationError(
+        'INVALID_STATE',
+        409,
+        'Worker 租约已失效，禁止提交 索引构建与发布 结果',
+      );
     }
   }
 
@@ -2003,7 +2011,8 @@ export class PostgresIndexingRepository
         permission,
       ],
     );
-    if (result.rowCount !== 1) throw new ApplicationError('NOT_FOUND', 404, 'M05 资源不存在');
+    if (result.rowCount !== 1)
+      throw new ApplicationError('NOT_FOUND', 404, '索引构建与发布 资源不存在');
   }
 
   private async assertSpacePermission(
@@ -2264,7 +2273,7 @@ function sanitizeIdentifier(input: string): string {
   return sanitized.slice(0, 220) || 'rag_index';
 }
 
-function previousM05Step(
+function previousIndexingStep(
   step: 'EMBED' | 'INDEX' | 'VERIFY' | 'PUBLISH',
 ): 'EMBED' | 'INDEX' | 'VERIFY' | null {
   if (step === 'INDEX') return 'EMBED';

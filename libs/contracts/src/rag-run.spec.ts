@@ -1,4 +1,4 @@
-/** M06 会话与 Run 契约的正反例测试。 */
+/** 会话运行与事件 会话与 Run 契约的正反例测试。 */
 import { CreateRagRunRequestSchema, RagRunEventSchema, RagRunSnapshotSchema } from './rag-run';
 
 describe('[RUN-003][RUN-004][RUN-007] rag run contracts', () => {

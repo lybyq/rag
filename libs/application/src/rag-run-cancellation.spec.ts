@@ -1,5 +1,5 @@
 /**
- * M06 AbortSignal 注册表单元门禁。
+ * 会话运行与事件 AbortSignal 注册表单元门禁。
  * 验证同一 Run 共享取消信号、取消幂等，以及终态释放后不会污染下一次执行。
  *
  * @requirement RUN-010

@@ -60,7 +60,7 @@ export class MinioObjectStorageAdapter implements ObjectStoragePort {
     await this.ensureNamedBucket(this.bucket, options);
   }
 
-  /** M03 派生 Bucket 与隔离上传 Bucket 分开创建，避免未扫描对象被后续流程误读。 */
+  /** 文件解析与OCR 派生 Bucket 与隔离上传 Bucket 分开创建，避免未扫描对象被后续流程误读。 */
   public async ensureNamedBucket(bucket: string, options: ExternalCallOptions): Promise<void> {
     if (await withAbort(this.client.bucketExists(bucket), options.signal)) return;
     try {

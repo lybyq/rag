@@ -1,5 +1,5 @@
 /**
- * M05 Embedding、向量索引、Manifest 发布与跨存储对账端口。
+ * 索引构建与发布 Embedding、向量索引、Manifest 发布与跨存储对账端口。
  *
  * Application 只能依赖这些接口；HTTP 协议、Milvus SDK、PG SQL 和 MinIO SDK 均由 Adapter 隔离。
  * 所有远程调用显式携带 Deadline 与 AbortSignal，业务文本不得进入错误或日志。
@@ -73,7 +73,7 @@ export interface EmbeddingFact {
   readonly modelRevision: string;
 }
 
-/** Worker 开始一次 M05 Run 后获得的不可变输入快照。 */
+/** Worker 开始一次 索引构建与发布 Run 后获得的不可变输入快照。 */
 export interface IndexBuildInput {
   readonly run: IndexingRun;
   readonly manifest: SpaceManifest;
@@ -197,7 +197,7 @@ export interface PublishManifestResult {
   readonly supersededManifestId: string | null;
 }
 
-/** Scheduler 可领取的 M05 跨存储维护任务。 */
+/** Scheduler 可领取的 索引构建与发布 跨存储维护任务。 */
 export interface IndexMaintenanceTask {
   readonly id: string;
   readonly taskType: 'CLEANUP_MANIFEST' | 'RECONCILE_MANIFEST' | 'REPAIR_MANIFEST';
@@ -244,7 +244,7 @@ export interface IndexMaintenanceRepository {
   ): Promise<void>;
 }
 
-/** M05 PostgreSQL 事实源端口。 */
+/** 索引构建与发布 PostgreSQL 事实源端口。 */
 export interface IndexingRepository {
   resolveProfileCollection(profile: EmbeddingProfile): Promise<{
     readonly collectionName: string;

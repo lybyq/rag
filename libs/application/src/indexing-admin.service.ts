@@ -1,5 +1,5 @@
 /**
- * M05 索引运行、Manifest、回滚和 Profile 重建管理用例。
+ * 索引构建与发布 索引运行、Manifest、回滚和 Profile 重建管理用例。
  * Repository 在数据库事实层再次执行空间 ACL；本服务负责稳定的 NOT_FOUND 映射和命令语义。
  *
  * @requirement IDX-010
@@ -19,7 +19,7 @@ import { ApplicationError } from './application.error';
 import type { IndexingRepository } from './indexing.ports';
 import type { AccessContext } from './ports';
 
-/** Platform API 使用的 M05 管理服务。 */
+/** Platform API 使用的 索引构建与发布 管理服务。 */
 export class IndexingAdminService {
   public constructor(private readonly repository: IndexingRepository) {}
 

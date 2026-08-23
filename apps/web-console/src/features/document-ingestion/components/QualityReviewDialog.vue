@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** M04 审核输入弹窗；只收集 action/reason，服务端仍重新鉴权并校验乐观锁。 */
+/** 知识加工与质量 审核输入弹窗；只收集 action/reason，服务端仍重新鉴权并校验乐观锁。 */
 import type { DocumentQualityReport, QualityReviewAction } from '@rag/contracts';
 import { computed, reactive, watch } from 'vue';
 

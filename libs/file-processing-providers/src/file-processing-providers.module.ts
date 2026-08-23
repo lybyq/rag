@@ -1,4 +1,4 @@
-/** M03 Provider Adapter 的配置化 NestJS 组装模块。 */
+/** 文件解析与OCR Provider Adapter 的配置化 NestJS 组装模块。 */
 import { Module } from '@nestjs/common';
 import {
   DOCUMENT_OCR,

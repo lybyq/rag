@@ -1,5 +1,5 @@
 /**
- * M05 向量化、索引构建、对账与发布的跨进程运行时契约。
+ * 索引构建与发布 向量化、索引构建、对账与发布的跨进程运行时契约。
  *
  * 这些 Schema 是 HTTP Provider、Worker、PostgreSQL 与 Milvus Adapter 之间的共同事实源。
  * 本文件不选择具体模型、不连接 Milvus，也不决定发布事务；供应商差异必须停留在 Adapter。
@@ -130,7 +130,7 @@ export const EmbeddingBatchResponseSchema = z
 /** Embedding 批次响应；成功项与失败项共同构成输入集合的完整响应。 */
 export type EmbeddingBatchResponse = z.infer<typeof EmbeddingBatchResponseSchema>;
 
-/** M05 Run 状态按真实外部副作用推进；FAILED 允许以同一 Run 安全重试。 */
+/** 索引构建与发布 Run 状态按真实外部副作用推进；FAILED 允许以同一 Run 安全重试。 */
 export const IndexingRunStatusSchema = z.enum([
   'BUILDING',
   'EMBEDDING',
@@ -156,7 +156,7 @@ export const SpaceManifestStatusSchema = z.enum([
 /** 空间 Manifest 的发布生命周期状态。 */
 export type SpaceManifestStatus = z.infer<typeof SpaceManifestStatusSchema>;
 
-/** M05 运行事实，保存实际使用的部署画像和 Embedding revision。 */
+/** 索引构建与发布 运行事实，保存实际使用的部署画像和 Embedding revision。 */
 export const IndexingRunSchema = z.object({
   id: z.uuid(),
   jobId: z.string().min(1).max(300),

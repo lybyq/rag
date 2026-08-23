@@ -1,5 +1,5 @@
 /**
- * M04 管理查询和审核用例。
+ * 知识加工与质量 管理查询和审核用例。
  * 查询由 Repository 按 ACL 收窄；写操作先要求 REVIEW 权限，再由数据库事务执行乐观锁和审计。
  *
  * @requirement KNO-011
@@ -22,7 +22,7 @@ import type {
 import { ApplicationError } from './application.error';
 import type { AccessContext } from './ports';
 
-/** M04 管理端 Use Case。 */
+/** 知识加工与质量 管理端 Use Case。 */
 export class KnowledgeProcessingAdminService {
   public constructor(
     private readonly repository: KnowledgeProcessingRepository,

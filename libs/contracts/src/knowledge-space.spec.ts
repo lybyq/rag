@@ -4,7 +4,7 @@ import {
   UserContextSchema,
 } from './index';
 
-describe('[AUTH-001][AUTH-008][AUTH-009] M01 runtime contracts', () => {
+describe('[AUTH-001][AUTH-008][AUTH-009] 身份权限与知识空间 runtime contracts', () => {
   it('可信身份只接受已知系统语义角色', () => {
     const result = UserContextSchema.safeParse({
       userId: 'alice',

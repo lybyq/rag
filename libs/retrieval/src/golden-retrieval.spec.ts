@@ -1,4 +1,4 @@
-/** M07 脱敏黄金集：缩写、错别字、精确代码/日期/版本、多跳、无答案与越权。 */
+/** 查询规划与混合检索 脱敏黄金集：缩写、错别字、精确代码/日期/版本、多跳、无答案与越权。 */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { RetrievalVectorHit } from '@rag/contracts';
@@ -27,12 +27,15 @@ interface GoldenCase {
 }
 
 const fixture = JSON.parse(
-  readFileSync(resolve(process.cwd(), 'test/fixtures/m07/golden-retrieval.json'), 'utf8'),
+  readFileSync(
+    resolve(process.cwd(), 'test/fixtures/hybrid-retrieval/golden-retrieval.json'),
+    'utf8',
+  ),
 ) as { documents: GoldenDocument[]; cases: GoldenCase[] };
 const documents = new Map(fixture.documents.map((document) => [document.vectorId, document]));
 const allowedSpaceIds = new Set(['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa']);
 
-describe('[RET-017] M07 黄金查询集', () => {
+describe('[RET-017] 查询规划与混合检索 黄金查询集', () => {
   test.each(fixture.cases)('$id', (testCase) => {
     expect(routeQuery(testCase.question)).toBe(testCase.expectedRoute);
     if (testCase.expectedLiteralKinds) {

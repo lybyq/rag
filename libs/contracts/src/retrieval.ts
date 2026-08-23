@@ -1,5 +1,5 @@
 /**
- * M07 查询规划、混合检索、来源复核与授权调试的跨层契约。
+ * 查询规划与混合检索 查询规划、混合检索、来源复核与授权调试的跨层契约。
  *
  * 这些 Schema 是 HTTP、LangGraph、Application 与 Adapter 共享的数据边界。
  * Filter 只允许表达平台定义的结构化约束，不提供 SQL 或 Milvus 表达式字段，
@@ -155,7 +155,7 @@ export const QueryRewriteSuggestionSchema = z.object({
 /** 经运行时校验的 LLM 改写建议。 */
 export type QueryRewriteSuggestion = z.infer<typeof QueryRewriteSuggestionSchema>;
 
-/** M07 受控查询计划；最多四个子问题且只接受编译后的 Filter。 */
+/** 查询规划与混合检索 受控查询计划；最多四个子问题且只接受编译后的 Filter。 */
 export const RetrievalPlanSchema = z.object({
   route: RetrievalRouteSchema,
   source: z.enum(['DETERMINISTIC', 'LLM_ASSISTED']),
@@ -213,7 +213,7 @@ export const RetrievalCandidateSchema = FusedRetrievalCandidateSchema.extend({
   effectiveFrom: TimestampSchema,
   effectiveTo: TimestampSchema.nullable(),
 });
-/** 已授权、可供 M08 Reranker/生成使用的候选。 */
+/** 已授权、可供 证据与答案生成 Reranker/生成使用的候选。 */
 export type RetrievalCandidate = z.infer<typeof RetrievalCandidateSchema>;
 
 /** 查询 Embedding 的缓存值；必须同时保存锁定模型事实。 */
@@ -253,7 +253,7 @@ export const RetrievalDebugCandidateSchema = z.object({
 /** 调试候选类型。 */
 export type RetrievalDebugCandidate = z.infer<typeof RetrievalDebugCandidateSchema>;
 
-/** M07 授权调试响应；只给计划和来源摘要，不暴露敏感正文。 */
+/** 查询规划与混合检索 授权调试响应；只给计划和来源摘要，不暴露敏感正文。 */
 export const RetrievalDebugResultSchema = z.object({
   runId: z.uuid(),
   route: RetrievalRouteSchema,
@@ -268,8 +268,8 @@ export const RetrievalDebugResultSchema = z.object({
   removedByReason: z.record(z.string(), z.number().int().nonnegative()),
   candidates: z.array(RetrievalDebugCandidateSchema).max(50),
 });
-/** M07 调试结果类型。 */
+/** 查询规划与混合检索 调试结果类型。 */
 export type RetrievalDebugResult = z.infer<typeof RetrievalDebugResultSchema>;
 
-/** M07 调试响应信封。 */
+/** 查询规划与混合检索 调试响应信封。 */
 export const RetrievalDebugEnvelopeSchema = createApiEnvelopeSchema(RetrievalDebugResultSchema);

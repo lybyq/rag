@@ -6,7 +6,7 @@ import DevelopmentIdentityPanel from '@/features/identity/components/Development
 <template>
   <div>
     <PageHeader
-      eyebrow="M01 · IDENTITY ADAPTER"
+      eyebrow="身份权限与知识空间 · IDENTITY ADAPTER"
       title="身份与接入"
       description="查看服务端解析后的 userId、系统语义角色和授权版本；开发环境可切换预置身份验证权限边界。"
     />

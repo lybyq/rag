@@ -130,11 +130,11 @@ pnpm security:audit:intranet
 
 1. 创建新的不可变 Profile ID/revision，先在 `intranet-staging` 做兼容性和 Golden 测试。
 2. 滚动发布新实例；旧实例不热更新，已经开始的任务继续使用旧配置。
-3. M03/M04 Run 会保存 `providerProfile` 和具体算法/Provider revision，排查时先看这些事实，不根据“当前配置”猜历史结果。
+3. 文件解析与OCR/知识加工与质量 Run 会保存 `providerProfile` 和具体算法/Provider revision，排查时先看这些事实，不根据“当前配置”猜历史结果。
 4. 发现质量或协议问题时停止新实例接流量，恢复上一份环境注入和镜像 digest，再创建新 content revision 重处理；不要覆盖历史 Run。
-5. M05 建新 Collection/alias 后才能切换 Embedding 维度或输出模式，禁止把新维度写入旧 Collection。
+5. 索引构建与发布 建新 Collection/alias 后才能切换 Embedding 维度或输出模式，禁止把新维度写入旧 Collection。
 
-### 7.1 M05 自动 rollout 实操
+### 7.1 索引构建与发布 自动 rollout 实操
 
 先部署使用新 `EMBEDDING_PROFILE_ID` 的 ingestion-worker 与 scheduler-worker。启动兼容性检查通过后，由有空间 ADMIN 权限的用户创建请求：
 
@@ -155,7 +155,7 @@ Scheduler 自动执行以下状态：
 ```text
 QUEUED
   → BUILDING：创建新 contentRevision 标准入库 Job
-  → EVALUATING：M05 对账完成但稳定 Head 不变
+  → EVALUATING：索引构建与发布 对账完成但稳定 Head 不变
   → READY：离线 Recall 达标，仅登记 CANARY 指针
   → PUBLISHED：管理员提升后原子切换稳定 Head
 ```
@@ -186,7 +186,7 @@ Content-Type: application/json
 
 回退不会接受客户端提交 Collection 或 Manifest ID；数据库使用请求冻结的 `previous_manifest_id`。若 rollout 期间稳定 Head 已被其他发布改变，提升/回退返回 409，必须先调查而不是强行覆盖。
 
-当前离线评测是每个文档代表 Child 的 query→candidate 自检。迁入内网必须再用批准脱敏业务问题集做正式 Recall 基线；M07 接入后才会把在线 userId 稳定分桶应用到真实查询。
+当前离线评测是每个文档代表 Child 的 query→candidate 自检。迁入内网必须再用批准脱敏业务问题集做正式 Recall 基线；查询规划与混合检索 接入后才会把在线 userId 稳定分桶应用到真实查询。
 
 ## 8. 常见故障与面试追问
 

@@ -1,5 +1,5 @@
 /**
- * M07 查询改写 LLM Adapter。
+ * 查询规划与混合检索 查询改写 LLM Adapter。
  *
  * `openai-compatible` 适配 DeepSeek/OpenAI-compatible Chat Completions；`http` 使用项目内部
  * `/v1/query-rewrite` 契约。两者都在 Deadline、单次超时和 AbortSignal 内执行，并用 Zod

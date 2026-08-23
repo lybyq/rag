@@ -1,4 +1,4 @@
-/** M04 审核状态机领域测试。 @requirement KNO-012 @requirement KNO-013 */
+/** 知识加工与质量 审核状态机领域测试。 @requirement KNO-012 @requirement KNO-013 */
 import { decideQualityReview, IllegalQualityReviewError } from './review-policy';
 
 describe('[KNO-012][KNO-013] quality review policy', () => {

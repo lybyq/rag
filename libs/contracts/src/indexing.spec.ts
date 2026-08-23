@@ -1,4 +1,4 @@
-/** M05 Zod 契约的反例和可复现性测试。 */
+/** 索引构建与发布 Zod 契约的反例和可复现性测试。 */
 import {
   EmbeddingBatchResponseSchema,
   EmbeddingProfileSchema,

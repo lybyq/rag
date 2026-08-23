@@ -1,4 +1,4 @@
-/** M03 可替换 Provider Adapter 公共出口。 */
+/** 文件解析与OCR 可替换 Provider Adapter 公共出口。 */
 export * from './builtin-content-safety-scanner.adapter';
 export * from './docling.adapter';
 export * from './file-processing-providers.module';

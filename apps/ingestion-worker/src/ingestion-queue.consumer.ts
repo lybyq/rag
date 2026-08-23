@@ -1,5 +1,5 @@
 /**
- * M03/M04/M05 BullMQ Consumer。
+ * 文件解析与OCR/知识加工与质量/索引构建与发布 BullMQ Consumer。
  * 事件类型只负责阶段路由；Inbox、Job lease 和版本化 Run 共同保证崩溃恢复与幂等。
  *
  * @requirement DOC-009
@@ -60,7 +60,7 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
             await this.authorizationCache.invalidateAll();
           }
           await this.repository.recordConsumerReceipt('index-projection-worker', event.id);
-          this.metrics.m05OperationsTotal.inc({
+          this.metrics.indexingPublicationOperationsTotal.inc({
             operation: 'projection_event',
             result: 'received',
           });
@@ -78,7 +78,7 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
           this.config.upload.ingestionLeaseSeconds,
         );
         if (!leased) {
-          this.metrics.m02OperationsTotal.inc({
+          this.metrics.documentIngestionOperationsTotal.inc({
             operation: 'queue_consume',
             result: receiptInserted ? 'not_claimable' : 'duplicate',
           });
@@ -86,35 +86,40 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
         }
         const stopHeartbeat = this.startLeaseHeartbeat(event.aggregateId, workerId);
         try {
-          if (stage === 'M03') {
-            const timer = this.metrics.m03DurationSeconds.startTimer();
+          if (stage === 'DOCUMENT_PARSING') {
+            const timer = this.metrics.documentParsingDurationSeconds.startTimer();
             const outcome = await this.processing.process(event.aggregateId, workerId);
-            this.metrics.m03ProcessingTotal.inc({ result: outcome.toLowerCase() });
+            this.metrics.documentParsingOperationsTotal.inc({ result: outcome.toLowerCase() });
             timer({ result: outcome.toLowerCase() });
-          } else if (stage === 'M04') {
-            const timer = this.metrics.m04DurationSeconds.startTimer();
+          } else if (stage === 'KNOWLEDGE_PROCESSING') {
+            const timer = this.metrics.knowledgeProcessingDurationSeconds.startTimer();
             const outcome = await this.knowledgeProcessing.process(event.aggregateId, workerId);
-            this.metrics.m04ProcessingTotal.inc({ result: outcome.toLowerCase() });
+            this.metrics.knowledgeProcessingOperationsTotal.inc({ result: outcome.toLowerCase() });
             timer({ result: outcome.toLowerCase() });
           } else {
-            const timer = this.metrics.m05DurationSeconds.startTimer();
+            const timer = this.metrics.indexingPublicationDurationSeconds.startTimer();
             const outcome = await this.indexing.process(event.aggregateId, workerId);
-            this.metrics.m05OperationsTotal.inc({
+            this.metrics.indexingPublicationOperationsTotal.inc({
               operation: 'indexing_run',
               result: outcome.toLowerCase(),
             });
             timer({ result: outcome.toLowerCase() });
           }
         } catch (error) {
-          if (stage === 'M03') this.metrics.m03ProcessingTotal.inc({ result: 'retryable_failure' });
-          else if (stage === 'M04') this.metrics.m04ProcessingTotal.inc({ result: 'failure' });
+          if (stage === 'DOCUMENT_PARSING')
+            this.metrics.documentParsingOperationsTotal.inc({ result: 'retryable_failure' });
+          else if (stage === 'KNOWLEDGE_PROCESSING')
+            this.metrics.knowledgeProcessingOperationsTotal.inc({ result: 'failure' });
           else
-            this.metrics.m05OperationsTotal.inc({ operation: 'indexing_run', result: 'failure' });
+            this.metrics.indexingPublicationOperationsTotal.inc({
+              operation: 'indexing_run',
+              result: 'failure',
+            });
           throw error;
         } finally {
           stopHeartbeat();
         }
-        this.metrics.m02OperationsTotal.inc({
+        this.metrics.documentIngestionOperationsTotal.inc({
           operation: 'queue_consume',
           result: receiptInserted ? 'success' : 'duplicate_recovered',
         });
@@ -158,11 +163,13 @@ export class IngestionQueueConsumer implements OnModuleInit, OnModuleDestroy {
   }
 }
 
-/** 未知阶段必须失败并进入队列失败记录，不能误用 M03/M04 处理器消费。 */
-function classifyStage(eventType: string): 'M03' | 'M04' | 'M05' | 'PROJECTION' {
-  if (eventType === 'ingestion.requested') return 'M03';
-  if (eventType === 'ingestion.knowledge_processing.requested') return 'M04';
-  if (eventType === 'ingestion.indexing.requested') return 'M05';
+/** 未知阶段必须失败并进入队列失败记录，不能误用 文件解析与OCR/知识加工与质量 处理器消费。 */
+function classifyStage(
+  eventType: string,
+): 'DOCUMENT_PARSING' | 'KNOWLEDGE_PROCESSING' | 'INDEXING_PUBLICATION' | 'PROJECTION' {
+  if (eventType === 'ingestion.requested') return 'DOCUMENT_PARSING';
+  if (eventType === 'ingestion.knowledge_processing.requested') return 'KNOWLEDGE_PROCESSING';
+  if (eventType === 'ingestion.indexing.requested') return 'INDEXING_PUBLICATION';
   if (eventType.startsWith('index.') || eventType === 'cache.invalidate.space') {
     return 'PROJECTION';
   }

@@ -1,5 +1,5 @@
 /**
- * M07 查询改写 Provider Composition Root。
+ * 查询规划与混合检索 查询改写 Provider Composition Root。
  *
  * 只有本模块读取 Adapter 选择；LangGraph 与 Application 永远只注入 QueryRewritePort。
  *

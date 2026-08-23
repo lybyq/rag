@@ -1,5 +1,5 @@
 /**
- * M04 Chunking 纯算法内部类型。
+ * 知识加工与质量 Chunking 纯算法内部类型。
  * 类型只依赖公共契约，不包含 NestJS、数据库或供应商 SDK，便于 Golden 测试和算法替换。
  *
  * @requirement KNO-002
@@ -47,7 +47,7 @@ export interface TextTokenizer {
   split(text: string, maxTokens: number, overlapTokens: number): readonly string[];
 }
 
-/** M04 可热配置但必须进入运行快照的 Chunk 参数。 */
+/** 知识加工与质量 可热配置但必须进入运行快照的 Chunk 参数。 */
 export interface ChunkingPolicy {
   readonly childMaxTokens: number;
   readonly parentMaxTokens: number;

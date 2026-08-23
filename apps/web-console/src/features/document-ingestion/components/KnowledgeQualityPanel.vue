@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** M04 面板组合器：管理运行选择和审核弹窗，把展示与副作用下沉到专用组件/composable。 */
+/** 知识加工与质量 面板组合器：管理运行选择和审核弹窗，把展示与副作用下沉到专用组件/composable。 */
 import type { QualityReviewAction } from '@rag/contracts';
 import { computed, shallowRef } from 'vue';
 import { useKnowledgeProcessing } from '../composables/useKnowledgeProcessing';
@@ -31,7 +31,7 @@ async function submitReview(request: {
   <section class="knowledge-panel">
     <header class="panel-heading">
       <div>
-        <span>M04 / KNOWLEDGE QUALITY</span>
+        <span>知识加工与质量 / KNOWLEDGE QUALITY</span>
         <h4>结构切块与质量审核</h4>
       </div>
       <ElSelect
@@ -80,7 +80,7 @@ async function submitReview(request: {
         @submit="submitReview"
       />
     </template>
-    <ElEmpty v-else :image-size="48" description="M04 尚未生成知识加工运行" />
+    <ElEmpty v-else :image-size="48" description="知识加工与质量 尚未生成知识加工运行" />
   </section>
 </template>
 

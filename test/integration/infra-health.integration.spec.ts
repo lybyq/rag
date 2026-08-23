@@ -7,7 +7,7 @@ import { RedisBullmqHealthProbe, RedisCacheHealthProbe } from '@rag/persistence-
 
 const describeWithInfra = process.env.RUN_INTEGRATION_TESTS === 'true' ? describe : describe.skip;
 
-describeWithInfra('M00 本地基础设施契约', () => {
+describeWithInfra('工程与决策基线 本地基础设施契约', () => {
   it('PostgreSQL、两类 Redis、MinIO、Milvus 都通过真实协议检查', async () => {
     const config = loadAppConfig(process.env);
     const probes: HealthProbe[] = [

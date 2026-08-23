@@ -1,5 +1,5 @@
 /**
- * M03 文件安全、Parser、按页 OCR、Block 规范化和派生快照编排。
+ * 文件解析与OCR 文件安全、Parser、按页 OCR、Block 规范化和派生快照编排。
  * 每一步都由端口隔离，失败分类和状态提交集中在这里，避免 Adapter 各自决定业务结果。
  *
  * @requirement PAR-001
@@ -37,7 +37,7 @@ import type {
 } from './document-processing.ports';
 import type { ObjectStoragePort } from './ingestion.ports';
 
-/** M03 对外部调用和安全阈值的部署配置。 */
+/** 文件解析与OCR 对外部调用和安全阈值的部署配置。 */
 export interface DocumentProcessingConfig extends FileSecurityLimits {
   /** 本进程启动时已通过白名单加载并校验的 Provider Profile。 */
   readonly providerProfile: ProviderProfile;
@@ -53,7 +53,7 @@ export interface DocumentProcessingConfig extends FileSecurityLimits {
 /** Worker 用于决定是否让 BullMQ 重试的稳定结果。 */
 export type DocumentProcessingOutcome = 'COMPLETED' | 'MANUAL_REVIEW' | 'REJECTED' | 'FAILED';
 
-/** M03 应用编排器；单次调用只处理已经由当前 Worker 持有 lease 的一个 Job。 */
+/** 文件解析与OCR 应用编排器；单次调用只处理已经由当前 Worker 持有 lease 的一个 Job。 */
 export class DocumentProcessingService {
   public constructor(
     private readonly repository: DocumentProcessingRepository,

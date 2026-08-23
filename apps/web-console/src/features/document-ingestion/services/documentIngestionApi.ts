@@ -1,5 +1,5 @@
 /**
- * M02 浏览器 API Adapter。
+ * 文档接入与任务 浏览器 API Adapter。
  * Platform API 只接收 JSON 元数据；文件 Blob 只通过预签名 URL 发送到 MinIO。
  */
 import {
@@ -77,7 +77,7 @@ export function listDocumentBlocks(
   ).then((response) => response.data);
 }
 
-/** 读取文档版本保留的全部 M04 运行历史。 */
+/** 读取文档版本保留的全部 知识加工与质量 运行历史。 */
 export function listKnowledgeProcessingRuns(
   versionId: string,
 ): Promise<readonly KnowledgeProcessingRun[]> {
@@ -87,7 +87,7 @@ export function listKnowledgeProcessingRuns(
   ).then((response) => response.data.items);
 }
 
-/** 读取一次 M04 运行的质量报告和发现项。 */
+/** 读取一次 知识加工与质量 运行的质量报告和发现项。 */
 export function getKnowledgeProcessingRun(processingRunId: string): Promise<{
   run: KnowledgeProcessingRun;
   report: DocumentQualityReport;

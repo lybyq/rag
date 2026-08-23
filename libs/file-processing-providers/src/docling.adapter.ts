@@ -176,7 +176,7 @@ async function callDocling(
   }
 }
 
-/** 把 Docling 原生 JSON 映射为平台唯一允许向 M04 传递的 Block。 */
+/** 把 Docling 原生 JSON 映射为平台唯一允许向 知识加工与质量 传递的 Block。 */
 export function mapDoclingDocument(
   document: Record<string, unknown>,
 ): Pick<ParserResult, 'blocks' | 'pages' | 'inspection'> {

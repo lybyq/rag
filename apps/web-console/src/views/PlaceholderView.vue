@@ -10,7 +10,7 @@ const route = useRoute();
     <PageHeader
       :eyebrow="`${String(route.meta.module)} · PLANNED MODULE`"
       :title="String(route.meta.title)"
-      description="该能力已进入全量需求清单，将严格按模块依赖顺序实现、讲解和验收。M00 先保证它未来接入时拥有稳定边界。"
+      description="该能力已进入全量需求清单，将严格按模块依赖顺序实现、讲解和验收。工程与决策基线 先保证它未来接入时拥有稳定边界。"
     />
     <div class="placeholder-mark" aria-hidden="true">
       {{ String(route.meta.module) }}

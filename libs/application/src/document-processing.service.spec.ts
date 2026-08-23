@@ -1,4 +1,4 @@
-/** M03 编排测试：真实字节哈希、按页 OCR、安全拒绝、派生快照和故障分类。 */
+/** 文件解析与OCR 编排测试：真实字节哈希、按页 OCR、安全拒绝、派生快照和故障分类。 */
 import type {
   DocumentProcessingRepository,
   MalwareScannerPort,

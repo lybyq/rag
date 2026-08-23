@@ -1,5 +1,5 @@
 /**
- * M01 应用层端口。
+ * 身份权限与知识空间 应用层端口。
  * 端口只描述业务需要，不暴露 SQL、Redis、NestJS 或 HTTP 细节。
  */
 import type {

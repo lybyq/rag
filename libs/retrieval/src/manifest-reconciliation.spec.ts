@@ -1,4 +1,4 @@
-/** M05 Manifest 对账与发布状态机回归测试。 */
+/** 索引构建与发布 Manifest 对账与发布状态机回归测试。 */
 import { reconcileManifestRecords } from './manifest-reconciliation';
 import { assertManifestTransition, IllegalManifestTransitionError } from './publication-state';
 

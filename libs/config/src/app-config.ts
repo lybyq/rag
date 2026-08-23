@@ -559,7 +559,7 @@ export const AppEnvironmentSchema = z
       context.addIssue({
         code: 'custom',
         path: ['RETRIEVAL_MAX_ROUNDS'],
-        message: 'M07 固定最多两轮检索，不能配置成开放循环',
+        message: '查询规划与混合检索 固定最多两轮检索，不能配置成开放循环',
       });
     }
     if (value.CHUNK_CHILD_MAX_TOKENS >= value.EMBEDDING_MAX_INPUT_TOKENS) {

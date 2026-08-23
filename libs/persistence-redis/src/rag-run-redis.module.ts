@@ -1,4 +1,4 @@
-/** M06 Redis Stream 与取消广播的独立 NestJS 组装模块。 */
+/** 会话运行与事件 Redis Stream 与取消广播的独立 NestJS 组装模块。 */
 import { Module } from '@nestjs/common';
 import { RAG_RUN_CANCELLATION, RAG_RUN_EVENT_STREAM } from '@rag/application';
 import { RedisRagRunEventStreamAdapter } from './redis-rag-run-event-stream.adapter';

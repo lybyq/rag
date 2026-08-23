@@ -1,4 +1,4 @@
-/** M05 Milvus Adapter Schema、部分失败、取消、Filter 安全和维度门禁测试。 */
+/** 索引构建与发布 Milvus Adapter Schema、部分失败、取消、Filter 安全和维度门禁测试。 */
 import { loadAppConfig } from '@rag/config';
 import type { EmbeddingProfile } from '@rag/contracts';
 import type { IndexVectorRecord, ProviderCallOptions } from '@rag/application';

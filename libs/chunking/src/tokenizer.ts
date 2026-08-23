@@ -1,5 +1,5 @@
 /**
- * M04 本地真实 BPE Tokenizer。
+ * 知识加工与质量 本地真实 BPE Tokenizer。
  * 它为 Chunk 上限提供确定性的 tokenCount，不使用字符数或固定比例估算；模型精确 Tokenizer 可通过同一接口替换。
  * 本文件不负责选择业务阈值，也不发起远程模型请求。
  *

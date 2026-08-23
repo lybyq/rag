@@ -1,5 +1,5 @@
 /**
- * M04 人工审核状态规则。
+ * 知识加工与质量 人工审核状态规则。
  * 规则保持为纯函数，HTTP 和 PostgreSQL 事务都必须执行同一约束，防止绕过 Controller 直接覆盖审核状态。
  *
  * @requirement KNO-012

@@ -1,5 +1,5 @@
 /**
- * M03 文件安全与解析端口。
+ * 文件解析与OCR 文件安全与解析端口。
  * 应用层只依赖稳定契约，不知道内置扫描规则、Docling、PaddleOCR、MinIO 或 PostgreSQL SDK。
  *
  * @requirement PAR-002
@@ -109,7 +109,7 @@ export interface RecordSecurityCommand {
   readonly malware: MalwareScanResult;
 }
 
-/** M03 成功提交命令；Block、问题、快照定位和状态转换必须在一个事务中完成。 */
+/** 文件解析与OCR 成功提交命令；Block、问题、快照定位和状态转换必须在一个事务中完成。 */
 export interface CompleteDocumentProcessingCommand {
   readonly jobId: string;
   readonly workerId: string;
@@ -142,7 +142,7 @@ export interface DocumentBlockPage {
   readonly nextOrdinal: number | null;
 }
 
-/** PostgreSQL M03 事实源端口。 */
+/** PostgreSQL 文件解析与OCR 事实源端口。 */
 export interface DocumentProcessingRepository {
   loadInput(jobId: string, workerId: string): Promise<DocumentProcessingInput | undefined>;
   beginRun(command: BeginParseRunCommand): Promise<DocumentParseRun>;
@@ -174,7 +174,7 @@ export interface DocumentProcessingRepository {
   ): Promise<DocumentBlockPage>;
 }
 
-/** M03 依赖注入 Token。 */
+/** 文件解析与OCR 依赖注入 Token。 */
 export const DOCUMENT_PROCESSING_REPOSITORY = Symbol('DOCUMENT_PROCESSING_REPOSITORY');
 export const MALWARE_SCANNER = Symbol('MALWARE_SCANNER');
 export const DOCUMENT_PARSER = Symbol('DOCUMENT_PARSER');

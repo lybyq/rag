@@ -1,4 +1,4 @@
-/** M03 领域规则测试：格式可信识别、安全 fail-closed、按页 OCR 与稳定 Block。 */
+/** 文件解析与OCR 领域规则测试：格式可信识别、安全 fail-closed、按页 OCR 与稳定 Block。 */
 import {
   FileRejectedError,
   buildDerivedSnapshotKey,

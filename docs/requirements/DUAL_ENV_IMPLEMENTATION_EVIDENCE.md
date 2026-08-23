@@ -1,27 +1,27 @@
 # Provider 双环境与离线部署：实施证据
 
-> 日期：2026-08-22。本轮交付的是 M05 开始前的跨模块配置/部署地基，不把尚未实现的 Embedding、Reranker、LLM、Milvus 业务 Adapter 宣称为已上线。
+> 日期：2026-08-22。本轮交付的是 索引构建与发布 开始前的跨模块配置/部署地基，不把尚未实现的 Embedding、Reranker、LLM、Milvus 业务 Adapter 宣称为已上线。
 
 ## 1. 已完成
 
-| 能力             | 实现                                                                      | 自动化证据                                                      |
-| ---------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| 受控 Profile     | `provider-profile.ts` 固定五种画像、白名单文件映射、宿主环境优先          | 固定文件、覆盖优先级、路径穿越拒绝测试                          |
-| 统一配置         | Parser/OCR/LLM/Embedding/Reranker/Vector/Milvus Zod 配置与冻结对象        | 外网选择、内网合法/非法矩阵测试                                 |
-| 生产 fail closed | 拒绝 Fixture/Memory/Mock、占位 revision、公开 Endpoint、错误维度/能力组合 | `app-config.spec.ts`                                            |
-| 运行快照         | M03/M04 Run 新增 `provider_profile`，保留原有具体 profile/revision        | Application 单测、migration gate、严格类型检查                  |
-| 外网容器         | 基础设施 Compose + 五个应用 Overlay，镜像参数化                           | 三组 `docker compose config --quiet`                            |
-| 内网容器         | 只使用预构建内网应用镜像的 Compose；保留不可路由占位符                    | 内网 Compose 静态门禁                                           |
-| 离线构建         | airgap Dockerfile 只执行 `pnpm install --offline --frozen-lockfile`       | Dockerfile 静态审查；真实 `--network=none` 待内网镜像导入后补跑 |
-| 依赖治理         | 双平台 lockfile、原生模块清单、安装脚本白名单、远程源码拒绝               | `pnpm offline:audit`                                            |
-| 安全审计         | 公网 `pnpm audit` 与绑定 lockfile SHA-256 的内网报告分流                  | SCA Schema/门禁脚本；企业报告待内网补跑                         |
+| 能力             | 实现                                                                                    | 自动化证据                                                      |
+| ---------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 受控 Profile     | `provider-profile.ts` 固定五种画像、白名单文件映射、宿主环境优先                        | 固定文件、覆盖优先级、路径穿越拒绝测试                          |
+| 统一配置         | Parser/OCR/LLM/Embedding/Reranker/Vector/Milvus Zod 配置与冻结对象                      | 外网选择、内网合法/非法矩阵测试                                 |
+| 生产 fail closed | 拒绝 Fixture/Memory/Mock、占位 revision、公开 Endpoint、错误维度/能力组合               | `app-config.spec.ts`                                            |
+| 运行快照         | 文件解析与OCR/知识加工与质量 Run 新增 `provider_profile`，保留原有具体 profile/revision | Application 单测、migration gate、严格类型检查                  |
+| 外网容器         | 基础设施 Compose + 五个应用 Overlay，镜像参数化                                         | 三组 `docker compose config --quiet`                            |
+| 内网容器         | 只使用预构建内网应用镜像的 Compose；保留不可路由占位符                                  | 内网 Compose 静态门禁                                           |
+| 离线构建         | airgap Dockerfile 只执行 `pnpm install --offline --frozen-lockfile`                     | Dockerfile 静态审查；真实 `--network=none` 待内网镜像导入后补跑 |
+| 依赖治理         | 双平台 lockfile、原生模块清单、安装脚本白名单、远程源码拒绝                             | `pnpm offline:audit`                                            |
+| 安全审计         | 公网 `pnpm audit` 与绑定 lockfile SHA-256 的内网报告分流                                | SCA Schema/门禁脚本；企业报告待内网补跑                         |
 
 ## 2. 本轮已执行门禁
 
 ```text
 Backend tests: 148 passed; snapshots: 19 passed
 Frontend tests: 7 passed
-M01～M04 PostgreSQL/Redis integration: 11 passed; profile snapshot migration applied locally
+身份权限与知识空间～知识加工与质量 PostgreSQL/Redis integration: 11 passed; profile snapshot migration applied locally
 TypeScript strict + Vue typecheck: passed
 ESLint + dependency boundaries: passed (227 modules / 488 dependencies)
 Migration naming/destructive gate: 5 migrations passed
@@ -36,9 +36,9 @@ Production dependency audit: critical/high/moderate 均为 0
 
 ## 3. 有意保留的后续工作
 
-- M03 内网 Parser/PaddleOCR 的原始协议未知：先复用标准 HTTP Adapter；不兼容时基于真实样例新增 Adapter 和同一套契约测试。
-- M05 实现 EmbeddingPort、Milvus VectorStorePort、启动 metadata 握手、Collection/alias 发布与全量重建。
-- M07 已实现 Query Rewrite LLM Port/Adapter、查询 Embedding、Milvus Dense/Sparse 与 PG 回源；M08 仍需实现 Reranker、答案生成和校验 Port/Adapter。
+- 文件解析与OCR 内网 Parser/PaddleOCR 的原始协议未知：先复用标准 HTTP Adapter；不兼容时基于真实样例新增 Adapter 和同一套契约测试。
+- 索引构建与发布 实现 EmbeddingPort、Milvus VectorStorePort、启动 metadata 握手、Collection/alias 发布与全量重建。
+- 查询规划与混合检索 已实现 Query Rewrite LLM Port/Adapter、查询 Embedding、Milvus Dense/Sparse 与 PG 回源；证据与答案生成 仍需实现 Reranker、答案生成和校验 Port/Adapter。
 - 所有后续 Index/Query/Answer Run 都要保存 Provider Profile、model/revision/protocol/capabilities 快照。
 - 内网完成 `pnpm install --offline`、`docker build --network=none`、企业 SCA、真实脱敏 Golden 和中型负载/Soak。
 

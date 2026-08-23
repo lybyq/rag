@@ -1,4 +1,4 @@
-/** M03 管理查询授权测试。 */
+/** 文件解析与OCR 管理查询授权测试。 */
 import type {
   AccessContext,
   DocumentProcessingRepository,
@@ -11,7 +11,10 @@ import type { ProcessingProviderProfile } from '@rag/contracts';
 import { DocumentProcessingAdminService } from './document-processing-admin.service';
 
 function context(role: 'KNOWLEDGE_READER' | 'SYSTEM_ADMIN' | 'AUDITOR'): AccessContext {
-  return { user: createTestUserContext('profile-reader', [role]), requestId: 'm03-admin-test' };
+  return {
+    user: createTestUserContext('profile-reader', [role]),
+    requestId: 'document-parsing-admin-test',
+  };
 }
 
 function profile(kind: 'MALWARE_SCANNER' | 'PARSER' | 'OCR'): ProcessingProviderProfile {

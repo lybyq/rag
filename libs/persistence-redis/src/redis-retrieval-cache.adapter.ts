@@ -1,5 +1,5 @@
 /**
- * M07 查询 Embedding Redis 缓存 Adapter。
+ * 查询规划与混合检索 查询 Embedding Redis 缓存 Adapter。
  *
  * Key 由 Application 对 Profile、Plan 与权限范围做 SHA-256 后生成，不含问题原文；值由 Zod 校验
  * 模型、版本与 Dense/Sparse 形状。Redis 故障统一降级为 miss，绝不跳过 PostgreSQL 权限复核。
@@ -35,7 +35,7 @@ export class RedisRetrievalCacheAdapter implements RetrievalCachePort, OnModuleD
     assertCacheKey(key);
     try {
       await this.ensureConnected();
-      const raw = await this.client.get(`rag:m07:query-embedding:${key}`);
+      const raw = await this.client.get(`rag:hybrid-retrieval:query-embedding:${key}`);
       if (!raw) return undefined;
       const parsed = QueryEmbeddingCacheValueSchema.safeParse(JSON.parse(raw) as unknown);
       return parsed.success ? parsed.data : undefined;
@@ -54,7 +54,7 @@ export class RedisRetrievalCacheAdapter implements RetrievalCachePort, OnModuleD
     const parsed = QueryEmbeddingCacheValueSchema.parse(value);
     await this.ensureConnected();
     await this.client.set(
-      `rag:m07:query-embedding:${key}`,
+      `rag:hybrid-retrieval:query-embedding:${key}`,
       JSON.stringify(parsed),
       'EX',
       ttlSeconds,
@@ -72,5 +72,5 @@ export class RedisRetrievalCacheAdapter implements RetrievalCachePort, OnModuleD
 }
 
 function assertCacheKey(key: string): void {
-  if (!/^[a-f0-9]{64}$/.test(key)) throw new Error('M07 缓存 Key 必须是 SHA-256');
+  if (!/^[a-f0-9]{64}$/.test(key)) throw new Error('查询规划与混合检索 缓存 Key 必须是 SHA-256');
 }

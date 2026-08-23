@@ -1,4 +1,4 @@
-/** 创建 M00 本地开发所需的对象存储 Bucket；操作可重复执行。 */
+/** 创建 工程与决策基线 本地开发所需的对象存储 Bucket；操作可重复执行。 */
 import { loadAppConfig, loadProfileEnvironment } from '@rag/config';
 import { Client } from 'minio';
 

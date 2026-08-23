@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** M02 页面级业务组合：共享空间筛选，并在新任务创建后刷新任务区。 */
+/** 文档接入与任务 页面级业务组合：共享空间筛选，并在新任务创建后刷新任务区。 */
 import { platformApiFetch } from '@/features/identity/services/platformApi';
 import { KnowledgeSpaceListEnvelopeSchema, type KnowledgeSpace } from '@rag/contracts';
 import { onMounted, shallowRef } from 'vue';

@@ -8,31 +8,31 @@ interface RoadmapItem {
 
 const roadmap: readonly RoadmapItem[] = [
   {
-    module: 'M00',
+    module: '工程与决策基线',
     title: '工程与决策基线',
     scope: 'Monorepo · 契约 · 观测 · CI',
     status: 'active',
   },
   {
-    module: 'M01—M03',
+    module: '身份权限与知识空间—文件解析与OCR',
     title: '治理与文档接入',
     scope: '身份角色 · 上传任务 · 解析 OCR',
     status: 'queued',
   },
   {
-    module: 'M04—M05',
+    module: '知识加工与质量—索引构建与发布',
     title: '知识加工与发布',
     scope: 'Chunk · 质量 · 向量索引 · 版本',
     status: 'queued',
   },
   {
-    module: 'M06—M08',
+    module: '会话运行与事件—证据与答案生成',
     title: '可信问答链路',
     scope: 'Run · 混合检索 · 证据 · 校验',
     status: 'queued',
   },
   {
-    module: 'M09—M10',
+    module: '评测与可靠性—前端体验',
     title: '生产验收与产品闭环',
     scope: 'Eval · SLO · 压测 · 全链路 UI',
     status: 'queued',

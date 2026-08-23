@@ -1,5 +1,5 @@
 /**
- * M07 服务端检索 FilterCompiler。
+ * 查询规划与混合检索 服务端检索 FilterCompiler。
  *
  * 调用者只能提供 Run 已冻结 Manifest、当前重新授权后的空间集合与检索时点；编译器输出固定字段/
  * 操作符的结构化 AST。Adapter 再使用参数化 SQL或校验后的 UUID 生成 Milvus Filter，任何原始

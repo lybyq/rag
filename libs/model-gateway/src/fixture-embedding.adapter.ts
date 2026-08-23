@@ -1,5 +1,5 @@
 /**
- * M05 离线测试 Embedding Adapter。
+ * 索引构建与发布 离线测试 Embedding Adapter。
  *
  * 它从 SHA-256 确定性生成单位向量，供 test/external-ci 在无公网、无个人密钥时运行。
  * production 和 intranet Profile 已由配置门禁禁止选择 fixture；本实现不能作为质量模型上线。

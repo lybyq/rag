@@ -1,4 +1,4 @@
-/** M06 Run/Step 状态机的终态与竞态测试。 */
+/** 会话运行与事件 Run/Step 状态机的终态与竞态测试。 */
 import {
   IllegalRagRunStepTransitionError,
   IllegalRagRunTransitionError,

@@ -1,4 +1,4 @@
-/** 文档接入 Worker 根模块；M02 起注册 BullMQ 消费者和接入状态机。 */
+/** 文档接入 Worker 根模块；文档接入与任务 起注册 BullMQ 消费者和接入状态机。 */
 import { Module } from '@nestjs/common';
 import {
   DOCUMENT_OCR,

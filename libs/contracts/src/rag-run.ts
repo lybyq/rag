@@ -1,7 +1,7 @@
 /**
- * M06 会话、消息、RAG Run、Graph Step 与顺序事件的跨进程契约。
+ * 会话运行与事件 会话、消息、RAG Run、Graph Step 与顺序事件的跨进程契约。
  *
- * HTTP、PostgreSQL、Redis Stream 和后续 M07/M08 Graph 执行器共享这些 Zod Schema。
+ * HTTP、PostgreSQL、Redis Stream 和后续 查询规划与混合检索/证据与答案生成 Graph 执行器共享这些 Zod Schema。
  * 本文件只描述稳定数据形状，不实现认证、加密、状态迁移或事件发布。
  *
  * @requirement RUN-001

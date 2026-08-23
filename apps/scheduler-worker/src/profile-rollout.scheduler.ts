@@ -1,5 +1,5 @@
 /**
- * M05 Profile 重建与离线评测调度器。
+ * 索引构建与发布 Profile 重建与离线评测调度器。
  * 数据库 lease 让多个内网 Scheduler 实例可安全并行；单进程 tick 不重入。
  *
  * @requirement IDX-016
@@ -92,7 +92,7 @@ export class ProfileRolloutScheduler implements OnModuleInit, OnModuleDestroy {
       );
       for (const task of tasks) {
         const outcome = await this.service.process(task, this.workerId);
-        this.metrics.m05OperationsTotal.inc({
+        this.metrics.indexingPublicationOperationsTotal.inc({
           operation: `profile_${task.action.toLowerCase()}`,
           result: outcome.toLowerCase(),
         });
@@ -100,9 +100,12 @@ export class ProfileRolloutScheduler implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.logger.error(
         { error: error instanceof Error ? error.message : 'unknown' },
-        'M05 Profile rollout 调度失败',
+        '索引构建与发布 Profile rollout 调度失败',
       );
-      this.metrics.m05OperationsTotal.inc({ operation: 'profile_rollout_tick', result: 'failure' });
+      this.metrics.indexingPublicationOperationsTotal.inc({
+        operation: 'profile_rollout_tick',
+        result: 'failure',
+      });
     } finally {
       this.running = false;
     }

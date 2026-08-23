@@ -1,7 +1,7 @@
 /**
- * M05 向量化、索引、对账和原子发布编排用例。
+ * 索引构建与发布 向量化、索引、对账和原子发布编排用例。
  *
- * 该服务把 M04 合格 Child Chunk 转成可发布向量，但不直接访问 PG、HTTP 或 Milvus SDK。
+ * 该服务把 知识加工与质量 合格 Child Chunk 转成可发布向量，但不直接访问 PG、HTTP 或 Milvus SDK。
  * 关键顺序固定为：锁定快照 → 复用/生成 Embedding → 写不可见 Manifest → 对账 → PG 原子发布。
  * 当前有效 Manifest 只会在最后一个 PG 事务中切换，任何前序失败都不会影响线上检索。
  *
@@ -33,7 +33,7 @@ import type {
   VectorIndexPort,
 } from './indexing.ports';
 
-/** M05 有限资源和重试配置；进程启动后不可热变更。 */
+/** 索引构建与发布 有限资源和重试配置；进程启动后不可热变更。 */
 export interface IndexingServiceConfig {
   readonly profile: EmbeddingProfile;
   readonly requestTimeoutMs: number;
@@ -58,7 +58,7 @@ export class EmbeddingProfileMismatchError extends Error {
   }
 }
 
-/** M05 单任务编排服务。 */
+/** 索引构建与发布 单任务编排服务。 */
 export class IndexingService {
   private compatibilityCheck: Promise<void> | undefined;
 
@@ -81,7 +81,7 @@ export class IndexingService {
     return this.compatibilityCheck;
   }
 
-  /** 执行完整 M05 流水线；异常会安全落为 WAITING/FAILED，不切换当前线上 Manifest。 */
+  /** 执行完整 索引构建与发布 流水线；异常会安全落为 WAITING/FAILED，不切换当前线上 Manifest。 */
   public async process(
     jobId: string,
     workerId: string,
@@ -392,7 +392,7 @@ function toVectorRecord(
   };
 }
 
-/** M05/M07 共享的稳定向量主键算法；任一输入变化都生成新主键。 */
+/** 索引构建与发布/查询规划与混合检索 共享的稳定向量主键算法；任一输入变化都生成新主键。 */
 export function createIndexVectorId(
   manifestId: string,
   chunkId: string,
@@ -426,7 +426,7 @@ function callOptions(
   signal: AbortSignal,
 ): ProviderCallOptions {
   const remaining = deadlineAt.getTime() - Date.now();
-  if (remaining <= 0) throw new Error('M05 整体 Deadline 已到期');
+  if (remaining <= 0) throw new Error('索引构建与发布 整体 Deadline 已到期');
   return { signal, deadlineAt, timeoutMs: Math.min(configuredTimeoutMs, remaining) };
 }
 
@@ -436,7 +436,7 @@ function linkDeadline(parent: AbortSignal, deadlineAt: Date): AbortController {
   if (parent.aborted) abortFromParent();
   else parent.addEventListener('abort', abortFromParent, { once: true });
   const timer = setTimeout(
-    () => controller.abort(new Error('M05 整体 Deadline 已到期')),
+    () => controller.abort(new Error('索引构建与发布 整体 Deadline 已到期')),
     Math.max(1, deadlineAt.getTime() - Date.now()),
   );
   timer.unref();
@@ -454,7 +454,7 @@ function classifyIndexingFailure(error: unknown): string {
 function publicErrorMessage(error: unknown): string {
   if (error instanceof EmbeddingProfileMismatchError) return error.message.slice(0, 500);
   if (error instanceof Error && /取消|Deadline|超时/.test(error.message))
-    return 'M05 调用已取消或超时';
+    return '索引构建与发布 调用已取消或超时';
   if (error instanceof Error && /对账/.test(error.message))
     return '索引对账失败，当前线上版本保持不变';
   return '向量化或索引构建失败，当前线上版本保持不变';

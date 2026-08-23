@@ -71,7 +71,7 @@ services:
     networks: [rag-infra, rag-processing]
 
   docling:
-    profiles: [m03]
+    profiles: [document-parsing]
     image: ${DOCLING_IMAGE:?DOCLING_IMAGE must be set}
     restart: unless-stopped
     read_only: true

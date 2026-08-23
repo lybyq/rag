@@ -1,5 +1,5 @@
 /**
- * M05 发布前 Manifest 对账纯算法。
+ * 索引构建与发布 发布前 Manifest 对账纯算法。
  *
  * 对账只比较主键、Hash、Profile 与固定查询结果，不读取 Chunk 正文。
  * 产出的稳定 SHA 可写入 PostgreSQL，证明实际发布的是哪一份报告。

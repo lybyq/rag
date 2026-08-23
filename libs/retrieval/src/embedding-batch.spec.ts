@@ -1,4 +1,4 @@
-/** M05 动态批处理与部分失败重试的领域回归测试。 */
+/** 索引构建与发布 动态批处理与部分失败重试的领域回归测试。 */
 import type { EmbeddingBatchResponse, EmbeddingInput } from '@rag/contracts';
 import { executeEmbeddingBatches, planEmbeddingBatches } from './embedding-batch';
 

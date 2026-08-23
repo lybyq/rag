@@ -1,5 +1,5 @@
 /**
- * M06 Redis Stream、一次性 Ticket 与跨实例取消广播 Adapter。
+ * 会话运行与事件 Redis Stream、一次性 Ticket 与跨实例取消广播 Adapter。
  *
  * Stream ID 固定为 `${sequence}-0`，PG Outbox 重投时 Lua 会幂等忽略已存在序号，
  * 并拒绝同一 Stream 中的序号倒退。Ticket 使用随机值的 SHA-256 作为 Redis Key 且 GET+DEL 原子兑换。
@@ -46,7 +46,7 @@ if value then redis.call('DEL', KEYS[1]) end
 return value
 `;
 
-/** Redis M06 Adapter，同时持有本进程 AbortController 注册表。 */
+/** Redis 会话运行与事件 Adapter，同时持有本进程 AbortController 注册表。 */
 @Injectable()
 export class RedisRagRunEventStreamAdapter
   implements RagRunEventStreamPort, RagRunCancellationPort, OnModuleInit, OnModuleDestroy

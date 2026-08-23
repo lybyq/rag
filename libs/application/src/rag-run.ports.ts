@@ -1,5 +1,5 @@
 /**
- * M06 会话、Run、敏感正文保护、Redis Stream 与取消传播端口。
+ * 会话运行与事件 会话、Run、敏感正文保护、Redis Stream 与取消传播端口。
  *
  * Application 只依赖这些接口；SQL、Redis 命令、AES-GCM 和 NestJS 生命周期由 Adapter 实现。
  * 所有读取方法都显式携带 AccessContext 或可信 ownerUserId，禁止隐式全局用户。
@@ -235,11 +235,11 @@ export interface RagRunCancellationPort {
   release(runId: string): void;
 }
 
-/** M06 Repository 依赖注入 Token。 */
+/** 会话运行与事件 Repository 依赖注入 Token。 */
 export const RAG_RUN_REPOSITORY = Symbol('RAG_RUN_REPOSITORY');
-/** M06 Redis Stream 依赖注入 Token。 */
+/** 会话运行与事件 Redis Stream 依赖注入 Token。 */
 export const RAG_RUN_EVENT_STREAM = Symbol('RAG_RUN_EVENT_STREAM');
-/** M06 敏感正文保护器依赖注入 Token。 */
+/** 会话运行与事件 敏感正文保护器依赖注入 Token。 */
 export const SENSITIVE_TEXT_PROTECTOR = Symbol('SENSITIVE_TEXT_PROTECTOR');
-/** M06 AbortSignal 协调器依赖注入 Token。 */
+/** 会话运行与事件 AbortSignal 协调器依赖注入 Token。 */
 export const RAG_RUN_CANCELLATION = Symbol('RAG_RUN_CANCELLATION');

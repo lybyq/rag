@@ -1,5 +1,5 @@
 /**
- * M04 运行详情、Chunk 游标与人工审核状态。
+ * 知识加工与质量 运行详情、Chunk 游标与人工审核状态。
  * 可适配普通值、Ref 或 getter；切换任务时 generation 阻止旧请求覆盖新任务。
  *
  * @requirement KNO-011
@@ -27,7 +27,7 @@ import {
   reviewKnowledgeQuality,
 } from '../services/documentIngestionApi';
 
-/** M04 feature composable 的只读状态和显式动作。 */
+/** 知识加工与质量 feature composable 的只读状态和显式动作。 */
 export interface KnowledgeProcessingComposable {
   readonly runs: Readonly<ShallowRef<readonly KnowledgeProcessingRun[]>>;
   readonly selectedRun: Readonly<ShallowRef<KnowledgeProcessingRun | undefined>>;
@@ -47,7 +47,7 @@ export interface KnowledgeProcessingComposable {
   submitReview: (request: ReviewQualityRequest) => Promise<boolean>;
 }
 
-/** 创建 M04 管理端状态容器。 */
+/** 创建 知识加工与质量 管理端状态容器。 */
 export function useKnowledgeProcessing(
   documentVersionId: MaybeRefOrGetter<string | undefined>,
 ): KnowledgeProcessingComposable {

@@ -1,5 +1,5 @@
 /**
- * M05 Embedding 启动兼容性门禁。
+ * 索引构建与发布 Embedding 启动兼容性门禁。
  * Worker 开始消费任务前真实读取 Provider `/health` 与 `/metadata`；不匹配时拒绝启动，避免污染 Collection。
  *
  * @requirement IDX-003

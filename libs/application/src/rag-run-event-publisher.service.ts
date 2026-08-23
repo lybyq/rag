@@ -1,5 +1,5 @@
 /**
- * M06 PostgreSQL Run Event Outbox 到 Redis Stream 的可靠发布器。
+ * 会话运行与事件 PostgreSQL Run Event Outbox 到 Redis Stream 的可靠发布器。
  *
  * PG 按 Run 分配 sequence；Redis Adapter 用精确 sequence 幂等 XADD。
  * Publisher 只在 Redis 确认后标记 published，崩溃重投不会制造第二个顺序事件。

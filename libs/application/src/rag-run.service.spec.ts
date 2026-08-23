@@ -1,5 +1,5 @@
 /**
- * M06 Run 应用服务降级单元门禁。
+ * 会话运行与事件 Run 应用服务降级单元门禁。
  * Redis 是事件投影而非业务事实源；读取失败时仍必须返回 PG Run，且终态提示客户端改用轮询。
  *
  * @requirement RUN-009
@@ -62,8 +62,8 @@ describe('[RUN-009] RagRunService stream fallback', () => {
 
 function context(): AccessContext {
   return {
-    user: createTestUserContext('m06-unit-user', ['KNOWLEDGE_READER']),
-    requestId: 'm06-unit-request',
+    user: createTestUserContext('conversation-runtime-unit-user', ['KNOWLEDGE_READER']),
+    requestId: 'conversation-runtime-unit-request',
   };
 }
 

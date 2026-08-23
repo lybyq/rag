@@ -1,5 +1,5 @@
 /**
- * M06 会话、Run、Step、事件 Outbox、反馈与保留期的 PostgreSQL Adapter。
+ * 会话运行与事件 会话、Run、Step、事件 Outbox、反馈与保留期的 PostgreSQL Adapter。
  *
  * PostgreSQL 是业务终态事实源：幂等键、乐观锁、答案消息与 answer.completed Outbox
  * 都在事务内提交。Redis Stream 故障不会让第二份答案或错误终态覆盖现有事实。
@@ -167,7 +167,7 @@ interface PublicationRow {
   routing_salt: string | null;
 }
 
-/** PostgreSQL M06 Repository。 */
+/** PostgreSQL 会话运行与事件 Repository。 */
 @Injectable()
 export class PostgresRagRunRepository implements RagRunRepository {
   public constructor(@Inject(POSTGRES_POOL) private readonly pool: Pool) {}

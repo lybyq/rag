@@ -1,5 +1,5 @@
 /**
- * M04 结构恢复、专用 Chunk、去重和质量门禁编排用例。
+ * 知识加工与质量 结构恢复、专用 Chunk、去重和质量门禁编排用例。
  * 纯算法位于 chunking 库，事务和任务状态位于 Repository；本服务只组织执行顺序和失败边界。
  *
  * @requirement KNO-002
@@ -20,7 +20,7 @@ import {
 import type { ProviderProfile, QualityVerdict } from '@rag/contracts';
 import type { KnowledgeProcessingRepository } from './knowledge-processing.ports';
 
-/** M04 算法配置；revision 必须改变后生成新的 content revision。 */
+/** 知识加工与质量 算法配置；revision 必须改变后生成新的 content revision。 */
 export interface KnowledgeProcessingConfig {
   /** 本进程启动时已锁定的 Provider Profile。 */
   readonly providerProfile: ProviderProfile;
@@ -34,7 +34,7 @@ export interface KnowledgeProcessingConfig {
 /** Worker 上报的稳定处理结果。 */
 export type KnowledgeProcessingOutcome = QualityVerdict | 'NOT_CLAIMABLE' | 'FAILED';
 
-/** M04 单文档处理用例。 */
+/** 知识加工与质量 单文档处理用例。 */
 export class KnowledgeProcessingService {
   public constructor(
     private readonly repository: KnowledgeProcessingRepository,
@@ -43,7 +43,7 @@ export class KnowledgeProcessingService {
   ) {}
 
   /**
-   * 执行一次 M04 Run。
+   * 执行一次 知识加工与质量 Run。
    * 运行异常转为 WAITING 供排查，不自动无限重试，因为纯算法异常通常代表数据或开发缺陷。
    */
   public async process(jobId: string, workerId: string): Promise<KnowledgeProcessingOutcome> {

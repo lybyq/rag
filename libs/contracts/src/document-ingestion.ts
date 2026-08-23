@@ -1,5 +1,5 @@
 /**
- * M02 文档、上传会话、入库任务与事件的运行时契约。
+ * 文档接入与任务 文档、上传会话、入库任务与事件的运行时契约。
  * 所有边界输入输出都由 Zod 校验，数据库行和浏览器响应也复用同一事实定义。
  *
  * @requirement DOC-001
@@ -38,7 +38,7 @@ export const IngestionExecutionStatusSchema = z.enum([
 ]);
 export type IngestionExecutionStatus = z.infer<typeof IngestionExecutionStatusSchema>;
 
-/** M02 先冻结全流水线步骤名，后续模块只补处理器而不改任务标识。 */
+/** 文档接入与任务 先冻结全流水线步骤名，后续模块只补处理器而不改任务标识。 */
 export const IngestionStepNameSchema = z.enum([
   'SECURITY_SCAN',
   'PARSE',
@@ -307,7 +307,7 @@ export const OutboxEventSchema = z.object({
 });
 export type OutboxEvent = z.infer<typeof OutboxEventSchema>;
 
-/** M02 HTTP 成功响应信封。 */
+/** 文档接入与任务 HTTP 成功响应信封。 */
 export const UploadSessionEnvelopeSchema = createApiEnvelopeSchema(UploadSessionSchema);
 export const UploadPartListEnvelopeSchema = createApiEnvelopeSchema(
   z.object({ items: z.array(UploadPartInstructionSchema) }),

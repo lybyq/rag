@@ -1,5 +1,5 @@
 /**
- * M07 查询改写、Embedding 缓存、PostgreSQL 回源与可观测性端口。
+ * 查询规划与混合检索 查询改写、Embedding 缓存、PostgreSQL 回源与可观测性端口。
  *
  * LangGraph 只依赖这些抽象；OpenAI-compatible HTTP、Redis、PostgreSQL、Prometheus 与具体 SDK
  * 均由 Adapter 实现。端口只接受结构化 Filter 和 Run 快照，不提供原始 SQL/Milvus 表达式参数。
@@ -70,7 +70,7 @@ export interface HydrateRetrievalCandidatesResult {
   readonly removedByReason: Readonly<Record<string, number>>;
 }
 
-/** M07 PostgreSQL 来源事实端口。 */
+/** 查询规划与混合检索 PostgreSQL 来源事实端口。 */
 export interface RetrievalSourceRepository {
   loadRunInput(context: AccessContext, runId: string): Promise<RetrievalRunInput>;
   hydrateAndRecheck(
@@ -79,7 +79,7 @@ export interface RetrievalSourceRepository {
   ): Promise<HydrateRetrievalCandidatesResult>;
 }
 
-/** 与具体指标库解耦的 M07 遥测端口。 */
+/** 与具体指标库解耦的 查询规划与混合检索 遥测端口。 */
 export interface RetrievalTelemetryPort {
   route(route: 'CHAT' | 'KNOWLEDGE' | 'CLARIFY' | 'REJECT'): void;
   cache(result: 'hit' | 'miss' | 'write_failed'): void;
@@ -94,5 +94,5 @@ export const QUERY_REWRITE_PORT = Symbol('QUERY_REWRITE_PORT');
 export const RETRIEVAL_CACHE_PORT = Symbol('RETRIEVAL_CACHE_PORT');
 /** PostgreSQL 检索来源 Port 注入 Token。 */
 export const RETRIEVAL_SOURCE_REPOSITORY = Symbol('RETRIEVAL_SOURCE_REPOSITORY');
-/** M07 遥测 Port 注入 Token。 */
+/** 查询规划与混合检索 遥测 Port 注入 Token。 */
 export const RETRIEVAL_TELEMETRY = Symbol('RETRIEVAL_TELEMETRY');

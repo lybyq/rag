@@ -1,5 +1,5 @@
 /**
- * M04 PostgreSQL 事实源 Adapter。
+ * 知识加工与质量 PostgreSQL 事实源 Adapter。
  * 它原子持久化 Chunk/关系/质量报告，使用 lease fencing 防止过期 Worker 提交，并用行锁、乐观锁和不可变审核历史保护人工结论。
  * 本文件不实现 Chunk 算法，也不调用模型或向量数据库。
  *
@@ -167,12 +167,12 @@ interface InputRow {
   owner_user_id: string;
 }
 
-/** PostgreSQL M04 Repository。 */
+/** PostgreSQL 知识加工与质量 Repository。 */
 @Injectable()
 export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessingRepository {
   public constructor(@Inject(POSTGRES_POOL) private readonly pool: Pool) {}
 
-  /** 只有当前 CHUNK lease owner 且 M03 CLEAN/SUCCEEDED 时才能读取 Block。 */
+  /** 只有当前 CHUNK lease owner 且 文件解析与OCR CLEAN/SUCCEEDED 时才能读取 Block。 */
   public async loadInput(
     jobId: string,
     workerId: string,
@@ -253,7 +253,7 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
           command.qualityRuleVersion,
         ],
       );
-      const row = requireRow(result.rows[0], 'M04 Run 创建失败');
+      const row = requireRow(result.rows[0], '知识加工与质量 Run 创建失败');
       await client.query(
         `INSERT INTO protected_resource_spaces (resource_type, resource_id, space_id)
          SELECT 'KNOWLEDGE_RUN', $1, d.space_id
@@ -261,10 +261,15 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
          ON CONFLICT (resource_type, resource_id) DO NOTHING`,
         [row.id, command.input.documentId],
       );
-      await this.insertEvent(client, command.input.jobId, 'ingestion.m04_started', {
-        processingRunId: row.id,
-        contentRevision: command.input.contentRevision,
-      });
+      await this.insertEvent(
+        client,
+        command.input.jobId,
+        'ingestion.knowledge_processing_started',
+        {
+          processingRunId: row.id,
+          contentRevision: command.input.contentRevision,
+        },
+      );
       await client.query('COMMIT');
       return mapRun(row);
     } catch (error) {
@@ -490,7 +495,7 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
           WHERE id = (SELECT document_version_id FROM ingestion_jobs WHERE id = $1)`,
         [command.jobId],
       );
-      await this.insertEvent(client, command.jobId, 'ingestion.m04_failed', {
+      await this.insertEvent(client, command.jobId, 'ingestion.knowledge_processing_failed', {
         processingRunId: command.processingRunId,
         failureCode: command.failureCode,
       });
@@ -780,16 +785,16 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
       );
       await client.query(
         `UPDATE ingestion_job_steps SET status = 'WAITING', overall_percent = 75,
-                public_message = '等待 M05 向量化与索引', updated_at = now()
+                public_message = '等待 索引构建与发布 向量化与索引', updated_at = now()
           WHERE job_id = $1 AND step_name = 'EMBED'`,
         [command.jobId],
       );
-      await this.queueM05(
+      await this.queueIndexing(
         client,
         command.jobId,
         command.workerId,
         command.processingRunId,
-        'M04 质量门禁通过，进入 M05',
+        '知识加工与质量 质量门禁通过，进入 索引构建与发布',
       );
     } else if (command.quality.verdict === 'MANUAL_REVIEW') {
       await client.query(
@@ -824,7 +829,7 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
         '质量门禁拒绝，等待审核或重处理',
       );
     }
-    await this.insertEvent(client, command.jobId, 'ingestion.m04_completed', {
+    await this.insertEvent(client, command.jobId, 'ingestion.knowledge_processing_completed', {
       processingRunId: command.processingRunId,
       verdict: command.quality.verdict,
       parentChunkCount: parentCount,
@@ -855,8 +860,8 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
     );
   }
 
-  /** M04 与 M05 通过同一事务中的 Outbox 交接；WAITING 表示等待下游 Worker 领取。 */
-  private async queueM05(
+  /** 知识加工与质量 与 索引构建与发布 通过同一事务中的 Outbox 交接；WAITING 表示等待下游 Worker 领取。 */
+  private async queueIndexing(
     client: PoolClient,
     jobId: string,
     workerId: string | null,
@@ -880,7 +885,9 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
        VALUES ('INGESTION_JOB',$1,'ingestion.indexing.requested',$2::jsonb)`,
       [jobId, JSON.stringify({ jobId, processingRunId })],
     );
-    await this.insertEvent(client, jobId, 'ingestion.m05_queued', { processingRunId });
+    await this.insertEvent(client, jobId, 'ingestion.indexing_publication_queued', {
+      processingRunId,
+    });
   }
 
   private async finishApprovedReview(
@@ -901,11 +908,17 @@ export class PostgresKnowledgeProcessingRepository implements KnowledgeProcessin
     );
     await client.query(
       `UPDATE ingestion_job_steps SET status = 'WAITING', overall_percent = 75,
-              public_message = '等待 M05 向量化与索引', updated_at = now()
+              public_message = '等待 索引构建与发布 向量化与索引', updated_at = now()
         WHERE job_id = $1 AND step_name = 'EMBED'`,
       [jobId],
     );
-    await this.queueM05(client, jobId, null, processingRunId, '人工审核通过，进入 M05');
+    await this.queueIndexing(
+      client,
+      jobId,
+      null,
+      processingRunId,
+      '人工审核通过，进入 索引构建与发布',
+    );
     await client.query(
       `UPDATE document_versions SET optimistic_version = optimistic_version + 1,
               updated_at = now()

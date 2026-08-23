@@ -1,4 +1,4 @@
-/** M05 编排的幂等复用、不可见构建、对账和失败保持旧版本测试。 */
+/** 索引构建与发布 编排的幂等复用、不可见构建、对账和失败保持旧版本测试。 */
 import type { EmbeddingFact, EmbeddingPort, IndexingRepository } from './indexing.ports';
 import { IndexingService, assertProviderCompatible, createIndexVectorId } from './indexing.service';
 import { MemoryVectorIndexAdapter } from '@rag/persistence-milvus';

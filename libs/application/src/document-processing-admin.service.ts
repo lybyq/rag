@@ -1,5 +1,5 @@
 /**
- * M03 管理查询用例。
+ * 文件解析与OCR 管理查询用例。
  * Repository 负责按知识空间 ACL 收窄 Parse Run/Block，Provider Profile 额外限制为系统管理员或审计员。
  *
  * @requirement PAR-015

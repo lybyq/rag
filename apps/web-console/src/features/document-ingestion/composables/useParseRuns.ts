@@ -1,4 +1,4 @@
-/** M03 Parse Run 详情和 Block 游标分页状态。 */
+/** 文件解析与OCR Parse Run 详情和 Block 游标分页状态。 */
 import type { DocumentBlock, DocumentParseRun, ParseIssue } from '@rag/contracts';
 import { toValue, watch, shallowRef, type MaybeRefOrGetter, type ShallowRef } from 'vue';
 import {

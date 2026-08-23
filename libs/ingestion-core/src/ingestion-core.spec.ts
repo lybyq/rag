@@ -1,4 +1,4 @@
-/** M02 领域规则测试：状态机、真实进度、稳定标识与文件名净化。 */
+/** 文档接入与任务 领域规则测试：状态机、真实进度、稳定标识与文件名净化。 */
 import {
   IllegalIngestionTransitionError,
   calculateOverallPercent,
@@ -11,7 +11,7 @@ import {
   assertJobTransition,
 } from '.';
 
-describe('M02 ingestion core', () => {
+describe('文档接入与任务 ingestion core', () => {
   it('拒绝终态任务直接回到 RUNNING', () => {
     expect(() => assertJobTransition('SUCCEEDED', 'RUNNING')).toThrow(
       IllegalIngestionTransitionError,

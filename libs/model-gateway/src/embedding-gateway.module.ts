@@ -1,5 +1,5 @@
 /**
- * M05 Embedding Adapter Composition Root。
+ * 索引构建与发布 Embedding Adapter Composition Root。
  * 只有本模块读取已校验 AppConfig 选择 Adapter；Application 和业务 Controller 不包含环境分支。
  *
  * @requirement CFG-001

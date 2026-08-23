@@ -1,5 +1,5 @@
 /**
- * M06 进程内 AbortSignal 协调器。
+ * 会话运行与事件 进程内 AbortSignal 协调器。
  *
  * Graph 执行器按 runId 取得 Signal，并把它继续传给检索、Reranker 和 LLM Port。
  * API 本实例会立即取消；Redis Adapter 还会广播取消事件，让其他副本取消本地执行。

@@ -1,5 +1,5 @@
 /**
- * M06 Deadline 与敏感正文保留期维护服务。
+ * 会话运行与事件 Deadline 与敏感正文保留期维护服务。
  * 超时 Run 由 PG 条件更新进入 EXPIRED；正文到期只清理内容，不删除审计 Hash、Run 和反馈。
  *
  * @requirement RUN-005
@@ -14,7 +14,7 @@ export interface RagRunMaintenanceResult {
   readonly redactedContents: number;
 }
 
-/** M06 周期维护应用服务。 */
+/** 会话运行与事件 周期维护应用服务。 */
 export class RagRunMaintenanceService {
   public constructor(private readonly repository: RagRunRepository) {}
 

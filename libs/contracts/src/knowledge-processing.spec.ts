@@ -1,5 +1,5 @@
 /**
- * M04 公共契约的运行时校验测试。
+ * 知识加工与质量 公共契约的运行时校验测试。
  * 它证明 API、Worker 和持久化层会共同拒绝歧义关系与无理由审核，而不是只依赖 TypeScript 静态类型。
  * 本文件不测试分块算法或数据库事务。
  *
@@ -21,7 +21,7 @@ const validRelation = {
   createdAt: '2026-08-18T00:00:00.000Z',
 };
 
-describe('[KNO-001] M04 knowledge processing contracts', () => {
+describe('[KNO-001] 知识加工与质量 knowledge processing contracts', () => {
   it('关系必须且只能指向一个 Chunk 或 Block', () => {
     expect(ChunkRelationSchema.safeParse(validRelation).success).toBe(true);
     expect(

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** M04 Chunk 浏览表；只展示转义后的正文和服务端定位事实，不执行 Markdown/HTML。 */
+/** 知识加工与质量 Chunk 浏览表；只展示转义后的正文和服务端定位事实，不执行 Markdown/HTML。 */
 import type { KnowledgeChunk } from '@rag/contracts';
 import { computed } from 'vue';
 

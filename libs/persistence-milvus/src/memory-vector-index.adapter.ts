@@ -1,5 +1,5 @@
 /**
- * M05 外网测试用内存向量索引 Adapter。
+ * 索引构建与发布 外网测试用内存向量索引 Adapter。
  *
  * 它完整实现 Manifest 隔离、幂等 upsert、对账读取和删除语义，供 test/external-ci 使用。
  * 内网 staging/production 配置门禁禁止选择 memory，因此它不会冒充真实 Milvus 验收。

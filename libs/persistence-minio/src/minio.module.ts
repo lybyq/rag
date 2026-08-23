@@ -5,7 +5,7 @@ import { APP_CONFIG, type AppConfig } from '@rag/config';
 import { MinioHealthProbe } from './minio-health.probe';
 import { MinioObjectStorageAdapter } from './minio-object-storage.adapter';
 
-/** 同时提供健康探针和 M02 对象存储端口。 */
+/** 同时提供健康探针和 文档接入与任务 对象存储端口。 */
 @Module({
   providers: [
     MinioHealthProbe,

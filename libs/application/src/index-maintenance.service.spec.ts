@@ -1,4 +1,4 @@
-/** M05 跨存储对账、修复、人工处理和清理安全边界测试。 */
+/** 索引构建与发布 跨存储对账、修复、人工处理和清理安全边界测试。 */
 import type {
   IndexMaintenanceRepository,
   IndexMaintenanceTask,

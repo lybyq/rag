@@ -1,5 +1,5 @@
 /**
- * M03 PostgreSQL Repository。
+ * 文件解析与OCR PostgreSQL Repository。
  * 解析运行、统一 Block、问题与入库步骤状态在事务中共同提交，避免“对象已写但任务显示成功”的裂脑。
  *
  * @requirement PAR-012
@@ -453,7 +453,7 @@ export class PostgresDocumentProcessingRepository implements DocumentProcessingR
         `UPDATE ingestion_job_steps
             SET status = 'SUCCEEDED', processed_units = GREATEST(processed_units, 1),
                 total_units = COALESCE(total_units, 1), stage_percent = 100,
-                overall_percent = 50, public_message = 'M03 步骤已完成',
+                overall_percent = 50, public_message = '文件解析与OCR 步骤已完成',
                 finished_at = COALESCE(finished_at, now()), updated_at = now()
           WHERE job_id = $1 AND position <= 4`,
         [command.jobId],
@@ -461,14 +461,14 @@ export class PostgresDocumentProcessingRepository implements DocumentProcessingR
       await client.query(
         `UPDATE ingestion_job_steps
             SET status = 'QUEUED', overall_percent = 50,
-                public_message = 'M04 分块与质量门禁已排队', updated_at = now()
+                public_message = '知识加工与质量 分块与质量门禁已排队', updated_at = now()
           WHERE job_id = $1 AND step_name = 'CHUNK'`,
         [command.jobId],
       );
       await client.query(
         `UPDATE ingestion_jobs
             SET status = 'QUEUED', current_step = 'CHUNK', overall_percent = 50,
-                public_message = 'M03 解析完成，M04 已排队', lease_owner = NULL,
+                public_message = '文件解析与OCR 解析完成，知识加工与质量 已排队', lease_owner = NULL,
                 lease_expires_at = NULL, heartbeat_at = now(), updated_at = now()
           WHERE id = $1 AND lease_owner = $2`,
         [command.jobId, command.workerId],
@@ -478,7 +478,7 @@ export class PostgresDocumentProcessingRepository implements DocumentProcessingR
           WHERE id = (SELECT document_version_id FROM ingestion_jobs WHERE id = $1)`,
         [command.jobId],
       );
-      await this.insertEvent(client, command.jobId, 'ingestion.m03_completed', {
+      await this.insertEvent(client, command.jobId, 'ingestion.document_parsing_completed', {
         parseRunId: command.parseRunId,
         blockCount: command.blocks.length,
         ocrPageCount: new Set(
@@ -488,7 +488,7 @@ export class PostgresDocumentProcessingRepository implements DocumentProcessingR
         ).size,
         snapshotReused: command.snapshotReused,
       });
-      // 阶段交接也走事务 Outbox：数据库提交后由 Scheduler 重试投递，进程崩溃不会丢失 M04。
+      // 阶段交接也走事务 Outbox：数据库提交后由 Scheduler 重试投递，进程崩溃不会丢失 知识加工与质量。
       await client.query(
         `INSERT INTO outbox_events (aggregate_type, aggregate_id, event_type, payload)
          SELECT 'INGESTION_JOB', j.id, 'ingestion.knowledge_processing.requested',
@@ -663,7 +663,7 @@ export class PostgresDocumentProcessingRepository implements DocumentProcessingR
           WHERE id = (SELECT document_version_id FROM ingestion_jobs WHERE id = $1)`,
         [jobId, status],
       );
-      await this.insertEvent(client, jobId, `ingestion.m03_${status.toLowerCase()}`, {
+      await this.insertEvent(client, jobId, `ingestion.document_parsing_${status.toLowerCase()}`, {
         parseRunId,
         failureClass,
         failureCode,

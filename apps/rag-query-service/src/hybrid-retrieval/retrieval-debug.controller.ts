@@ -1,0 +1,47 @@
+/**
+ * 查询规划与混合检索 授权检索调试 HTTP Adapter。
+ *
+ * Controller 只校验 runId、映射可信 UserContext 并调用用例；角色与 owner 判定在应用服务中默认拒绝。
+ * 响应只包含排名、分数、主键和移除原因统计，不包含问题或 Chunk 正文。
+ *
+ * @requirement RET-016
+ */
+import { Controller, Inject, Param, Post } from '@nestjs/common';
+import { CurrentUser } from '@rag/auth';
+import type { ApiEnvelope, RetrievalDebugResult, UserContext } from '@rag/contracts';
+import { HybridRetrievalService } from '@rag/rag-graph';
+import { RequestContextService } from '@rag/observability';
+import { z } from 'zod';
+import {
+  parseConversationInput,
+  toAccessContext,
+} from '../conversation-runtime/conversation-http-utils';
+
+const RunIdSchema = z.uuid();
+
+/** 管理员/审计员的 Run 级检索调试入口。 */
+@Controller('runs')
+export class RetrievalDebugController {
+  public constructor(
+    @Inject(HybridRetrievalService) private readonly retrieval: HybridRetrievalService,
+    @Inject(RequestContextService) private readonly requestContext: RequestContextService,
+  ) {}
+
+  /** 执行 查询规划与混合检索 子图并返回脱敏调试结果；POST 明确表达会产生 Provider 查询。 */
+  @Post(':runId/retrieval-debug')
+  public async execute(
+    @CurrentUser() user: UserContext,
+    @Param('runId') rawRunId: string,
+  ): Promise<ApiEnvelope<RetrievalDebugResult>> {
+    const data = await this.retrieval.debug(
+      toAccessContext(user, this.requestContext),
+      parseConversationInput(RunIdSchema, rawRunId),
+    );
+    const traceId = this.requestContext.get()?.traceId;
+    return {
+      data,
+      requestId: this.requestContext.getRequestId(),
+      ...(traceId ? { traceId } : {}),
+    };
+  }
+}

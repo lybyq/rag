@@ -1,5 +1,5 @@
 /**
- * M07 加权 Reciprocal Rank Fusion（RRF）纯算法。
+ * 查询规划与混合检索 加权 Reciprocal Rank Fusion（RRF）纯算法。
  *
  * Dense 与 Sparse 分数量纲不可直接相加，RRF 只使用各路线排名并允许路线权重；本实现明确处理
  * 重复主键、缺失路线、并列分数和相等融合分，保证相同输入始终得到相同顺序。

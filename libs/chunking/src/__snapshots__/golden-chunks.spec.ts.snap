@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`[KNO-015] M04 Chunk Golden Snapshot code-and-duplicate-page 输出稳定 Chunk 字段和关系 1`] = `
+exports[`[KNO-015] 知识加工与质量 Chunk Golden Snapshot code-and-duplicate-page 输出稳定 Chunk 字段和关系 1`] = `
 {
   "chunks": [
     {
@@ -304,7 +304,7 @@ export const enabled = true;",
 }
 `;
 
-exports[`[KNO-015] M04 Chunk Golden Snapshot contract-clauses 输出稳定 Chunk 字段和关系 1`] = `
+exports[`[KNO-015] 知识加工与质量 Chunk Golden Snapshot contract-clauses 输出稳定 Chunk 字段和关系 1`] = `
 {
   "chunks": [
     {
@@ -505,7 +505,7 @@ exports[`[KNO-015] M04 Chunk Golden Snapshot contract-clauses 输出稳定 Chunk
 }
 `;
 
-exports[`[KNO-015] M04 Chunk Golden Snapshot faq-pairs 输出稳定 Chunk 字段和关系 1`] = `
+exports[`[KNO-015] 知识加工与质量 Chunk Golden Snapshot faq-pairs 输出稳定 Chunk 字段和关系 1`] = `
 {
   "chunks": [
     {
@@ -682,7 +682,7 @@ A：费用发生后三十日内。",
 }
 `;
 
-exports[`[KNO-015] M04 Chunk Golden Snapshot prose-heading-cross-page 输出稳定 Chunk 字段和关系 1`] = `
+exports[`[KNO-015] 知识加工与质量 Chunk Golden Snapshot prose-heading-cross-page 输出稳定 Chunk 字段和关系 1`] = `
 {
   "chunks": [
     {
@@ -777,7 +777,7 @@ exports[`[KNO-015] M04 Chunk Golden Snapshot prose-heading-cross-page 输出稳�
 }
 `;
 
-exports[`[KNO-015] M04 Chunk Golden Snapshot xlsx-multi-header 输出稳定 Chunk 字段和关系 1`] = `
+exports[`[KNO-015] 知识加工与质量 Chunk Golden Snapshot xlsx-multi-header 输出稳定 Chunk 字段和关系 1`] = `
 {
   "chunks": [
     {

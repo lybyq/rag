@@ -1,5 +1,5 @@
 /**
- * M05 Manifest 发布状态机。
+ * 索引构建与发布 Manifest 发布状态机。
  * 状态转换必须先通过这里，禁止 Controller、Worker 或 Repository 各自允许不同的可见性路径。
  *
  * @requirement IDX-009

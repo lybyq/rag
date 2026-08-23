@@ -1,4 +1,4 @@
-/** M07 查询改写 Provider 的正常、超时、取消、Schema、429/5xx 与版本门禁。 */
+/** 查询规划与混合检索 查询改写 Provider 的正常、超时、取消、Schema、429/5xx 与版本门禁。 */
 import type { ProviderCallOptions } from '@rag/application';
 import type { AppConfig } from '@rag/config';
 import { HttpQueryRewriteAdapter } from './query-rewrite.adapter';

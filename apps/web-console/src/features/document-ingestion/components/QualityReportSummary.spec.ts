@@ -1,4 +1,4 @@
-/** M04 质量摘要黑盒组件测试。 @requirement KNO-011 @requirement KNO-012 */
+/** 知识加工与质量 质量摘要黑盒组件测试。 @requirement KNO-011 @requirement KNO-012 */
 import type { DocumentQualityReport, KnowledgeProcessingRun, QualityFinding } from '@rag/contracts';
 import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';

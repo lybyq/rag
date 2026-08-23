@@ -1,6 +1,6 @@
 /**
  * 把 Parser/OCR 候选项转换为稳定、可定位的 Block 草稿。
- * 本层只做纯函数规范化和稳定标识，不写数据库，也不生成 M04 的 Chunk。
+ * 本层只做纯函数规范化和稳定标识，不写数据库，也不生成 知识加工与质量 的 Chunk。
  *
  * @requirement PAR-007
  * @requirement PAR-008

@@ -1,4 +1,4 @@
--- CFG-007：把部署画像固化在 M03/M04 Run 上；后续切换环境不能改写历史结果的来源。
+-- CFG-007：把部署画像固化在 文件解析与OCR/知识加工与质量 Run 上；后续切换环境不能改写历史结果的来源。
 -- 旧数据只能确定来自迁移前的默认外网开发画像，因此使用 external-dev 回填。
 ALTER TABLE document_parse_runs
   ADD COLUMN provider_profile varchar(40) NOT NULL DEFAULT 'external-dev',

@@ -1,4 +1,4 @@
-/** M04 审核权限和乐观锁命令传播测试。 @requirement KNO-011 @requirement KNO-012 */
+/** 知识加工与质量 审核权限和乐观锁命令传播测试。 @requirement KNO-011 @requirement KNO-012 */
 import type { KnowledgeProcessingRepository } from './knowledge-processing.ports';
 import { KnowledgeProcessingAdminService } from './knowledge-processing-admin.service';
 import type { AccessContext } from './ports';

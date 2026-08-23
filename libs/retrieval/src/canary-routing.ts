@@ -1,7 +1,7 @@
 /**
- * M05 Profile 灰度的稳定路由算法。
+ * 索引构建与发布 Profile 灰度的稳定路由算法。
  * 同一个 userId 在同一 routingSalt 下始终进入相同分桶，避免一次会话在两个 Manifest 间抖动。
- * 本规则不读取数据库；M07 只需传入 PG 中的 stable/candidate/percent 事实。
+ * 本规则不读取数据库；查询规划与混合检索 只需传入 PG 中的 stable/candidate/percent 事实。
  *
  * @requirement IDX-016
  */

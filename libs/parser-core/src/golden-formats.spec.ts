@@ -1,7 +1,7 @@
-/** M03 九类格式 Golden 清单：固定输入头、路由结果与统一 Block 契约。 */
+/** 文件解析与OCR 九类格式 Golden 清单：固定输入头、路由结果与统一 Block 契约。 */
 import { FixtureOcrAdapter, FixtureParserAdapter } from '@rag/file-processing-providers';
 import { OcrResultSchema, ParserResultSchema, type SupportedFileFormat } from '@rag/contracts';
-import goldenManifest from '../../../test/fixtures/m03/golden-manifest.json';
+import goldenManifest from '../../../test/fixtures/document-parsing/golden-manifest.json';
 import { detectFileFormat } from './file-detection';
 import { selectOcrPages, selectOcrTargets } from './block-normalization';
 

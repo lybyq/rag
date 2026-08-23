@@ -1,4 +1,4 @@
-/** M02 应用编排测试：大文件直传、隔离路径、HEAD 拒绝和 Outbox 失败释放。 */
+/** 文档接入与任务 应用编排测试：大文件直传、隔离路径、HEAD 拒绝和 Outbox 失败释放。 */
 import type {
   AccessContext,
   AuthorizationService,
@@ -12,8 +12,8 @@ import { OutboxPublisherService } from './outbox-publisher.service';
 import { createTestUserContext } from '@rag/testing';
 
 const context: AccessContext = {
-  user: createTestUserContext('m02-user', ['KNOWLEDGE_EDITOR']),
-  requestId: 'm02-unit-request',
+  user: createTestUserContext('document-ingestion-user', ['KNOWLEDGE_EDITOR']),
+  requestId: 'document-ingestion-unit-request',
 };
 
 function serviceFixture(): {

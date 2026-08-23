@@ -95,8 +95,11 @@ export class ParserController {
       throw error;
     } finally {
       request.off('aborted', onAborted);
-      this.metrics.m03ParserRunsTotal.inc({ format: body.data.source.format, result: resultLabel });
-      this.metrics.m03ParserDurationSeconds.observe(
+      this.metrics.documentParserRunsTotal.inc({
+        format: body.data.source.format,
+        result: resultLabel,
+      });
+      this.metrics.documentParserDurationSeconds.observe(
         { format: body.data.source.format, result: resultLabel },
         (Date.now() - startedAt) / 1_000,
       );

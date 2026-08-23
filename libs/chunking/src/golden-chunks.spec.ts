@@ -1,5 +1,5 @@
 /**
- * M04 Chunk Golden Snapshot。
+ * 知识加工与质量 Chunk Golden Snapshot。
  * 合成样本覆盖标题跨页、多级表头、条款、FAQ、代码和重复页；快照固定可检索字段而非内部对象布局。
  *
  * @requirement KNO-002
@@ -12,7 +12,7 @@
  * @requirement KNO-015
  */
 import type { DocumentBlock, SupportedFileFormat } from '@rag/contracts';
-import manifest from '../../../test/fixtures/m04/golden-manifest.json';
+import manifest from '../../../test/fixtures/knowledge-processing/golden-manifest.json';
 import { buildKnowledgeChunks } from './chunk-builder';
 import { Cl100kTextTokenizer } from './tokenizer';
 import type { KnowledgeChunkBuildResult } from './types';
@@ -117,7 +117,7 @@ const cases: Readonly<
   },
 };
 
-describe('[KNO-015] M04 Chunk Golden Snapshot', () => {
+describe('[KNO-015] 知识加工与质量 Chunk Golden Snapshot', () => {
   it('Manifest 覆盖五类高风险结构且只使用合成公开数据', () => {
     expect(manifest.license).toBe('synthetic-public-test-data');
     expect(manifest.cases.map((item) => item.id)).toEqual(Object.keys(cases));

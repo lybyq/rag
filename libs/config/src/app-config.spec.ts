@@ -265,6 +265,6 @@ function validIntranetProductionEnvironment(): NodeJS.ProcessEnv {
     VECTOR_STORE_PROFILE_ID: 'milvus-intranet-production-v1',
     MILVUS_ADDRESS: 'milvus.internal:19530',
     MILVUS_DATABASE: 'rag',
-    RUN_CONTENT_ENCRYPTION_KEY: Buffer.from('m06-production-key-32-bytes!!!!!').toString('base64'),
+    RUN_CONTENT_ENCRYPTION_KEY: Buffer.from('run-encryption-key-32-bytes-0000').toString('base64'),
   };
 }

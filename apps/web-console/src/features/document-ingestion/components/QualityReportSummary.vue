@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * M04 质量报告展示组件：只呈现服务端自动结论、审核状态、指标和发现项。
+ * 知识加工与质量 质量报告展示组件：只呈现服务端自动结论、审核状态、指标和发现项。
  * 审核按钮只发出事件，不在组件内调用 API 或推测权限。
  */
 import type { DocumentQualityReport, KnowledgeProcessingRun, QualityFinding } from '@rag/contracts';

@@ -1,4 +1,4 @@
-/** M05 HTTP Embedding Adapter 正常、超时、取消、Schema、429/5xx 与用途契约测试。 */
+/** 索引构建与发布 HTTP Embedding Adapter 正常、超时、取消、Schema、429/5xx 与用途契约测试。 */
 import { loadAppConfig } from '@rag/config';
 import type { EmbeddingProviderMetadata } from '@rag/contracts';
 import type { ProviderCallOptions } from '@rag/application';

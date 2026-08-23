@@ -53,7 +53,7 @@ export interface DocumentUploadComposable {
   cancelSession: () => Promise<void>;
 }
 
-const recoveryStorageKey = 'rag.m02.active-upload';
+const recoveryStorageKey = 'rag.document-ingestion.active-upload';
 
 /** 创建一个页面级上传协调器；每个文件持有独立 AbortController。 */
 export function useDocumentUpload(): DocumentUploadComposable {

@@ -1,5 +1,5 @@
 /**
- * M03 文件安全、解析、OCR 与统一 DocumentBlock 的运行时契约。
+ * 文件解析与OCR 文件安全、解析、OCR 与统一 DocumentBlock 的运行时契约。
  * Provider、数据库 Adapter、Worker 和管理端都复用这些 Zod Schema，避免各层自行猜测字段。
  * 本文件只描述可序列化事实，不包含 SDK、网络调用或数据库实现。
  *
@@ -16,7 +16,7 @@ import { createApiEnvelopeSchema } from './api-envelope';
 import { Sha256Schema } from './document-ingestion';
 import { ProviderProfileSchema } from './provider-profile';
 
-/** M03 明确支持的输入格式；ZIP 容器必须进一步判定为某种 Office 格式。 */
+/** 文件解析与OCR 明确支持的输入格式；ZIP 容器必须进一步判定为某种 Office 格式。 */
 export const SupportedFileFormatSchema = z.enum([
   'PDF',
   'DOCX',
@@ -52,7 +52,7 @@ export const ProcessingFailureClassSchema = z.enum([
 ]);
 export type ProcessingFailureClass = z.infer<typeof ProcessingFailureClassSchema>;
 
-/** 统一 Block 类型；M04 只能消费这些 Block，Parser 不能直接产出最终 Chunk。 */
+/** 统一 Block 类型；知识加工与质量 只能消费这些 Block，Parser 不能直接产出最终 Chunk。 */
 export const DocumentBlockTypeSchema = z.enum([
   'TITLE',
   'PARAGRAPH',
@@ -255,7 +255,7 @@ export const OcrResultSchema = z.object({
 });
 export type OcrResult = z.infer<typeof OcrResultSchema>;
 
-/** M03 解析运行详情；失败只保存分类和公开错误，不保存预签名 URL 或正文。 */
+/** 文件解析与OCR 解析运行详情；失败只保存分类和公开错误，不保存预签名 URL 或正文。 */
 export const DocumentParseRunSchema = z.object({
   id: z.uuid(),
   jobId: z.string().min(1).max(300),

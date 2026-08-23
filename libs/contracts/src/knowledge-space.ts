@@ -131,7 +131,7 @@ export const ListKnowledgeSpacesQuerySchema = z.object({
 });
 export type ListKnowledgeSpacesQuery = z.infer<typeof ListKnowledgeSpacesQuerySchema>;
 
-/** M01 管理台所需的成功响应信封。 */
+/** 身份权限与知识空间 管理台所需的成功响应信封。 */
 export const IdentitySessionSchema = z.object({
   user: UserContextSchema.pick({ userId: true, roles: true, authzVersion: true, resolvedAt: true }),
   authMode: z.enum(['mock', 'trusted-header', 'jwt']),

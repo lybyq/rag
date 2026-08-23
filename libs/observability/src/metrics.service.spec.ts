@@ -1,6 +1,6 @@
 import { MetricsService } from './metrics.service';
 
-describe('[DOC-016] M02 业务指标', () => {
+describe('[DOC-016] 文档接入与任务 业务指标', () => {
   let metrics: MetricsService | undefined;
 
   afterEach(() => {
@@ -11,11 +11,14 @@ describe('[DOC-016] M02 业务指标', () => {
 
   it('只用低基数 operation/result 标签暴露关键动作计数', async () => {
     metrics = new MetricsService();
-    metrics.m02OperationsTotal.inc({ operation: 'outbox_publish', result: 'success' }, 2);
+    metrics.documentIngestionOperationsTotal.inc(
+      { operation: 'outbox_publish', result: 'success' },
+      2,
+    );
 
     const rendered = await metrics.render();
 
-    expect(rendered).toContain('rag_m02_operations_total');
+    expect(rendered).toContain('rag_document_ingestion_operations_total');
     expect(rendered).toContain('operation="outbox_publish",result="success"');
     expect(rendered).toContain(' 2');
   });

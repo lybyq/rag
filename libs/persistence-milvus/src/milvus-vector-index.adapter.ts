@@ -1,5 +1,5 @@
 /**
- * M05 Milvus 向量索引 Adapter。
+ * 索引构建与发布 Milvus 向量索引 Adapter。
  *
  * Collection Schema 只保存过滤字段、短摘要、定位元数据和向量，不保存完整正文。
  * 所有 Filter 都由本文件从已验证 UUID/SHA 主键构造，业务输入不能直接成为 Milvus 表达式。

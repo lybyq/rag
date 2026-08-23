@@ -23,9 +23,9 @@ function signTestJwt(
   payload: Readonly<Record<string, unknown>>,
   privateKey: ReturnType<typeof generateKeyPairSync>['privateKey'],
 ): string {
-  const header = Buffer.from(JSON.stringify({ alg: 'RS256', kid: 'm01-test-key' })).toString(
-    'base64url',
-  );
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'RS256', kid: 'identity-access-test-key' }),
+  ).toString('base64url');
   const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const signingInput = `${header}.${body}`;
   const signature = sign('RSA-SHA256', Buffer.from(signingInput), privateKey).toString('base64url');

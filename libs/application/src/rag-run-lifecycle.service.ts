@@ -1,5 +1,5 @@
 /**
- * M06 面向后续 M07/M08 Graph 执行器的 Run 生命周期服务。
+ * 会话运行与事件 面向后续 查询规划与混合检索/证据与答案生成 Graph 执行器的 Run 生命周期服务。
  *
  * 该服务提供 AbortSignal、节点审计和最终答案事务；最终答案由 Repository 先写消息与 Run，
  * 再写同事务事件 Outbox，因此 `answer.completed` 永远不会先于答案事实可见。

@@ -85,20 +85,20 @@ export interface OpenApiDocumentOptions {
   title: string;
   description: string;
   version: string;
-  /** Platform API 才注册 M01 管理路径；Query 服务只保留自己的模块。 */
-  includeM01?: boolean;
-  /** Platform API 注册 M02 文档接入和任务中心路径。 */
-  includeM02?: boolean;
-  /** Platform API 注册 M03 Parse Run、Block 与 Provider Profile 路径。 */
-  includeM03?: boolean;
-  /** Platform API 注册 M04 Chunk、质量报告与人工审核路径。 */
-  includeM04?: boolean;
-  /** Platform API 注册 M05 索引运行、Manifest、回滚与重建路径。 */
-  includeM05?: boolean;
-  /** Query Service 注册 M06 会话、Run、事件与反馈路径。 */
-  includeM06?: boolean;
-  /** Query Service 注册 M07 授权检索调试路径。 */
-  includeM07?: boolean;
+  /** Platform API 才注册 身份权限与知识空间 管理路径；Query 服务只保留自己的模块。 */
+  includeIdentityAccess?: boolean;
+  /** Platform API 注册 文档接入与任务 文档接入和任务中心路径。 */
+  includeDocumentIngestion?: boolean;
+  /** Platform API 注册 文件解析与OCR Parse Run、Block 与 Provider Profile 路径。 */
+  includeDocumentParsing?: boolean;
+  /** Platform API 注册 知识加工与质量 Chunk、质量报告与人工审核路径。 */
+  includeKnowledgeProcessing?: boolean;
+  /** Platform API 注册 索引构建与发布 索引运行、Manifest、回滚与重建路径。 */
+  includeIndexingPublication?: boolean;
+  /** Query Service 注册 会话运行与事件 会话、Run、事件与反馈路径。 */
+  includeConversationRuntime?: boolean;
+  /** Query Service 注册 查询规划与混合检索 授权检索调试路径。 */
+  includeHybridRetrieval?: boolean;
 }
 
 /** OpenAPI 文档使用普通 JSON 对象表示，便于 NestJS 和生成脚本共同消费。 */
@@ -150,7 +150,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
     '401': errorResponse('身份缺失或无法验证'),
     '403': errorResponse('当前身份无权执行操作'),
   };
-  const m01Paths: Record<string, unknown> = options.includeM01
+  const identityAccessPaths: Record<string, unknown> = options.includeIdentityAccess
     ? {
         '/api/v1/auth/me': {
           get: {
@@ -287,7 +287,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
-  const m02Paths: Record<string, unknown> = options.includeM02
+  const documentIngestionPaths: Record<string, unknown> = options.includeDocumentIngestion
     ? {
         '/api/v1/uploads': {
           post: {
@@ -467,7 +467,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
-  const m03Paths: Record<string, unknown> = options.includeM03
+  const documentParsingPaths: Record<string, unknown> = options.includeDocumentParsing
     ? {
         '/api/v1/document-versions/{versionId}/parse-runs': {
           get: {
@@ -518,7 +518,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
-  const m04Paths: Record<string, unknown> = options.includeM04
+  const knowledgeProcessingPaths: Record<string, unknown> = options.includeKnowledgeProcessing
     ? {
         '/api/v1/document-versions/{versionId}/knowledge-runs': {
           get: {
@@ -573,7 +573,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
-  const m05Paths: Record<string, unknown> = options.includeM05
+  const indexingPublicationPaths: Record<string, unknown> = options.includeIndexingPublication
     ? {
         '/api/v1/indexing-runs/{indexingRunId}': {
           get: {
@@ -675,14 +675,18 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
-  const m06Security = [{ bearerAuth: [] }, { trustedUserHeader: [] }, { mockPreset: [] }];
-  const m06Paths: Record<string, unknown> = options.includeM06
+  const conversationRuntimeSecurity = [
+    { bearerAuth: [] },
+    { trustedUserHeader: [] },
+    { mockPreset: [] },
+  ];
+  const conversationRuntimePaths: Record<string, unknown> = options.includeConversationRuntime
     ? {
         '/api/v1/conversations': {
           get: {
             operationId: 'listConversations',
             summary: '游标分页列出当前用户会话',
-            security: m06Security,
+            security: conversationRuntimeSecurity,
             parameters: [
               { name: 'cursor', in: 'query', schema: { type: 'string', maxLength: 500 } },
               {
@@ -699,7 +703,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
           post: {
             operationId: 'createConversation',
             summary: '创建当前用户私有会话',
-            security: m06Security,
+            security: conversationRuntimeSecurity,
             requestBody: jsonBody('CreateConversationRequest'),
             responses: {
               '201': jsonResponse('已创建会话', 'ConversationEnvelope'),
@@ -712,7 +716,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
           get: {
             operationId: 'listConversationMessages',
             summary: '读取短窗口消息和会话状态，并重新校验历史引用权限',
-            security: m06Security,
+            security: conversationRuntimeSecurity,
             parameters: [uuidPathParameter('conversationId')],
             responses: {
               '200': jsonResponse('可见消息和短期状态', 'ConversationMessageListEnvelope'),
@@ -725,7 +729,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
           post: {
             operationId: 'createRagRun',
             summary: '幂等创建异步 RAG Run 并冻结执行快照',
-            security: m06Security,
+            security: conversationRuntimeSecurity,
             parameters: [
               uuidPathParameter('conversationId'),
               {
@@ -748,7 +752,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
           get: {
             operationId: 'getRagRun',
             summary: '读取 PostgreSQL 中的 Run 事实与终态',
-            security: m06Security,
+            security: conversationRuntimeSecurity,
             parameters: [uuidPathParameter('runId')],
             responses: {
               '200': jsonResponse('Run 详情', 'RagRunEnvelope'),
@@ -761,7 +765,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
           get: {
             operationId: 'listRagRunSteps',
             summary: '读取脱敏 Graph 节点摘要与 Trace',
-            security: m06Security,
+            security: conversationRuntimeSecurity,
             parameters: [uuidPathParameter('runId')],
             responses: {
               '200': jsonResponse('Run Step 列表', 'RagRunStepListEnvelope'),
@@ -774,7 +778,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
           post: {
             operationId: 'cancelRagRun',
             summary: '请求取消 Run 并跨实例传播 AbortSignal',
-            security: m06Security,
+            security: conversationRuntimeSecurity,
             parameters: [uuidPathParameter('runId')],
             requestBody: jsonBody('CancelRagRunRequest'),
             responses: {
@@ -788,7 +792,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
           post: {
             operationId: 'issueRagRunStreamTicket',
             summary: '签发绑定 runId 与 userId 的短时一次性 SSE Ticket',
-            security: m06Security,
+            security: conversationRuntimeSecurity,
             parameters: [uuidPathParameter('runId')],
             responses: {
               '201': jsonResponse('一次性 Ticket 与 HttpOnly Cookie', 'RunStreamTicketEnvelope'),
@@ -801,7 +805,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
           get: {
             operationId: 'streamRagRunEventsAuthenticated',
             summary: '认证 SSE；使用 Last-Event-ID 按 sequence 续传',
-            security: m06Security,
+            security: conversationRuntimeSecurity,
             parameters: [
               uuidPathParameter('runId'),
               { name: 'Last-Event-ID', in: 'header', schema: { type: 'integer', minimum: 0 } },
@@ -820,7 +824,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
           get: {
             operationId: 'pollRagRunEvents',
             summary: '使用 sequence 与 ETag 轮询；Stream 过期后返回 PG Run 降级事实',
-            security: m06Security,
+            security: conversationRuntimeSecurity,
             parameters: [
               uuidPathParameter('runId'),
               { name: 'after', in: 'query', schema: { type: 'integer', minimum: 0 } },
@@ -861,7 +865,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
           post: {
             operationId: 'saveMessageFeedback',
             summary: '新增或覆盖当前用户对可见助手消息的反馈',
-            security: m06Security,
+            security: conversationRuntimeSecurity,
             parameters: [uuidPathParameter('messageId')],
             requestBody: jsonBody('CreateMessageFeedbackRequest'),
             responses: {
@@ -873,13 +877,13 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
         },
       }
     : {};
-  const m07Paths: Record<string, unknown> = options.includeM07
+  const hybridRetrievalPaths: Record<string, unknown> = options.includeHybridRetrieval
     ? {
         '/api/v1/runs/{runId}/retrieval-debug': {
           post: {
             operationId: 'executeRetrievalDebug',
-            summary: '管理员/审计员执行脱敏的 M07 LangGraph 检索调试',
-            security: m06Security,
+            summary: '管理员/审计员执行脱敏的 查询规划与混合检索 LangGraph 检索调试',
+            security: conversationRuntimeSecurity,
             parameters: [uuidPathParameter('runId')],
             responses: {
               '201': jsonResponse('检索路线、排名、分数与移除原因摘要', 'RetrievalDebugEnvelope'),
@@ -940,13 +944,13 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
           },
         },
       },
-      ...m01Paths,
-      ...m02Paths,
-      ...m03Paths,
-      ...m04Paths,
-      ...m05Paths,
-      ...m06Paths,
-      ...m07Paths,
+      ...identityAccessPaths,
+      ...documentIngestionPaths,
+      ...documentParsingPaths,
+      ...knowledgeProcessingPaths,
+      ...indexingPublicationPaths,
+      ...conversationRuntimePaths,
+      ...hybridRetrievalPaths,
     },
     components: {
       securitySchemes: {
@@ -958,7 +962,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
       schemas: {
         ApiError: z.toJSONSchema(ApiErrorSchema),
         ServiceHealthEnvelope: z.toJSONSchema(ServiceHealthEnvelopeSchema),
-        ...(options.includeM01
+        ...(options.includeIdentityAccess
           ? {
               UserContextEnvelope: z.toJSONSchema(UserContextEnvelopeSchema),
               DevelopmentIdentityPresetListEnvelope: z.toJSONSchema(
@@ -979,7 +983,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               PolicyVersionListEnvelope: z.toJSONSchema(PolicyVersionListEnvelopeSchema),
             }
           : {}),
-        ...(options.includeM02
+        ...(options.includeDocumentIngestion
           ? {
               CreateUploadSessionRequest: z.toJSONSchema(CreateUploadSessionRequestSchema),
               CreateSpaceDocumentUploadRequest: z.toJSONSchema(
@@ -1002,7 +1006,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               IngestionJobEventListEnvelope: z.toJSONSchema(IngestionJobEventListEnvelopeSchema),
             }
           : {}),
-        ...(options.includeM03
+        ...(options.includeDocumentParsing
           ? {
               ParseRunListEnvelope: z.toJSONSchema(ParseRunListEnvelopeSchema),
               ParseRunDetailEnvelope: z.toJSONSchema(ParseRunDetailEnvelopeSchema),
@@ -1012,7 +1016,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               ),
             }
           : {}),
-        ...(options.includeM04
+        ...(options.includeKnowledgeProcessing
           ? {
               ReviewQualityRequest: z.toJSONSchema(ReviewQualityRequestSchema),
               KnowledgeProcessingRunListEnvelope: z.toJSONSchema(
@@ -1025,7 +1029,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               QualityReviewResultEnvelope: z.toJSONSchema(QualityReviewResultEnvelopeSchema),
             }
           : {}),
-        ...(options.includeM05
+        ...(options.includeIndexingPublication
           ? {
               RollbackManifestRequest: z.toJSONSchema(RollbackManifestRequestSchema),
               StartIndexRebuildRequest: z.toJSONSchema(StartIndexRebuildRequestSchema),
@@ -1038,7 +1042,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               IndexRebuildEnvelope: z.toJSONSchema(IndexRebuildEnvelopeSchema),
             }
           : {}),
-        ...(options.includeM06
+        ...(options.includeConversationRuntime
           ? {
               CreateConversationRequest: z.toJSONSchema(CreateConversationRequestSchema),
               CreateRagRunRequest: z.toJSONSchema(CreateRagRunRequestSchema),
@@ -1057,7 +1061,7 @@ export function buildBaseOpenApiDocument(options: OpenApiDocumentOptions): OpenA
               MessageFeedbackEnvelope: z.toJSONSchema(MessageFeedbackEnvelopeSchema),
             }
           : {}),
-        ...(options.includeM07
+        ...(options.includeHybridRetrieval
           ? {
               RetrievalDebugEnvelope: z.toJSONSchema(RetrievalDebugEnvelopeSchema),
             }

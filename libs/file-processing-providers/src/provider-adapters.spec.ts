@@ -1,4 +1,4 @@
-/** M03 Provider Port 契约测试：成功、429、Schema 漂移、版本漂移与内置流式安全扫描。 */
+/** 文件解析与OCR Provider Port 契约测试：成功、429、Schema 漂移、版本漂移与内置流式安全扫描。 */
 import type { ParserResult } from '@rag/contracts';
 import { BuiltinContentSafetyScannerAdapter } from './builtin-content-safety-scanner.adapter';
 import { HttpParserAdapter } from './http-parser.adapter';
@@ -49,7 +49,7 @@ function adapter(fetchImplementation: typeof fetch): HttpParserAdapter {
   );
 }
 
-describe('M03 provider adapters', () => {
+describe('文件解析与OCR provider adapters', () => {
   it('[PAR-002] 内置扫描能跨 chunk 命中 EICAR，并拒绝可执行文件魔数', async () => {
     const scanner = new BuiltinContentSafetyScannerAdapter({
       profileId: 'builtin-test',

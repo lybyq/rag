@@ -1,5 +1,5 @@
 /**
- * M07 PostgreSQL Run 输入加载与候选批量回源 Adapter。
+ * 查询规划与混合检索 PostgreSQL Run 输入加载与候选批量回源 Adapter。
  *
  * Milvus 只给出 vectorId/文档主键/分数；本 Adapter 用单条集合查询取回 Chunk 正文，并再次验证
  * Run 所有者、当前允许空间、Manifest 版本与成员、文档/版本状态、发布时间和生效窗口。
@@ -69,7 +69,7 @@ interface HydratedRow {
   readonly effective_to: Date | null;
 }
 
-/** PostgreSQL M07 来源事实实现。 */
+/** PostgreSQL 查询规划与混合检索 来源事实实现。 */
 @Injectable()
 export class PostgresRetrievalRepository implements RetrievalSourceRepository {
   public constructor(@Inject(POSTGRES_POOL) private readonly pool: Pool) {}

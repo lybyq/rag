@@ -15,7 +15,7 @@
 3. 文件只提供非敏感默认值，宿主环境、容器 Secret 或 Secret Manager 注入值具有最高优先级。
 4. `APP_ENV` 与画像必须严格配套。内网画像拒绝公网 Endpoint、Fixture/Memory Adapter、占位 revision 和不兼容的 Embedding 能力；生产继续拒绝 Mock Auth、默认凭据和非 TLS 数据库连接。
 5. Application 只依赖 Port。Adapter 选择只发生在 Composition Root；未知的 PaddleOCR、模型网关或 Milvus 企业协议不在业务层增加条件分支。
-6. Provider Profile 不热更新。M03/M04 Run 在开始时保存 `providerProfile`，并继续保存各自的 profile/revision；后续 M05、检索和生成 Run 沿用同一规则。
+6. Provider Profile 不热更新。文件解析与OCR/知识加工与质量 Run 在开始时保存 `providerProfile`，并继续保存各自的 profile/revision；后续 索引构建与发布、检索和生成 Run 沿用同一规则。
 7. `PROVIDER_PROFILE` 只决定运行时 Provider；外网/内网构建方式由 Dockerfile、镜像清单和离线 Store 决定，两者不得混为一个开关。
 8. 外网构建可从批准的公网源取依赖；内网 Dockerfile 只使用预装 Node 22.20.0/pnpm 11.19.0 的企业 Builder、离线 pnpm Store 和内网镜像仓库。
 9. 公网使用 `pnpm audit`；内网读取企业扫描器的归一化 SCA 报告，并用 `pnpm-lock.yaml` SHA-256 防止报告错配。
@@ -24,7 +24,7 @@
 
 - 五份画像文件存在少量重复，但能让审批、对比和回退清楚，优于一个包含大量条件表达式的万能 `.env`。
 - 外网 Adapter 源码保留在内网代码包中但不会被未选画像实例化；这样可维护一套代码。若企业规范要求物理删除，应在内网全链路通过后建立单独变更，不直接改业务层。
-- 当前只为未来 LLM、Embedding、Reranker、Milvus 固定配置契约和 fail-closed 规则；真正 Port/Adapter 按 M05、M07、M08 实施，不能把“配置存在”当成能力已上线。
+- 当前只为未来 LLM、Embedding、Reranker、Milvus 固定配置契约和 fail-closed 规则；真正 Port/Adapter 按 索引构建与发布、查询规划与混合检索、证据与答案生成 实施，不能把“配置存在”当成能力已上线。
 - 可选 Docling OCR 的外网开发镜像目前只有不可变 tag、缺少 digest。普通开发审计会告警，正式离线制品门禁会阻断，直到制品管理员补齐批准摘要。Node Parser 和内置内容安全预检随应用构建，不需要额外运行镜像。
 
 ## 后果

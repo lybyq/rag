@@ -1,5 +1,5 @@
 /**
- * M06 PG Outbox 到 Redis Stream 发布器单元门禁。
+ * 会话运行与事件 PG Outbox 到 Redis Stream 发布器单元门禁。
  * 单条 Redis 故障必须释放租约并继续发布其他 Run，不能让一条坏事件阻塞整批。
  *
  * @requirement RUN-007

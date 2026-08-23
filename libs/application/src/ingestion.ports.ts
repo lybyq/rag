@@ -1,5 +1,5 @@
 /**
- * M02 应用层端口。
+ * 文档接入与任务 应用层端口。
  * 端口只表达上传、事实事务、Outbox 和事件投递所需能力，不暴露 SDK 细节。
  */
 import type {
@@ -247,7 +247,7 @@ export interface IngestionEventPublisherPort {
   publish(event: OutboxEvent, options: ExternalCallOptions): Promise<void>;
 }
 
-/** M02 依赖注入 Token。 */
+/** 文档接入与任务 依赖注入 Token。 */
 export const DOCUMENT_INGESTION_REPOSITORY = Symbol('DOCUMENT_INGESTION_REPOSITORY');
 export const OBJECT_STORAGE = Symbol('OBJECT_STORAGE');
 export const INGESTION_EVENT_PUBLISHER = Symbol('INGESTION_EVENT_PUBLISHER');

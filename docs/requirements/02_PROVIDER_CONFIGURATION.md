@@ -188,9 +188,9 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 
 `.env.example` 只放空值或非敏感示例；真实 `.env` 必须被 Git 忽略。
 
-### 6.1 M02 上传与执行配置说明
+### 6.1 文档接入与任务 上传与执行配置说明
 
-M02 参数在进程启动时由 Zod 校验并固化，当前均不支持热更新。调整后应滚动重启 API、Ingestion Worker 和 Scheduler；若新值引发异常，恢复上一个部署版本的环境变量并再次滚动重启。
+文档接入与任务 参数在进程启动时由 Zod 校验并固化，当前均不支持热更新。调整后应滚动重启 API、Ingestion Worker 和 Scheduler；若新值引发异常，恢复上一个部署版本的环境变量并再次滚动重启。
 
 | 环境变量                           | 默认值           | 合法范围/约束                          | 敏感 | 热更新 | 回退方式                                        |
 | ---------------------------------- | ---------------- | -------------------------------------- | ---- | ------ | ----------------------------------------------- |
@@ -205,7 +205,7 @@ M02 参数在进程启动时由 Zod 校验并固化，当前均不支持热更�
 
 MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI Secret 或内网 Secret Manager 注入；轮换时应先让新旧凭据短暂并存，再滚动切换并撤销旧凭据。
 
-### 6.2 M03 文件处理配置说明
+### 6.2 文件解析与OCR 文件处理配置说明
 
 | 环境变量                      | 默认值                       | 合法范围/能力约束                                              | 敏感       | 热更新 | 回退方式                                   |
 | ----------------------------- | ---------------------------- | -------------------------------------------------------------- | ---------- | ------ | ------------------------------------------ |
@@ -239,7 +239,7 @@ MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI 
 
 项目自带 `document-parser-service` 是内外网默认 Parser，使用同一 `http` Adapter 与 v2 契约。外网仍可保留 Docling 作为免费 OCR/兼容路径，但 Docling 原生响应不能证明宏、嵌入对象和外链已完整检查，因此生产配置拒绝将它直接作为安全 Parser。内置 Scanner 只覆盖 EICAR、可执行魔数、大小和取消传播；Office 宏/嵌入对象/外链/压缩炸弹由 Node Parser 结构检查负责，它不等价于商业病毒库。
 
-### 6.3 M04 知识加工与质量配置说明
+### 6.3 知识加工与质量 知识加工与质量配置说明
 
 | 环境变量                               | 默认值                            | 合法范围/能力约束                                              | 敏感 | 热更新 | 回退方式                             |
 | -------------------------------------- | --------------------------------- | -------------------------------------------------------------- | ---- | ------ | ------------------------------------ |
@@ -261,7 +261,7 @@ MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI 
 
 当前 `cl100k` 是无需云调用的真实 BPE 外网基线，不是内网 Embedding tokenizer 的替代承诺。切换模型或 tokenizer 必须创建新 Profile/revision、重跑 Chunk Golden 和检索评测；禁止原地改变历史 Profile 的含义。
 
-### 6.4 M05 Embedding、Milvus 与 Profile Rollout 配置说明
+### 6.4 索引构建与发布 Embedding、Milvus 与 Profile Rollout 配置说明
 
 | 环境变量                              | 默认值                 | 合法范围/能力约束                                                            | 敏感 | 热更新 | 回退方式                             |
 | ------------------------------------- | ---------------------- | ---------------------------------------------------------------------------- | ---- | ------ | ------------------------------------ |
@@ -295,7 +295,7 @@ MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI 
 
 `fixture + memory` 只用于流程与事务测试。真实 Recall、Milvus 性能和内网网络故障必须在 `intranet-staging` 复验。
 
-### 6.5 M06 Run、Redis Stream 与正文保护配置说明
+### 6.5 会话运行与事件 Run、Redis Stream 与正文保护配置说明
 
 | 环境变量                           | 默认值                  | 合法范围/能力约束                                            | 敏感 | 热更新 | 回退方式                                         |
 | ---------------------------------- | ----------------------- | ------------------------------------------------------------ | ---- | ------ | ------------------------------------------------ |
@@ -317,9 +317,9 @@ MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI 
 | `RUN_MAINTENANCE_INTERVAL_SECONDS` | `60`                    | `10..86400`                                                  | 否   | 否     | 恢复旧扫描周期                                   |
 | `RUN_MAINTENANCE_BATCH_SIZE`       | `100`                   | `1..10000`；有限批次避免长事务                               | 否   | 否     | 降低批次并增加运行频率                           |
 
-四套 Profile 示例均包含同名 `RUN_*` 配置。外网开发/CI 的固定密钥只用于合成数据；`intranet-staging/production` 示例故意使用不可启动占位符，必须由部署平台 Secret 覆盖。M06 Run 同时冻结 LLM、Embedding、Reranker 和 M05 Manifest 版本，因此 Provider 滚动升级不会改变在途问答。
+四套 Profile 示例均包含同名 `RUN_*` 配置。外网开发/CI 的固定密钥只用于合成数据；`intranet-staging/production` 示例故意使用不可启动占位符，必须由部署平台 Secret 覆盖。会话运行与事件 Run 同时冻结 LLM、Embedding、Reranker 和 索引构建与发布 Manifest 版本，因此 Provider 滚动升级不会改变在途问答。
 
-### 6.6 M07 Query Plan 与混合检索配置说明
+### 6.6 查询规划与混合检索 Query Plan 与混合检索配置说明
 
 | 环境变量                            | 默认值             | 合法范围/能力约束                           | 敏感 | 热更新 | 回退方式                |
 | ----------------------------------- | ------------------ | ------------------------------------------- | ---- | ------ | ----------------------- |
@@ -332,11 +332,11 @@ MinIO Access Key/Secret Key 属于敏感配置，只能通过本机 `.env`、CI 
 | `RETRIEVAL_MAX_PER_DOCUMENT`        | `3`                | `1..20`                                     | 否   | 否     | 恢复旧多样性配额        |
 | `RETRIEVAL_MAX_PER_SECTION`         | `2`                | `1..20`                                     | 否   | 否     | 恢复旧多样性配额        |
 | `RETRIEVAL_MINIMUM_RESULTS`         | `3`                | `1..20`，低于该值才进入第二轮               | 否   | 否     | 恢复旧阈值              |
-| `RETRIEVAL_MAX_ROUNDS`              | `2`                | M07 强制等于 2，禁止开放循环                | 否   | 否     | 不允许放宽              |
+| `RETRIEVAL_MAX_ROUNDS`              | `2`                | 查询规划与混合检索 强制等于 2，禁止开放循环 | 否   | 否     | 不允许放宽              |
 | `RETRIEVAL_QUERY_CACHE_TTL_SECONDS` | `600`              | `10..86400`；Key 绑定 Profile/Plan/权限范围 | 否   | 否     | 降低 TTL 或清空命名空间 |
 
-这些参数全部冻结到 M06 Run snapshot。修改环境变量只影响新 Run；修改权重、TopK 或多样性配额必须
-重跑 M07 Golden。`LLM_ADAPTER/BASE_URL/API_KEY/MODEL_ID/REVISION` 同时服务 M07 受控 Query Rewrite；
+这些参数全部冻结到 会话运行与事件 Run snapshot。修改环境变量只影响新 Run；修改权重、TopK 或多样性配额必须
+重跑 查询规划与混合检索 Golden。`LLM_ADAPTER/BASE_URL/API_KEY/MODEL_ID/REVISION` 同时服务 查询规划与混合检索 受控 Query Rewrite；
 模型输出不能包含 Filter/SQL/Milvus expression。
 
 ## 7. Profile Registry
@@ -397,9 +397,9 @@ export interface EmbeddingProviderMetadata extends ProviderMetadata {
 - [ ] `CFG-007` 每个 Run/Job 保存实际使用的 Profile 与 revision。
 - [ ] `CFG-008` Provider 切换、灰度和回退均有审计记录。
 - [ ] `CFG-009` Feature Flag 按系统/知识空间配置并进入 Run 快照。
-- [x] `CFG-010` M02 配置文档包含默认值、范围、敏感性、是否热更新和回退方式；后续 Provider 模块按同一表格补齐。
+- [x] `CFG-010` 文档接入与任务 配置文档包含默认值、范围、敏感性、是否热更新和回退方式；后续 Provider 模块按同一表格补齐。
 - [x] `CFG-011` 离线依赖 Manifest 固定 Node/pnpm、目标平台、Native 模块和安装脚本白名单，严格模式拒绝未锁镜像摘要。
 - [x] `CFG-012` Profile 文件使用白名单映射，部署环境/Secret 覆盖文件值，运行时永不读取 `.example`。
 - [x] `CFG-013` 外网联网构建、内网离线构建和内网预构建镜像部署分别有 Docker 入口与静态门禁。
 
-双环境配置、Docker、离线依赖和已知验收缺口的证据见 [Provider 双环境与离线部署实施证据](./DUAL_ENV_IMPLEMENTATION_EVIDENCE.md)，操作步骤见 [Provider 双环境切换与内网离线部署 Runbook](../runbooks/provider-profile-and-airgap-deployment.md)。`CFG-001/004/006/007` 仍需随 M05、M07、M08 补齐所有 Provider 和所有 Run，当前不得整体勾选。
+双环境配置、Docker、离线依赖和已知验收缺口的证据见 [Provider 双环境与离线部署实施证据](./DUAL_ENV_IMPLEMENTATION_EVIDENCE.md)，操作步骤见 [Provider 双环境切换与内网离线部署 Runbook](../runbooks/provider-profile-and-airgap-deployment.md)。`CFG-001/004/006/007` 仍需随 索引构建与发布、查询规划与混合检索、证据与答案生成 补齐所有 Provider 和所有 Run，当前不得整体勾选。

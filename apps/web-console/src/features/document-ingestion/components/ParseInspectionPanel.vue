@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** M03 面板组合器：管理请求状态与运行选择，把纯展示事实下发给子组件。 */
+/** 文件解析与OCR 面板组合器：管理请求状态与运行选择，把纯展示事实下发给子组件。 */
 import { computed } from 'vue';
 import { useParseRuns } from '../composables/useParseRuns';
 import BlockPreviewTable from './BlockPreviewTable.vue';
@@ -21,7 +21,7 @@ const selectedRunId = computed({
   <section class="parse-panel">
     <header class="panel-heading">
       <div>
-        <span>M03 / PARSING EVIDENCE</span>
+        <span>文件解析与OCR / PARSING EVIDENCE</span>
         <h4>文件安全与结构解析</h4>
       </div>
       <ElSelect
@@ -60,7 +60,7 @@ const selectedRunId = computed({
         @retry="parsing.reload"
       />
     </template>
-    <ElEmpty v-else :image-size="48" description="M03 尚未生成解析运行" />
+    <ElEmpty v-else :image-size="48" description="文件解析与OCR 尚未生成解析运行" />
   </section>
 </template>
 

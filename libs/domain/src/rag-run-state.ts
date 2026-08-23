@@ -1,5 +1,5 @@
 /**
- * M06 Run 与 Graph Step 的纯状态机规则。
+ * 会话运行与事件 Run 与 Graph Step 的纯状态机规则。
  *
  * Domain 不依赖 NestJS、PostgreSQL 或 Redis；Repository 在执行乐观锁更新前调用这些规则。
  * 终态不可逆可以阻止超时扫描、取消请求和模型完成回调互相覆盖事实。

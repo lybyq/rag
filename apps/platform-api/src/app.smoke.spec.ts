@@ -4,7 +4,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { PlatformApiModule } from './app.module';
 
-describe('Platform API M00 smoke', () => {
+describe('Platform API 工程与决策基线 smoke', () => {
   let application: INestApplication;
 
   beforeAll(async () => {
@@ -21,13 +21,13 @@ describe('Platform API M00 smoke', () => {
   it('liveness 回传客户端合法 Request ID 且不访问外部依赖', async () => {
     const response = await request(application.getHttpServer())
       .get('/api/v1/health/live')
-      .set('x-request-id', 'm00-smoke-request-0001')
+      .set('x-request-id', 'foundation-smoke-request-0001')
       .expect(200);
 
-    expect(response.headers['x-request-id']).toBe('m00-smoke-request-0001');
+    expect(response.headers['x-request-id']).toBe('foundation-smoke-request-0001');
     expect(response.body).toEqual(
       expect.objectContaining({
-        requestId: 'm00-smoke-request-0001',
+        requestId: 'foundation-smoke-request-0001',
         data: expect.objectContaining({ service: 'rag-service', status: 'up', dependencies: [] }),
       }),
     );

@@ -958,7 +958,7 @@
     "/api/v1/runs/{runId}/retrieval-debug": {
       "post": {
         "operationId": "executeRetrievalDebug",
-        "summary": "管理员/审计员执行脱敏的 M07 LangGraph 检索调试",
+        "summary": "管理员/审计员执行脱敏的 查询规划与混合检索 LangGraph 检索调试",
         "security": [
           {
             "bearerAuth": []

@@ -6,7 +6,7 @@ import KnowledgeSpaceWorkbench from '@/features/knowledge-spaces/components/Know
 <template>
   <div>
     <PageHeader
-      eyebrow="M01 · KNOWLEDGE GOVERNANCE"
+      eyebrow="身份权限与知识空间 · KNOWLEDGE GOVERNANCE"
       title="知识空间"
       description="以空间为最小治理边界，统一管理负责人、用户/角色 ACL、停用状态与不可变策略版本。"
     />

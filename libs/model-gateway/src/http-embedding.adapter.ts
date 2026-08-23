@@ -1,5 +1,5 @@
 /**
- * M05 企业内网 HTTP Embedding 契约 Adapter。
+ * 索引构建与发布 企业内网 HTTP Embedding 契约 Adapter。
  *
  * 统一协议：GET `/health`、GET `/metadata`、POST `/v1/embeddings`。
  * POST 请求显式携带 QUERY/DOCUMENT purpose；响应逐项返回 output/failure，便于部分失败重试。
@@ -71,7 +71,7 @@ export class HttpEmbeddingAdapter implements EmbeddingPort {
     return this.embed('DOCUMENT', inputs, options);
   }
 
-  /** 查询向量端点；与文档模板区分，供 M07 复用。 */
+  /** 查询向量端点；与文档模板区分，供 查询规划与混合检索 复用。 */
   public embedQueries(
     inputs: readonly EmbeddingInput[],
     options: ProviderCallOptions,

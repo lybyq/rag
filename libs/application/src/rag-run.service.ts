@@ -1,5 +1,5 @@
 /**
- * M06 会话、Run 创建、事件读取、取消、Ticket 与反馈应用服务。
+ * 会话运行与事件 会话、Run 创建、事件读取、取消、Ticket 与反馈应用服务。
  *
  * 创建 Run 只完成授权、快照和 PostgreSQL 事务，因此快速返回；不会同步调用模型。
  * 历史消息每次读取都会重新校验其来源空间，撤权后安全脱敏。
@@ -72,7 +72,7 @@ export interface RedeemedRunStream {
   readonly run: RagRun;
 }
 
-/** M06 面向 HTTP Controller 的应用入口。 */
+/** 会话运行与事件 面向 HTTP Controller 的应用入口。 */
 export class RagRunService {
   public constructor(
     private readonly repository: RagRunRepository,

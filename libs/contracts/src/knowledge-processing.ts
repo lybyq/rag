@@ -1,5 +1,5 @@
 /**
- * M04 结构恢复、Chunk、质量门禁和人工审核的运行时契约。
+ * 知识加工与质量 结构恢复、Chunk、质量门禁和人工审核的运行时契约。
  * API、Worker、PostgreSQL Adapter 与管理端共享这些 Zod Schema，保证审核和索引资格使用同一份事实。
  * 本文件只定义可序列化数据，不执行 Chunk 算法、权限判断或数据库事务。
  *
@@ -193,7 +193,7 @@ export const DocumentQualityReportSchema = z.object({
 });
 export type DocumentQualityReport = z.infer<typeof DocumentQualityReportSchema>;
 
-/** 一次 M04 运行锁定 Parser、Chunker、Tokenizer 和质量规则 revision。 */
+/** 一次 知识加工与质量 运行锁定 Parser、Chunker、Tokenizer 和质量规则 revision。 */
 export const KnowledgeProcessingRunSchema = z.object({
   id: z.uuid(),
   jobId: z.string().min(1).max(300),

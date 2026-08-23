@@ -1,5 +1,5 @@
 /**
- * M05 PostgreSQL、MinIO、Milvus 周期对账、修复和旧 Manifest 清理用例。
+ * 索引构建与发布 PostgreSQL、MinIO、Milvus 周期对账、修复和旧 Manifest 清理用例。
  *
  * ACTIVE Manifest 只允许补写缺失向量，不执行先删后写；Hash/Profile/来源对象异常进入人工处理。
  * SUPERSEDED Manifest 只有保留期任务到期且仍非 ACTIVE 时才会删除，失败不会影响当前可见性。
@@ -26,7 +26,7 @@ export interface IndexMaintenanceConfig {
 /** 单任务稳定结果，用于 Prometheus 固定标签。 */
 export type IndexMaintenanceOutcome = 'CLEANED' | 'HEALTHY' | 'REPAIRED' | 'RETRY' | 'MANUAL';
 
-/** M05 跨存储维护服务。 */
+/** 索引构建与发布 跨存储维护服务。 */
 export class IndexMaintenanceService {
   public constructor(
     private readonly repository: IndexMaintenanceRepository,
@@ -164,7 +164,7 @@ export class IndexMaintenanceService {
       await this.repository.releaseMaintenanceTask(
         task.id,
         workerId,
-        error instanceof Error ? error.message.slice(0, 500) : 'M05 维护失败',
+        error instanceof Error ? error.message.slice(0, 500) : '索引构建与发布 维护失败',
         Math.min(3600, 30 * 2 ** Math.max(0, task.attempts - 1)),
         terminal,
       );

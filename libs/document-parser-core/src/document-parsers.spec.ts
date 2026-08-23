@@ -1,5 +1,5 @@
 /**
- * M03 Node Parser 的真实格式 Golden 与安全回归测试。
+ * 文件解析与OCR Node Parser 的真实格式 Golden 与安全回归测试。
  * Fixture 全部由测试代码生成，不包含公司文档；断言固定 Block、定位、表格和 OCR 候选语义。
  *
  * @requirement PAR-003

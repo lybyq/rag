@@ -8,12 +8,12 @@ import SystemPulse from '@/features/operations/components/SystemPulse.vue';
 <template>
   <div class="foundation-view">
     <PageHeader
-      eyebrow="M00 · ENGINEERING FOUNDATION"
+      eyebrow="工程与决策基线 · ENGINEERING FOUNDATION"
       title="让每一次检索，都有工程依据"
       description="当前阶段建立四进程边界、运行时契约、可观测性与可重复开发环境。这里不是功能演示页，而是后续十个模块共同站立的地基。"
     >
       <template #actions>
-        <ElTag effect="plain" type="warning"> M00 建设中 </ElTag>
+        <ElTag effect="plain" type="warning"> 工程与决策基线 建设中 </ElTag>
       </template>
     </PageHeader>
 

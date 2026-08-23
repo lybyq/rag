@@ -19,7 +19,7 @@ Superseded in part by [ADR-011](./011-node-parser-and-builtin-content-safety.md)
 5. PDF 先执行原生解析，再逐页计算文字覆盖率；只有低覆盖或纯图片页进入 OcrPort。OCR 结果必须包含页码、归一化坐标、置信度和引擎版本。
 6. 所有 Parser/OCR 输出先映射为统一 `DocumentBlock`。`originalText` 永久保留，标准化文本写入 `text`，同一内容修订内 ordinal 和 Block ID 稳定。
 7. Block Snapshot 写入版本化 derived 路径并保存 SHA-256。数据库提交失败后，重试先校验并复用快照，避免再次执行昂贵 Parser/OCR。
-8. M03 只产出 Block；Chunk、质量结论和人工审核属于 M04。
+8. 文件解析与OCR 只产出 Block；Chunk、质量结论和人工审核属于 知识加工与质量。
 
 ## 取舍
 

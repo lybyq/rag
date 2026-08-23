@@ -1,5 +1,5 @@
 /**
- * M02 周期维护器：发布 Outbox 并恢复过期 lease。
+ * 文档接入与任务 周期维护器：发布 Outbox 并恢复过期 lease。
  * 每次运行都是有限批次，多个 scheduler 实例依赖 SKIP LOCKED 安全协作。
  *
  * @requirement DOC-009
@@ -56,13 +56,13 @@ export class IngestionMaintenanceScheduler implements OnModuleInit, OnModuleDest
       const published = await this.publisher.publishOnce(50);
       const recovered = await this.publisher.recoverExpiredLeases(3);
       if (published > 0) {
-        this.metrics.m02OperationsTotal.inc(
+        this.metrics.documentIngestionOperationsTotal.inc(
           { operation: 'outbox_publish', result: 'success' },
           published,
         );
       }
       if (recovered > 0) {
-        this.metrics.m02OperationsTotal.inc(
+        this.metrics.documentIngestionOperationsTotal.inc(
           { operation: 'lease_recover', result: 'success' },
           recovered,
         );
@@ -70,7 +70,7 @@ export class IngestionMaintenanceScheduler implements OnModuleInit, OnModuleDest
     } catch (error) {
       this.logger.error(
         { error: error instanceof Error ? error.message : 'unknown scheduler error' },
-        'M02 周期维护失败',
+        '文档接入与任务 周期维护失败',
       );
     } finally {
       this.running = false;

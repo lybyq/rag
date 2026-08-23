@@ -46,7 +46,7 @@ function baseMime(value: string): string {
   return value.split(';', 1)[0]?.trim().toLowerCase() ?? '';
 }
 
-/** 只读取最后一段扩展名；路径字符已经在 M02 被净化，但这里仍不信任目录语义。 */
+/** 只读取最后一段扩展名；路径字符已经在 文档接入与任务 被净化，但这里仍不信任目录语义。 */
 function extensionOf(fileName: string): string {
   return fileName.split('.').at(-1)?.toLowerCase() ?? '';
 }

@@ -1,5 +1,5 @@
 /**
- * M02 PostgreSQL 文档接入 Repository。
+ * 文档接入与任务 PostgreSQL 文档接入 Repository。
  * 上传完成用一个事务写入 Document、Version、File、Job、Steps、事件和 Outbox。
  *
  * @requirement DOC-002

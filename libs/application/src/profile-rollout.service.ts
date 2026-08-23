@@ -1,7 +1,7 @@
 /**
- * M05 新 Embedding Profile 的全量重建、离线评测与灰度编排。
+ * 索引构建与发布 新 Embedding Profile 的全量重建、离线评测与灰度编排。
  *
- * BUILD 只创建标准入库 Job；实际候选继续复用 M03→M05 主链路。
+ * BUILD 只创建标准入库 Job；实际候选继续复用 文件解析与OCR→索引构建与发布 主链路。
  * EVALUATE 使用 query 端点查询候选 Manifest，报告不保存问题正文，只保存命中布尔值摘要。
  * 本服务不直接访问 PG、BullMQ 或 Milvus SDK，所有外部系统仍通过 Port 调用。
  *
@@ -164,7 +164,7 @@ export class ProfileRolloutService {
     const recall = caseFacts.length === 0 ? 0 : passedCases / caseFacts.length;
     const passed = recall >= this.config.minimumRecall;
     const report = {
-      reportVersion: 'm05-profile-eval-v1',
+      reportVersion: 'indexing-publication-profile-eval-v1',
       candidateManifestId: candidate.manifest.id,
       embeddingProfileId: candidate.manifest.embeddingProfileId,
       caseCount: caseFacts.length,
