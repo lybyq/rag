@@ -1,6 +1,7 @@
 dist
 coverage
 node_modules
+.offline
 pnpm-lock.yaml
 openapi/generated
 apps/web-console/auto-imports.d.ts

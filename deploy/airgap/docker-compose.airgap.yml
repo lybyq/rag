@@ -1,0 +1,264 @@
+name: enterprise-rag-airgap
+
+# 这份 Compose 只引用已经导入 Docker 的运行时镜像，不包含 build，也不会访问公网。
+# PostgreSQL、两套 Redis、MinIO 默认随包启动；企业已提供的 Milvus 使用 runtime.env 地址即可。
+
+x-backend: &backend
+  restart: unless-stopped
+  env_file: ['${RAG_RUNTIME_ENV_FILE:-./runtime.env}']
+  networks: [rag-platform]
+  security_opt: ['no-new-privileges:true']
+
+x-app-healthcheck: &app-healthcheck
+  interval: 10s
+  timeout: 5s
+  retries: 30
+  start_period: 20s
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?请在 images.env 配置 POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rag}
+      POSTGRES_USER: ${POSTGRES_USER:-rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 runtime.env 配置 POSTGRES_PASSWORD}
+    volumes:
+      - ${RAG_DATA_ROOT:-./data}/postgres:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [rag-platform]
+
+  redis-cache:
+    image: ${REDIS_IMAGE:?请在 images.env 配置 REDIS_IMAGE}
+    restart: unless-stopped
+    command: [redis-server, --appendonly, 'yes', --save, '60', '1']
+    volumes:
+      - ${RAG_DATA_ROOT:-./data}/redis-cache:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [rag-platform]
+
+  redis-bullmq:
+    image: ${REDIS_IMAGE:?请在 images.env 配置 REDIS_IMAGE}
+    restart: unless-stopped
+    # BullMQ 不能使用会主动淘汰 Key 的策略，否则延迟任务、锁和重试状态可能静默消失。
+    command: [redis-server, --appendonly, 'yes', --maxmemory-policy, noeviction]
+    volumes:
+      - ${RAG_DATA_ROOT:-./data}/redis-bullmq:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [rag-platform]
+
+  minio:
+    image: ${MINIO_IMAGE:?请在 images.env 配置 MINIO_IMAGE}
+    restart: unless-stopped
+    command: [server, /data, --console-address, ':9001']
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?请在 runtime.env 配置 MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?请在 runtime.env 配置 MINIO_SECRET_KEY}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_CORS_ORIGIN:-*}
+    ports:
+      - ${MINIO_API_BIND:-9000}:9000
+      - ${MINIO_CONSOLE_BIND:-9001}:9001
+    volumes:
+      - ${RAG_DATA_ROOT:-./data}/minio:/data
+    healthcheck:
+      test: [CMD, curl, -f, http://127.0.0.1:9000/minio/health/live]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [rag-platform]
+
+  # 企业内网没有现成 Milvus 时才加 --profile bundled-milvus；有现成 Milvus 时不要启动本组服务。
+  etcd:
+    profiles: [bundled-milvus]
+    image: ${ETCD_IMAGE:?请在 images.env 配置 ETCD_IMAGE}
+    restart: unless-stopped
+    command:
+      - etcd
+      - --advertise-client-urls=http://127.0.0.1:2379
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --data-dir=/etcd
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: '1000'
+      ETCD_QUOTA_BACKEND_BYTES: '4294967296'
+      ETCD_SNAPSHOT_COUNT: '50000'
+    volumes:
+      - ${RAG_DATA_ROOT:-./data}/etcd:/etcd
+    healthcheck:
+      test: [CMD, etcdctl, endpoint, health]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [rag-platform]
+
+  milvus:
+    profiles: [bundled-milvus]
+    image: ${MILVUS_IMAGE:?请在 images.env 配置 MILVUS_IMAGE}
+    restart: unless-stopped
+    command: [milvus, run, standalone]
+    security_opt: ['seccomp:unconfined']
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MINIO_ACCESS_KEY_ID: ${MINIO_ACCESS_KEY:?请配置 MINIO_ACCESS_KEY}
+      MINIO_SECRET_ACCESS_KEY: ${MINIO_SECRET_KEY:?请配置 MINIO_SECRET_KEY}
+      MINIO_USE_SSL: 'false'
+    volumes:
+      - ${RAG_DATA_ROOT:-./data}/milvus:/var/lib/milvus
+    depends_on:
+      etcd: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, curl, -f, http://127.0.0.1:9091/healthz]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks: [rag-platform]
+
+  document-parser-service:
+    <<: *backend
+    image: ${DOCUMENT_PARSER_SERVICE_IMAGE:?请在 images.env 配置 DOCUMENT_PARSER_SERVICE_IMAGE}
+    environment:
+      APP_NAME: document-parser-service
+      HTTP_PORT: 8104
+    read_only: true
+    cap_drop: [ALL]
+    pids_limit: 256
+    mem_limit: 2g
+    cpus: 2
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+      - /app/.data:size=512m,mode=0700
+    depends_on:
+      minio: { condition: service_healthy }
+    healthcheck:
+      <<: *app-healthcheck
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:8104/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+
+  migrate:
+    <<: *backend
+    image: ${PLATFORM_API_IMAGE:?请在 images.env 配置 PLATFORM_API_IMAGE}
+    restart: 'no'
+    command: [./node_modules/.bin/tsx, scripts/migrate.ts]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  minio-init:
+    <<: *backend
+    image: ${PLATFORM_API_IMAGE:?请在 images.env 配置 PLATFORM_API_IMAGE}
+    restart: 'no'
+    command: [./node_modules/.bin/tsx, scripts/seed-storage.ts]
+    depends_on:
+      minio: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
+  platform-api:
+    <<: *backend
+    image: ${PLATFORM_API_IMAGE:?请在 images.env 配置 PLATFORM_API_IMAGE}
+    environment: { APP_NAME: platform-api, HTTP_PORT: 3000 }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis-cache: { condition: service_healthy }
+      redis-bullmq: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      <<: *app-healthcheck
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+
+  rag-query-service:
+    <<: *backend
+    image: ${RAG_QUERY_SERVICE_IMAGE:?请在 images.env 配置 RAG_QUERY_SERVICE_IMAGE}
+    environment: { APP_NAME: rag-query-service, HTTP_PORT: 3001 }
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis-cache: { condition: service_healthy }
+      redis-bullmq: { condition: service_healthy }
+    healthcheck:
+      <<: *app-healthcheck
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3001/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+
+  ingestion-worker:
+    <<: *backend
+    image: ${INGESTION_WORKER_IMAGE:?请在 images.env 配置 INGESTION_WORKER_IMAGE}
+    environment: { APP_NAME: ingestion-worker, PROBE_PORT: 3002 }
+    depends_on:
+      document-parser-service: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+      redis-bullmq: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      <<: *app-healthcheck
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3002/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+
+  scheduler-worker:
+    <<: *backend
+    image: ${SCHEDULER_WORKER_IMAGE:?请在 images.env 配置 SCHEDULER_WORKER_IMAGE}
+    environment: { APP_NAME: scheduler-worker, PROBE_PORT: 3003 }
+    depends_on:
+      redis-bullmq: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      <<: *app-healthcheck
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3003/v1/health/ready').then(r=>{if(!r.ok)process.exit(1)})",
+        ]
+
+  web-console:
+    image: ${WEB_CONSOLE_IMAGE:?请在 images.env 配置 WEB_CONSOLE_IMAGE}
+    restart: unless-stopped
+    security_opt: ['no-new-privileges:true']
+    ports: ['${WEB_BIND:-8080}:8080']
+    depends_on:
+      platform-api: { condition: service_healthy }
+      rag-query-service: { condition: service_healthy }
+    networks: [rag-platform]
+    healthcheck:
+      <<: *app-healthcheck
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:8080/]
+
+networks:
+  rag-platform:
+    driver: bridge

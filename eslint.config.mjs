@@ -11,7 +11,13 @@ import tseslint from 'typescript-eslint';
  */
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/coverage/**', '**/node_modules/**', 'openapi/generated/**'],
+    ignores: [
+      '**/dist/**',
+      '**/coverage/**',
+      '**/node_modules/**',
+      '.offline/**',
+      'openapi/generated/**',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

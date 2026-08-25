@@ -1,0 +1,6 @@
+# 外网制品机专用 Builder；生成后应用镜像通过 --network=none 从 .offline Store 构建。
+ARG NODE_IMAGE=node:22.20.0-bookworm-slim
+FROM ${NODE_IMAGE}
+
+RUN corepack enable && corepack prepare pnpm@11.19.0 --activate
+

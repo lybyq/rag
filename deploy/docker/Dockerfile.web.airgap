@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 ARG NODE_BUILDER_IMAGE=registry.invalid/rag/node-pnpm:22.20.0-11.19.0-bookworm
 ARG NGINX_RUNTIME_IMAGE=registry.invalid/rag/nginx-unprivileged:1.29.1
 FROM ${NODE_BUILDER_IMAGE} AS builder
@@ -7,8 +6,10 @@ WORKDIR /workspace
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web-console/package.json apps/web-console/package.json
 COPY .offline/pnpm-store /opt/rag/pnpm-store
-RUN pnpm install --offline --frozen-lockfile --store-dir /opt/rag/pnpm-store
+# 与后端相同：只信任已经过门禁的锁文件和本地 Store，不向 Registry 请求证明元数据。
+RUN pnpm install --offline --frozen-lockfile --trust-lockfile --store-dir /opt/rag/pnpm-store
 COPY tsconfig.json tsconfig.base.json ./
+COPY libs/contracts ./libs/contracts
 COPY apps/web-console ./apps/web-console
 RUN pnpm --filter @rag/web-console build
 
