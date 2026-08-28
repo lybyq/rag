@@ -16,6 +16,8 @@ type ChatBubble = Omit<ConversationMessage, 'content'> &
 const props = defineProps<{
   items: readonly ConversationMessage[];
   feedback?: Readonly<Record<string, 'HELPFUL' | 'NOT_HELPFUL'>>;
+  /** 列表最大高度；父级给定高度时传 '100%' 让其内部滚动，避免与输入框重叠。 */
+  maxHeight?: string;
 }>();
 const emit = defineEmits<{
   citation: [citationId: string];
@@ -79,7 +81,7 @@ function answerStatusLabel(status: string): string {
   <BubbleList
     :list="bubbles"
     item-key="id"
-    max-height="calc(100vh - 330px)"
+    :max-height="maxHeight"
     :auto-scroll="true"
     :show-back-button="true"
   >
@@ -158,17 +160,20 @@ function answerStatusLabel(status: string): string {
 }
 .markdown-body {
   min-width: min(620px, 70vw);
-  padding: 13px 15px;
+  padding: 14px 16px;
   border: 1px solid var(--line-subtle);
-  background: #fff;
+  border-radius: 12px;
+  background: var(--surface-elevated);
   color: var(--text-primary);
-  line-height: 1.7;
+  line-height: 1.75;
+  box-shadow: 0 1px 2px rgb(16 24 40 / 3%);
 }
 .answer-status {
   width: fit-content;
-  margin-bottom: 5px;
-  padding: 3px 7px;
+  margin-bottom: 6px;
+  padding: 3px 8px;
   border: 1px solid var(--line-strong);
+  border-radius: 999px;
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 9px;
@@ -177,18 +182,20 @@ function answerStatusLabel(status: string): string {
 .answer-status.is-conflict,
 .answer-status.is-clarification,
 .answer-status.is-degraded {
-  border-color: var(--warning-500, #b7791f);
-  color: #8a5612;
+  border-color: var(--warning-500, #f79009);
+  color: #b5651d;
+  background: rgb(247 144 9 / 8%);
 }
 .answer-status.is-rejected {
-  border-color: var(--danger-500, #b54444);
-  color: #9e3030;
+  border-color: var(--danger-500, #f04438);
+  color: #b42318;
+  background: rgb(240 68 56 / 8%);
 }
 .markdown-body.is-user {
   min-width: 0;
-  background: var(--ink-900);
+  background: var(--accent-500);
   color: #fff;
-  border-color: var(--ink-900);
+  border-color: var(--accent-500);
 }
 .markdown-body :deep(p) {
   margin: 0 0 8px;
@@ -199,6 +206,7 @@ function answerStatusLabel(status: string): string {
 .markdown-body :deep(pre) {
   overflow: auto;
   padding: 12px;
+  border-radius: 8px;
   background: #10191f;
   color: #eef2ef;
 }
@@ -214,8 +222,9 @@ function answerStatusLabel(status: string): string {
 }
 .markdown-body :deep(.citation-marker) {
   margin: 0 2px;
-  padding: 1px 6px;
+  padding: 1px 7px;
   border: 1px solid var(--accent-400);
+  border-radius: 999px;
   background: var(--accent-050);
   color: var(--accent-700);
   cursor: pointer;
@@ -229,6 +238,9 @@ function answerStatusLabel(status: string): string {
   cursor: pointer;
   font-size: 10px;
 }
+.copy-action:hover {
+  color: var(--accent-600);
+}
 .feedback-action {
   margin-left: 10px;
   padding: 3px 0;
@@ -238,8 +250,11 @@ function answerStatusLabel(status: string): string {
   cursor: pointer;
   font-size: 10px;
 }
+.feedback-action:hover {
+  color: var(--accent-600);
+}
 .feedback-action.is-active {
-  color: var(--accent-700);
+  color: var(--accent-600);
   text-decoration: underline;
   text-underline-offset: 3px;
 }

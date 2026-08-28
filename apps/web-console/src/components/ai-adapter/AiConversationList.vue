@@ -52,7 +52,8 @@ function select(item: unknown): void {
 .conversation-label strong {
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -60,5 +61,23 @@ function select(item: unknown): void {
   color: var(--text-tertiary);
   font-family: var(--font-mono);
   font-size: 9px;
+}
+/* 让 Element Plus X 的会话项铺满侧栏宽度并采用 Dify 蓝调选中态。 */
+:deep(.elx-conversations) {
+  --elx-conversations-list-auto-bg-color: var(--surface-elevated);
+  width: 100%;
+}
+:deep(.elx-conversations-item) {
+  margin-right: 0;
+  border-radius: 8px;
+}
+:deep(.elx-conversations-item--active),
+:deep(.elx-conversations-item--hovered),
+:deep(.elx-conversations-item:hover) {
+  background-color: var(--accent-050);
+}
+:deep(.elx-conversations-item--active .elx-conversations-item__label) {
+  color: var(--accent-700);
+  font-weight: 600;
 }
 </style>

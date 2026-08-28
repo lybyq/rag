@@ -51,8 +51,10 @@ const emit = defineEmits<{ close: [] }>();
 }
 .citation-sheet h3 {
   margin: 10px 0 4px;
-  font-family: var(--font-editorial);
-  font-size: 24px;
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 .heading-path {
   color: var(--text-tertiary);
@@ -60,10 +62,12 @@ const emit = defineEmits<{ close: [] }>();
 }
 blockquote {
   margin: 24px 0;
-  padding: 18px;
+  padding: 18px 20px;
   border-left: 3px solid var(--accent-500);
+  border-radius: 0 8px 8px 0;
   background: var(--surface-canvas);
   line-height: 1.8;
+  color: var(--text-secondary);
 }
 dl {
   display: grid;
@@ -82,5 +86,6 @@ dt {
 dd {
   margin: 0;
   text-align: right;
+  color: var(--text-primary);
 }
 </style>

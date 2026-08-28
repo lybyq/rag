@@ -114,57 +114,62 @@ function closeMobileNavigation(): void {
   width: 252px;
   display: flex;
   flex-direction: column;
-  background: var(--ink-950);
-  color: #f6f3eb;
+  background: var(--sidebar-bg);
+  color: var(--text-primary);
+  border-right: 1px solid var(--line-subtle);
 }
 .brand-lockup {
   height: 104px;
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 0 28px;
-  border-bottom: 1px solid rgb(255 255 255 / 10%);
+  padding: 0 24px;
+  border-bottom: 1px solid var(--line-subtle);
 }
 .brand-seal {
   width: 38px;
   height: 38px;
   display: grid;
   place-items: center;
+  border-radius: 10px;
   background: var(--accent-500);
-  color: var(--ink-950);
-  font-family: var(--font-editorial);
-  font-size: 21px;
-  font-weight: 800;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 700;
 }
 .brand-lockup strong,
 .brand-lockup small {
   display: block;
 }
 .brand-lockup strong {
-  font-family: var(--font-editorial);
-  font-size: 20px;
-  letter-spacing: 0.08em;
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--text-primary);
 }
 .brand-lockup small {
   margin-top: 3px;
-  color: var(--ink-300);
+  color: var(--text-tertiary);
   font-size: 9px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.14em;
 }
 .primary-navigation {
-  padding: 24px 14px;
+  padding: 16px 12px;
   display: grid;
-  gap: 5px;
+  gap: 4px;
 }
 .navigation-item {
   position: relative;
   display: grid;
-  grid-template-columns: 32px 1fr;
+  grid-template-columns: 28px 1fr;
   align-items: center;
   gap: 10px;
-  min-height: 58px;
-  padding: 8px 13px;
-  color: var(--ink-300);
+  min-height: 50px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--text-secondary);
   text-decoration: none;
   border-left: 2px solid transparent;
   transition:
@@ -172,18 +177,21 @@ function closeMobileNavigation(): void {
     color 0.18s ease;
 }
 .navigation-item:hover {
-  background: rgb(255 255 255 / 5%);
-  color: #fff;
+  background: #f5f7fa;
+  color: var(--text-primary);
 }
 .navigation-item.router-link-active {
-  background: rgb(232 126 55 / 12%);
-  color: #fff;
+  background: var(--sidebar-active);
+  color: var(--sidebar-active-text);
   border-left-color: var(--accent-500);
 }
 .navigation-mark {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--ink-500);
+  color: var(--text-tertiary);
+}
+.navigation-item.router-link-active .navigation-mark {
+  color: var(--accent-500);
 }
 .navigation-item strong,
 .navigation-item small {
@@ -194,19 +202,19 @@ function closeMobileNavigation(): void {
   font-weight: 600;
 }
 .navigation-item small {
-  margin-top: 3px;
+  margin-top: 2px;
   font-family: var(--font-mono);
   font-size: 8px;
   letter-spacing: 0.12em;
-  color: var(--ink-500);
+  color: var(--text-tertiary);
 }
 .rail-footer {
   margin-top: auto;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 22px 28px 28px;
-  border-top: 1px solid rgb(255 255 255 / 10%);
+  padding: 20px 24px 24px;
+  border-top: 1px solid var(--line-subtle);
 }
 .rail-footer strong,
 .rail-footer small {
@@ -215,10 +223,11 @@ function closeMobileNavigation(): void {
 .rail-footer strong {
   font-size: 11px;
   font-weight: 600;
+  color: var(--text-primary);
 }
 .rail-footer small {
   margin-top: 2px;
-  color: var(--ink-500);
+  color: var(--text-tertiary);
   font-family: var(--font-mono);
   font-size: 9px;
 }
@@ -227,7 +236,7 @@ function closeMobileNavigation(): void {
   height: 7px;
   border-radius: 50%;
   background: var(--success-500);
-  box-shadow: 0 0 0 4px rgb(61 167 121 / 12%);
+  box-shadow: 0 0 0 4px rgb(18 183 106 / 14%);
 }
 .workspace {
   min-height: 100vh;
@@ -238,8 +247,8 @@ function closeMobileNavigation(): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 34px;
-  background: rgb(248 246 240 / 92%);
+  padding: 0 32px;
+  background: rgb(255 255 255 / 92%);
   border-bottom: 1px solid var(--line-subtle);
   backdrop-filter: blur(12px);
 }
@@ -257,6 +266,7 @@ function closeMobileNavigation(): void {
 .top-bar-title strong {
   font-size: 15px;
   font-weight: 650;
+  color: var(--text-primary);
 }
 .user-chip {
   display: flex;
@@ -271,8 +281,12 @@ function closeMobileNavigation(): void {
   display: grid;
   place-items: center;
   border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--accent-050);
+  color: var(--accent-600);
   font-family: var(--font-mono);
   font-size: 10px;
+  font-weight: 700;
 }
 .user-chip strong,
 .user-chip small {
@@ -280,6 +294,7 @@ function closeMobileNavigation(): void {
 }
 .user-chip strong {
   font-size: 11px;
+  color: var(--text-primary);
 }
 .user-chip small {
   margin-top: 2px;
@@ -288,7 +303,7 @@ function closeMobileNavigation(): void {
   font-size: 9px;
 }
 .page-stage {
-  padding: 34px;
+  padding: 32px;
 }
 .mobile-menu {
   display: none;
@@ -315,7 +330,7 @@ function closeMobileNavigation(): void {
   }
   .mobile-menu span {
     height: 1px;
-    background: var(--ink-950);
+    background: var(--text-primary);
   }
   .page-stage {
     padding: 22px;

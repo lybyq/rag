@@ -94,7 +94,7 @@ const state = useAuditConsole();
 .audit-filter {
   margin-bottom: 10px;
   padding: 15px;
-  background: #efebe2;
+  background: var(--surface-canvas);
 }
 .audit-filter :deep(.el-input),
 .audit-filter :deep(.el-select) {

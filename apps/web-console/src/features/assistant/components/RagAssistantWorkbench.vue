@@ -98,6 +98,7 @@ async function copy(content: string): Promise<void> {
         v-else
         :items="chat.messages.value"
         :feedback="chat.feedbackByMessageId.value"
+        max-height="100%"
         @citation="openCitation"
         @copy="copy"
         @feedback="chat.feedback"
@@ -141,23 +142,30 @@ async function copy(content: string): Promise<void> {
 </template>
 
 <style scoped>
+/* 占满 .page-stage 剩余高度并锁死，让 BubbleList 的 height:100% 能收敛、消息区内部滚动。 */
 .assistant-workbench {
-  min-height: calc(100vh - 146px);
+  height: calc(100vh - 146px);
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
   overflow: hidden;
   border: 1px solid var(--line-subtle);
+  border-radius: 16px;
   background: var(--surface-elevated);
+  box-shadow: 0 1px 3px rgb(16 24 40 / 4%), 0 1px 2px rgb(16 24 40 / 3%);
 }
 .conversation-pane {
-  padding: 22px 14px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px;
   border-right: 1px solid var(--line-subtle);
-  background: #efebe2;
+  background: var(--surface-elevated);
+  overflow: hidden;
 }
 .pane-heading {
   display: grid;
   gap: 4px;
-  padding: 0 10px 18px;
+  padding: 0 8px 16px;
 }
 .pane-heading span,
 .assistant-toolbar span {
@@ -167,26 +175,40 @@ async function copy(content: string): Promise<void> {
   letter-spacing: 0.13em;
 }
 .pane-heading strong {
-  font-family: var(--font-editorial);
-  font-size: 18px;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+/* Conversations 组件需要定高父级才能滚动；占满剩余空间。 */
+.conversation-pane :deep(.elx-conversations) {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  box-shadow: none;
 }
 .answer-pane {
   min-width: 0;
+  min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(260px, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--surface-canvas);
 }
 .assistant-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 22px 28px;
+  padding: 18px 28px;
   border-bottom: 1px solid var(--line-subtle);
+  background: var(--surface-elevated);
 }
 .assistant-toolbar h1 {
-  margin: 5px 0 0;
-  font-family: var(--font-editorial);
-  font-size: 25px;
+  margin: 4px 0 0;
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 .scope-controls {
   min-width: 330px;
@@ -197,11 +219,16 @@ async function copy(content: string): Promise<void> {
 .scope-controls :deep(.el-select) {
   flex: 1;
 }
+/* 中间消息区：定高、内部滚动，避免撑破布局与输入框重叠。 */
+.answer-pane :deep(.elx-bubble-list) {
+  height: 100%;
+}
 .welcome-panel {
   align-self: center;
-  max-width: 700px;
+  justify-self: center;
+  max-width: 680px;
   margin: auto;
-  padding: 50px;
+  padding: 48px 40px;
   text-align: center;
 }
 .welcome-panel > span {
@@ -212,9 +239,11 @@ async function copy(content: string): Promise<void> {
 }
 .welcome-panel h2 {
   margin: 14px 0;
-  font-family: var(--font-editorial);
-  font-size: clamp(25px, 3vw, 40px);
-  line-height: 1.25;
+  font-family: var(--font-sans);
+  font-size: clamp(22px, 2.6vw, 32px);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
 }
 .welcome-panel p {
   color: var(--text-secondary);
@@ -223,19 +252,32 @@ async function copy(content: string): Promise<void> {
 .welcome-prompts {
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: 12px;
   margin-top: 24px;
 }
 .welcome-prompts button {
-  padding: 10px 14px;
+  padding: 10px 18px;
   border: 1px solid var(--line-strong);
-  background: transparent;
+  border-radius: 10px;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
   cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
+}
+.welcome-prompts button:hover {
+  border-color: var(--accent-400);
+  background: var(--accent-050);
+  color: var(--accent-700);
 }
 .composer-area {
-  padding: 14px 24px 18px;
+  padding: 14px 28px 18px;
   border-top: 1px solid var(--line-subtle);
-  background: #fff;
+  background: var(--surface-elevated);
 }
 .composer-area > small {
   display: block;

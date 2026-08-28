@@ -101,8 +101,8 @@ function formatTime(value: string): string {
 
 <style scoped>
 .space-table {
-  --el-table-header-bg-color: #ebe7df;
-  --el-table-row-hover-bg-color: #fff5eb;
+  --el-table-header-bg-color: #f9fafb;
+  --el-table-row-hover-bg-color: var(--accent-050);
   --el-table-border-color: var(--line-subtle);
   width: 100%;
 }

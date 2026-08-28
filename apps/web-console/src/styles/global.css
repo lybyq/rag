@@ -10,7 +10,18 @@ body {
   min-width: 320px;
   min-height: 100vh;
   font-family: var(--font-sans);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+}
+/* 让 Element Plus 统一接入 Dify 风格：圆角与字体随 token 走。 */
+:root {
+  --el-font-family: var(--font-sans);
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 12px;
+  --el-border-radius-circle: 100%;
+}
+.el-button {
+  font-family: var(--font-sans);
 }
 button,
 input,

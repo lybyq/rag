@@ -25,8 +25,8 @@ const status = computed(
     :status="status"
     :model-value="state === 'running'"
     :auto-collapse="state !== 'running'"
-    background-color="#f3f0e9"
-    color="#556168"
+    background-color="#f5f7fa"
+    color="#475467"
   >
     <template #label>{{ stage }}</template>
     <template #content>{{ stage }}。这里只展示可公开的执行状态，不包含模型思维链。</template>

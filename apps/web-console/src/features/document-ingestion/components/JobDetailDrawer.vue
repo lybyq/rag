@@ -179,7 +179,7 @@ header h3 {
 .stream-badge {
   padding: 7px 20px;
   color: var(--text-tertiary);
-  background: #efebe2;
+  background: var(--surface-canvas);
   font-family: var(--font-mono);
   font-size: 9px;
 }

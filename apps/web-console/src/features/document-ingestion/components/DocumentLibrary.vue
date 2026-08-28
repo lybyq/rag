@@ -215,7 +215,7 @@ async function batch(): Promise<void> {
 }
 .document-filters {
   padding: 14px 18px 0;
-  background: #efebe2;
+  background: var(--surface-canvas);
 }
 .document-filters :deep(.el-input),
 .document-filters :deep(.el-select) {

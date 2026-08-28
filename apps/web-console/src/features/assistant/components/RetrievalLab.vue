@@ -156,7 +156,7 @@ h3 {
 }
 .debug-bottom article {
   padding: 15px;
-  background: #efebe2;
+  background: var(--surface-canvas);
 }
 .debug-bottom p {
   display: flex;
