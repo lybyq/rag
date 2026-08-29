@@ -13,6 +13,7 @@ import { APP_CONFIG, type AppConfig } from '@rag/config';
 import {
   OperationalComponentSchema,
   ProviderProfileStatusSchema,
+  type DependencyHealth,
   type OperationalComponent,
   type ProviderProfileStatus,
 } from '@rag/contracts';
@@ -82,8 +83,12 @@ export class PlatformRuntimeOperationsAdapter
         label: dependency.name,
         kind: dependencyKind(dependency.name),
         status: dependency.status === 'up' ? 'UP' : 'DOWN',
-        latencyMs: dependency.latencyMs,
-        message: dependency.message,
+        // HealthProbe 使用 performance.now() 计算真实耗时，因此结果通常带小数；
+        // Dashboard 公共契约要求非负整数毫秒，必须在 Adapter 边界归一化。
+        latencyMs: normalizeLatencyMs(dependency.latencyMs),
+        // 健康探针成功时通常没有额外说明，而 Dashboard 要求每个组件都有可读消息。
+        // 这里补充脱敏默认值，避免 undefined 触发 Zod 校验并把整个 Dashboard 变成 500。
+        message: normalizeDependencyMessage(dependency),
         checkedAt: readiness.checkedAt,
         metadata: {},
       }),
@@ -199,4 +204,30 @@ function dependencyKind(name: string): OperationalComponent['kind'] {
   if (normalized.includes('minio')) return 'MINIO';
   if (normalized.includes('milvus')) return 'MILVUS';
   return 'API';
+}
+
+/**
+ * 把探针的高精度耗时转换成 Dashboard 契约使用的整数毫秒。
+ *
+ * 非有限值或负数代表上游探针违反契约；运维面不能因此再次抛出 500，故降为零并继续
+ * 展示该探针自身的 UP/DOWN 状态。真正的探针故障仍由 status 和 message 表达。
+ *
+ * @requirement OPS-005
+ */
+function normalizeLatencyMs(latencyMs: number): number {
+  return Number.isFinite(latencyMs) && latencyMs >= 0 ? Math.round(latencyMs) : 0;
+}
+
+/**
+ * 为没有附加说明的健康结果生成稳定、脱敏且可展示的消息。
+ *
+ * 成功探针省略 message 是健康契约允许的正常情况；失败探针原则上应给公开错误，
+ * 但这里仍提供兜底，避免单个不完整探针拖垮整个企业运维 Dashboard。
+ *
+ * @requirement OPS-005
+ */
+function normalizeDependencyMessage(dependency: DependencyHealth): string {
+  const message = dependency.message?.trim();
+  if (message) return message;
+  return dependency.status === 'up' ? '依赖协议检查通过' : '依赖健康检查失败';
 }

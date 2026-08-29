@@ -7,6 +7,12 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web-console/package.json apps/web-console/package.json
 RUN pnpm install --frozen-lockfile
 COPY . .
+ARG VITE_QUERY_API_URL=/query-probe/api/v1/health/live
+ARG VITE_INGESTION_PROBE_URL=/ingestion-probe/api/v1/health/live
+ARG VITE_SCHEDULER_PROBE_URL=/scheduler-probe/api/v1/health/live
+ENV VITE_QUERY_API_URL=${VITE_QUERY_API_URL}
+ENV VITE_INGESTION_PROBE_URL=${VITE_INGESTION_PROBE_URL}
+ENV VITE_SCHEDULER_PROBE_URL=${VITE_SCHEDULER_PROBE_URL}
 RUN pnpm --filter @rag/web-console build
 
 ARG NGINX_IMAGE=nginx:1.29.1-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de

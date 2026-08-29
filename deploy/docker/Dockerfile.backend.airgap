@@ -28,7 +28,9 @@ COPY --from=builder /workspace/dist/apps/${APP_NAME} ./dist
 COPY --from=builder /workspace/config ./config
 COPY --from=builder /workspace/database ./database
 COPY --from=builder /workspace/scripts ./scripts
-COPY --from=builder /workspace/libs/config ./libs/config
+# 运维脚本由 tsx 直接运行并通过 tsconfig paths 加载源码。health-check 需要 PG/Redis/MinIO/
+# Milvus Adapter；只复制 libs/config 会导致 Bootstrap/Preflight 容器运行时模块解析失败。
+COPY --from=builder /workspace/libs ./libs
 COPY --from=builder /workspace/tsconfig.json /workspace/tsconfig.base.json ./
 USER node
 CMD ["node", "dist/main.js"]

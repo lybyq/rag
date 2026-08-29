@@ -11,6 +11,12 @@ RUN pnpm install --offline --frozen-lockfile --trust-lockfile --store-dir /opt/r
 COPY tsconfig.json tsconfig.base.json ./
 COPY libs/contracts ./libs/contracts
 COPY apps/web-console ./apps/web-console
+ARG VITE_QUERY_API_URL=/query-probe/api/v1/health/live
+ARG VITE_INGESTION_PROBE_URL=/ingestion-probe/api/v1/health/live
+ARG VITE_SCHEDULER_PROBE_URL=/scheduler-probe/api/v1/health/live
+ENV VITE_QUERY_API_URL=${VITE_QUERY_API_URL}
+ENV VITE_INGESTION_PROBE_URL=${VITE_INGESTION_PROBE_URL}
+ENV VITE_SCHEDULER_PROBE_URL=${VITE_SCHEDULER_PROBE_URL}
 RUN pnpm --filter @rag/web-console build
 
 FROM ${NGINX_RUNTIME_IMAGE} AS runtime

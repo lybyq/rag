@@ -19,7 +19,8 @@ COPY --from=builder /workspace/dist/apps/${APP_NAME} ./dist
 COPY --from=builder /workspace/config ./config
 COPY --from=builder /workspace/database ./database
 COPY --from=builder /workspace/scripts ./scripts
-COPY --from=builder /workspace/libs/config ./libs/config
+# scripts/health-check.ts 通过 tsconfig paths 直接加载多个 Adapter 源码，运行镜像必须携带这些库。
+COPY --from=builder /workspace/libs ./libs
 COPY --from=builder /workspace/tsconfig.json /workspace/tsconfig.base.json ./
 USER node
 CMD ["node", "dist/main.js"]
