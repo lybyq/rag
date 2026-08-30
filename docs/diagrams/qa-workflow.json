@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "在线问答 · 检索回答流程",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "user", "label": "用户 / Web 控制台" },
+    { "id": "plan", "label": "查询规划" },
+    { "id": "retrieve", "label": "混合检索与证据" },
+    { "id": "generate", "label": "重排与生成" },
+    { "id": "return", "label": "校验与返回" }
+  ],
+  "phases": [
+    { "id": "plan", "label": "查询规划", "fromCol": 0, "toCol": 2 },
+    { "id": "retrieve", "label": "检索与重排", "fromCol": 3, "toCol": 4 },
+    { "id": "answer", "label": "生成与返回", "fromCol": 5, "toCol": 5, "variant": "emphasis" }
+  ],
+  "mainPath": ["ask", "route", "rewrite", "retrieve", "recheck", "rerank", "generate", "cite"],
+  "nodes": [
+    { "id": "ask", "lane": "user", "col": 0, "type": "external", "label": "提问", "sublabel": "自然语言" },
+    { "id": "route", "lane": "plan", "col": 1, "type": "backend", "label": "路由", "sublabel": "CHAT · 拒答", "width": 70 },
+    { "id": "rewrite", "lane": "plan", "col": 2, "type": "backend", "label": "查询改写", "sublabel": "LLM · 可选", "width": 70 },
+    { "id": "retrieve", "lane": "retrieve", "col": 3, "type": "database", "label": "混合检索", "sublabel": "Dense+Sparse", "width": 60 },
+    { "id": "recheck", "lane": "retrieve", "col": 4, "type": "backend", "label": "回源+ACL", "sublabel": "PG 证据", "width": 60 },
+    { "id": "rerank", "lane": "generate", "col": 4, "type": "backend", "label": "重排", "sublabel": "Reranker", "width": 70 },
+    { "id": "generate", "lane": "generate", "col": 5, "type": "backend", "label": "答案生成", "sublabel": "GLM-4.7", "width": 70 },
+    { "id": "cite", "lane": "return", "col": 5, "type": "backend", "label": "校验 + 引用", "sublabel": "SSE 流式" }
+  ],
+  "edges": [
+    { "from": "ask", "to": "route", "label": "提问", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "from": "route", "to": "rewrite", "label": "需改写", "role": "main", "route": "bottom-channel", "fromSide": "bottom", "toSide": "bottom" },
+    { "from": "rewrite", "to": "retrieve", "label": "改写查询", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "from": "retrieve", "to": "recheck", "label": "候选回源", "role": "main", "route": "bottom-channel", "fromSide": "bottom", "toSide": "bottom" },
+    { "from": "recheck", "to": "rerank", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "from": "rerank", "to": "generate", "label": "Top-N 证据", "role": "main", "route": "bottom-channel", "fromSide": "bottom", "toSide": "bottom" },
+    { "from": "generate", "to": "cite", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "from": "recheck", "to": "retrieve", "label": "重试", "role": "return", "route": "return-left", "fromSide": "left", "toSide": "left", "labelDy": 50 }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "查询规划", "items": ["路由区分 CHAT / KNOWLEDGE / REJECT", "非知识类问题直接返回，不进入检索", "LLM 改写为可选增强，失败保留原计划"] },
+    { "dot": "emerald", "title": "混合检索", "items": ["Dense + Sparse 融合 + Redis 查询缓存", "PG 回源 + ACL 权限收窄", "结果不足最多重试 2 轮"] },
+    { "dot": "rose", "title": "证据与生成", "items": ["Reranker 重排 → 证据构建 → GLM 生成", "答案校验与拒答，证据不足不硬答", "SSE 流式返回 + 引用定位"] }
+  ]
+}

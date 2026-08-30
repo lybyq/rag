@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "离线知识上传 · 入库流程",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "user", "label": "用户 / Web 控制台" },
+    { "id": "platform", "label": "platform-api" },
+    { "id": "parser", "label": "document-parser-service" },
+    { "id": "worker", "label": "ingestion-worker" },
+    { "id": "scheduler", "label": "scheduler-worker" },
+    { "id": "exceptions", "label": "异常 · 重试", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "intake", "label": "接入", "fromCol": 0, "toCol": 1 },
+    { "id": "parse", "label": "解析", "fromCol": 2, "toCol": 2 },
+    { "id": "knowledge", "label": "知识加工", "fromCol": 3, "toCol": 3 },
+    { "id": "index", "label": "索引与发布", "fromCol": 4, "toCol": 5, "variant": "emphasis" }
+  ],
+  "mainPath": ["upload", "receive", "parse", "chunk", "embed", "index", "publish"],
+  "nodes": [
+    { "id": "upload", "lane": "user", "col": 0, "type": "external", "label": "上传文档", "sublabel": "TXT · 扫描 PDF" },
+    { "id": "receive", "lane": "platform", "col": 1, "type": "backend", "label": "接收与登记", "sublabel": "MinIO · PG 任务" },
+    { "id": "parse", "lane": "parser", "col": 2, "type": "backend", "label": "解析 / OCR", "sublabel": "PDF · Office · 扫描件" },
+    { "id": "chunk", "lane": "worker", "col": 3, "type": "backend", "label": "切分", "sublabel": "质量审核", "width": 60 },
+    { "id": "embed", "lane": "worker", "col": 4, "type": "backend", "label": "向量化", "sublabel": "Embedding", "width": 60 },
+    { "id": "index", "lane": "worker", "col": 5, "type": "database", "label": "建索引", "sublabel": "Milvus 入库", "width": 84 },
+    { "id": "publish", "lane": "scheduler", "col": 5, "type": "backend", "label": "发布", "sublabel": "Manifest 切换" },
+    { "id": "reprocess", "lane": "exceptions", "col": 3, "type": "backend", "label": "重新加工", "sublabel": "质量不通过" }
+  ],
+  "edges": [
+    { "from": "upload", "to": "receive", "label": "预签名上传", "role": "main", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "from": "receive", "to": "parse", "label": "解析事件", "role": "async", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "from": "parse", "to": "chunk", "label": "加工事件", "role": "async", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "from": "chunk", "to": "embed", "role": "main", "route": "bottom-channel", "fromSide": "bottom", "toSide": "bottom" },
+    { "from": "embed", "to": "index", "role": "main", "route": "bottom-channel", "fromSide": "bottom", "toSide": "bottom" },
+    { "from": "index", "to": "publish", "role": "async", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "from": "chunk", "to": "reprocess", "label": "审核未通过", "role": "error", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "from": "reprocess", "to": "chunk", "role": "return", "route": "return-left", "fromSide": "left", "toSide": "left" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "接入", "items": ["上传走预签名直传 MinIO，不占应用带宽", "platform-api 在 PG 登记任务并发出首个事件"] },
+    { "dot": "emerald", "title": "异步解耦", "items": ["各阶段经 Outbox → BullMQ 事件驱动", "任务 lease + 心跳保证崩溃恢复与幂等"] },
+    { "dot": "rose", "title": "发布契约", "items": ["质量审核不通过则重新加工", "Manifest 原子切换 Head，旧索引延迟清理"] }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "企业 RAG 知识库 · 整体系统架构",
+    "locale": "zh-CN",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    { "id": "user", "type": "external", "label": "用户", "sublabel": "浏览器", "pos": [20, 40], "size": [120, 56] },
+    { "id": "web-console", "type": "frontend", "label": "Web 控制台", "sublabel": "Vue 3 · Nginx :8080", "pos": [180, 40], "size": [160, 56], "brand": "vue" },
+
+    { "id": "platform-api", "type": "backend", "label": "platform-api", "sublabel": "知识库 · 权限 · 任务 :3000", "pos": [40, 190], "size": [160, 64] },
+    { "id": "rag-query-service", "type": "backend", "label": "rag-query-service", "sublabel": "会话 · 问答 · SSE :3001", "pos": [280, 190], "size": [160, 64] },
+    { "id": "document-parser-service", "type": "backend", "label": "document-parser-service", "sublabel": "解析 · OCR :8104", "pos": [520, 190], "size": [160, 64] },
+    { "id": "ingestion-worker", "type": "backend", "label": "ingestion-worker", "sublabel": "加工 · Embedding · 建索引", "pos": [760, 190], "size": [160, 64] },
+    { "id": "scheduler-worker", "type": "backend", "label": "scheduler-worker", "sublabel": "维护 · 发布 · 评测", "pos": [1000, 190], "size": [160, 64] },
+
+    { "id": "postgresql", "type": "database", "label": "PostgreSQL", "sublabel": "元数据 · 证据 · Outbox", "pos": [40, 400], "size": [150, 60], "brand": "postgresql" },
+    { "id": "redis-cache", "type": "database", "label": "Redis Cache", "sublabel": "查询缓存 · 权限", "pos": [280, 400], "size": [150, 60], "brand": "redis" },
+    { "id": "minio", "type": "cloud", "label": "MinIO / S3", "sublabel": "原文件 · 派生 · 证据", "pos": [520, 400], "size": [150, 60] },
+    { "id": "milvus", "type": "database", "label": "Milvus", "sublabel": "Dense / Sparse 向量", "pos": [760, 400], "size": [150, 60] },
+    { "id": "redis-bullmq", "type": "messagebus", "label": "Redis BullMQ", "sublabel": "rag-ingestion 队列", "pos": [1000, 400], "size": [150, 60], "brand": "redis" },
+
+    { "id": "reranker", "type": "external", "label": "Reranker", "sublabel": "重排 HTTP", "pos": [160, 620], "size": [150, 56] },
+    { "id": "llm", "type": "external", "label": "LLM 网关", "sublabel": "GLM-4.7 · OpenAI 兼容", "pos": [400, 620], "size": [150, 56] },
+    { "id": "ocr", "type": "external", "label": "PaddleOCR 网关", "sublabel": "/v1/ocr 协议 v2", "pos": [640, 620], "size": [150, 56] },
+    { "id": "embedding", "type": "external", "label": "Embedding", "sublabel": "Dense / Sparse HTTP", "pos": [880, 620], "size": [150, 56] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "应用服务", "wraps": ["web-console", "platform-api", "rag-query-service", "document-parser-service", "ingestion-worker", "scheduler-worker"] },
+    { "kind": "region", "label": "数据存储", "wraps": ["postgresql", "redis-cache", "minio", "milvus", "redis-bullmq"] },
+    { "kind": "region", "label": "模型服务（内网提供）", "wraps": ["reranker", "llm", "ocr", "embedding"] }
+  ],
+  "connections": [
+    { "id": "user-web", "from": "user", "to": "web-console", "label": "HTTPS", "variant": "emphasis", "fromSide": "right", "toSide": "left" },
+
+    { "id": "web-platform", "from": "web-console", "to": "platform-api", "label": "REST API", "fromSide": "bottom", "toSide": "top" },
+    { "id": "web-query", "from": "web-console", "to": "rag-query-service", "label": "SSE 问答", "fromSide": "bottom", "toSide": "top" },
+
+    { "id": "platform-pg", "from": "platform-api", "to": "postgresql", "label": "元数据 · 任务", "fromSide": "bottom", "toSide": "top" },
+    { "id": "query-cache", "from": "rag-query-service", "to": "redis-cache", "label": "查询缓存", "fromSide": "bottom", "toSide": "top" },
+    { "id": "parser-minio", "from": "document-parser-service", "to": "minio", "label": "读取原文件", "fromSide": "bottom", "toSide": "top" },
+    { "id": "worker-milvus", "from": "ingestion-worker", "to": "milvus", "label": "建索引", "fromSide": "bottom", "toSide": "top" },
+    { "id": "scheduler-queue", "from": "scheduler-worker", "to": "redis-bullmq", "label": "发布 Outbox", "fromSide": "bottom", "toSide": "top" },
+
+    { "id": "query-rerank", "from": "rag-query-service", "to": "reranker", "label": "重排", "fromSide": "left", "toSide": "top", "via": [[235, 222], [235, 620]] },
+    { "id": "query-llm", "from": "rag-query-service", "to": "llm", "label": "生成答案", "fromSide": "right", "toSide": "top", "via": [[475, 222], [475, 620]] },
+    { "id": "parser-ocr", "from": "document-parser-service", "to": "ocr", "label": "OCR", "fromSide": "right", "toSide": "top", "via": [[715, 222], [715, 620]] },
+    { "id": "worker-embed", "from": "ingestion-worker", "to": "embedding", "label": "向量化", "fromSide": "right", "toSide": "top", "via": [[955, 222], [955, 620]] }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "接入与入库", "items": ["上传经预签名直传 MinIO，PG 登记任务", "解析 / OCR 后经 Outbox → BullMQ 异步加工", "Embedding 写 Milvus，Manifest 原子发布"] },
+    { "dot": "emerald", "title": "检索与问答", "items": ["rag-query-service 混合检索 Milvus（Dense+Sparse）", "PG 证据回源 + ACL 权限收窄 + Redis 缓存", "Reranker 重排 → GLM-4.7 生成 → SSE 流式引用"] },
+    { "dot": "rose", "title": "解耦与可靠性", "items": ["Outbox + BullMQ 事件驱动，幂等可恢复", "双 Redis 实例：Cache 与队列分离", "模型服务 fail-closed，契约不符即拒写"] }
+  ]
+}
