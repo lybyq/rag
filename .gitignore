@@ -27,3 +27,5 @@ Thumbs.db
 
 # 本地基础设施数据
 .data/
+.codegraph
+.claude
