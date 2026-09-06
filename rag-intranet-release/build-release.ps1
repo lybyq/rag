@@ -78,6 +78,11 @@ try {
 
   $tagSuffix = "$Version-$shortSha"
   if ($dirty) { $tagSuffix = "$tagSuffix-dirty" }
+  $parserRevisionLine = Get-Content -LiteralPath (Join-Path $releaseRoot '.env.example') |
+    Where-Object { $_ -match '^PARSER_REVISION=' } |
+    Select-Object -First 1
+  if (-not $parserRevisionLine) { throw '.env.example 缺少 PARSER_REVISION' }
+  $parserRevision = ($parserRevisionLine -split '=', 2)[1].Trim()
   $generatedNames = @(
     'rag-apps.tar',
     'images.env',
@@ -251,6 +256,7 @@ try {
     offlineApplicationBuild = $true
     builtAt = $created
     imageCount = $imageTags.Count
+    parserRevision = $parserRevision
     images = @($manifestEntries)
   }
   [IO.File]::WriteAllText(
@@ -268,6 +274,7 @@ try {
     "dirty=$dirty",
     "qualityGatePassed=$(-not $SkipChecks)",
     'imageCount=6',
+    "parserRevision=$parserRevision",
     "builtAt=$created"
   )
   [IO.File]::WriteAllLines(

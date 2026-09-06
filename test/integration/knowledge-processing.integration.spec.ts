@@ -6,6 +6,7 @@
  * @requirement KNO-012
  * @requirement KNO-013
  * @requirement KNO-014
+ * @requirement PAR-024
  */
 import {
   KnowledgeProcessingService,
@@ -29,7 +30,7 @@ import { Pool } from 'pg';
 const describeWithInfra = process.env.RUN_INTEGRATION_TESTS === 'true' ? describe : describe.skip;
 
 describeWithInfra(
-  '[KNO-011][KNO-012][KNO-013][KNO-014] 知识加工与质量 PostgreSQL transaction',
+  '[KNO-011][KNO-012][KNO-013][KNO-014][PAR-024] 知识加工与质量 PostgreSQL transaction',
   () => {
     const config = loadAppConfig(process.env);
     const pool = new Pool({ connectionString: config.databaseUrl, max: 4 });
@@ -347,6 +348,9 @@ describeWithInfra(
         derivedSha256: 'b'.repeat(64),
         snapshotReused: false,
         durationMs: 3,
+        ocrOutcomeCounts: {},
+        requiresManualReview: false,
+        reviewReason: null,
       });
       return { jobId: completed.job.id, documentVersionId: completed.documentVersion.id };
     }

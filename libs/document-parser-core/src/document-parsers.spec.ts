@@ -240,7 +240,7 @@ describe('[PAR-003] OOXML security facts', () => {
     });
   });
 
-  it('XLSX 恶意远端单元格坐标在物化空列前被上限拦截', async () => {
+  it('[PAR-017] XLSX 恶意远端单元格坐标在物化空列前被列预算拦截', async () => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('稀疏攻击');
     sheet.getCell('ZZ1').value = '远端单元格';
@@ -259,7 +259,7 @@ describe('[PAR-003] OOXML security facts', () => {
         },
         signal,
       ),
-    ).rejects.toMatchObject({ code: 'TABLE_CELL_LIMIT_EXCEEDED' });
+    ).rejects.toMatchObject({ code: 'TABLE_COLUMN_LIMIT_EXCEEDED' });
   });
 });
 
@@ -271,7 +271,9 @@ async function docxFixture(): Promise<Uint8Array> {
     '_rels/.rels':
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
     'word/document.xml':
-      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>制度标题</w:t></w:r></w:p><w:p><w:r><w:t>制度正文</w:t></w:r></w:p><w:tbl><w:tr><w:tc><w:tcPr><w:gridSpan w:val="2"/></w:tcPr><w:p><w:r><w:t>合并表头</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tc><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>B</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:p><w:r><w:drawing /></w:r></w:p></w:body></w:document>',
+      '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>制度标题</w:t></w:r></w:p><w:p><w:r><w:t>制度正文</w:t></w:r></w:p><w:tbl><w:tr><w:tc><w:tcPr><w:gridSpan w:val="2"/></w:tcPr><w:p><w:r><w:t>合并表头</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tc><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>B</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:p><w:r><w:drawing><wp:inline><wp:docPr id="1" name="制度截图"/><a:graphic><a:graphicData><pic:pic><pic:blipFill><a:blip r:embed="rIdImage1"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p></w:body></w:document>',
+    'word/_rels/document.xml.rels':
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdImage1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/></Relationships>',
     'word/media/image1.png': tinyPng(),
   });
 }

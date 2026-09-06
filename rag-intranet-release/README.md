@@ -214,6 +214,20 @@ Linux 使用同名 `.sh` 脚本。`start` 会先跑幂等数据库迁移，再�
 需要回退时进入旧目录重新执行 `start`。数据库迁移必须遵守 Expand→Migrate→Contract；如果新版本已经
 执行不可向后兼容的 Contract 迁移，不能直接回退镜像。
 
+### 4.5 这次 Parser 1.1.0 怎么升级旧文档
+
+新包的 `.env.example` 已是 `PARSER_REVISION=1.1.0`。启动后先检查：
+
+```powershell
+Invoke-RestMethod http://localhost:8104/v1/health/ready
+```
+
+返回的 `revision` 必须是 `1.1.0`、`protocolVersion` 必须是 `2`。不是 1.1.0 就表示镜像或 `.env` 仍旧，先别批量重处理。
+
+旧文档不会被启动过程自动覆盖。到管理页面对需要升级的文档点“重处理”，系统会新建 `contentRevision`；旧 Block、Chunk 和快照仍保留。新快照路径同时包含 `content-rN` 和 `revision-1.1.0`，不会复用或覆盖 1.0.0 快照。
+
+重处理后的正确顺序是：解析完成 → 质量报告通过/人工批准 → 新索引写入 → 向量数和主键对账通过 → 原子切换空间 Manifest。任一步失败，当前在线 Manifest 都不变。需要回退时在历史 Manifest 中选择旧版本执行回滚；回滚只切换 Head，不改写新旧内容事实。
+
 ## 5. 模型服务最小契约
 
 | 服务           | 应用实际调用                                          |

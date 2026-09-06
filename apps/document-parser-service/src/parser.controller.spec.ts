@@ -5,6 +5,7 @@
  * @requirement PAR-004
  * @requirement PAR-005
  * @requirement PAR-013
+ * @requirement PAR-017
  */
 import { loadAppConfig } from '@rag/config';
 import { createDocumentParserRegistry } from '@rag/document-parser-core';
@@ -65,6 +66,9 @@ describe('[PAR-004][PAR-005] document parser HTTP protocol', () => {
       protocolVersion: config.fileProcessing.parser.protocolVersion,
       ocrCandidates: [expect.objectContaining({ kind: 'WHOLE_IMAGE' })],
     });
+    const renderedMetrics = await metrics.render();
+    expect(renderedMetrics).toContain('rag_document_parser_output_characters_count');
+    expect(renderedMetrics).toContain('rag_document_parser_pixels_count');
   });
 
   it('错误密钥、协议漂移和未知字段都 fail closed', async () => {

@@ -10,6 +10,7 @@
  * @requirement IDX-011
  * @requirement IDX-012
  * @requirement IDX-013
+ * @requirement PAR-024
  */
 import {
   IndexingService,
@@ -33,7 +34,7 @@ import { Pool } from 'pg';
 const describeWithInfra = process.env.RUN_INTEGRATION_TESTS === 'true' ? describe : describe.skip;
 
 describeWithInfra(
-  '[IDX-005][IDX-009][IDX-011][IDX-012][IDX-013][IDX-016] 索引构建与发布 publication',
+  '[IDX-005][IDX-009][IDX-011][IDX-012][IDX-013][IDX-016][PAR-024] 索引构建与发布 publication',
   () => {
     const config = loadAppConfig(process.env);
     const pool = new Pool({ connectionString: config.databaseUrl, max: 6 });

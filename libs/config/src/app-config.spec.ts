@@ -56,6 +56,24 @@ describe('[BASE-010] startup configuration', () => {
     ).toThrow(/PARSER_ADAPTER_STRUCTURE_SCAN/);
   });
 
+  it('[PAR-017] 暴露统一 Parser 预算，并拒绝展开上限小于实际单元格上限', () => {
+    const config = loadAppConfig({ APP_ENV: 'development' });
+    expect(config.fileProcessing.limits).toMatchObject({
+      maxTableCells: 5_000_000,
+      maxExpandedTableCells: 10_000_000,
+      maxTableRows: 100_000,
+      maxTableColumns: 16_384,
+      maxTableSpan: 10_000,
+      maxOutputCharacters: 50_000_000,
+    });
+    expect(() =>
+      loadAppConfig({
+        FILE_MAX_TABLE_CELLS: '5000',
+        FILE_MAX_EXPANDED_TABLE_CELLS: '4000',
+      }),
+    ).toThrow(/展开单元格上限/);
+  });
+
   it('[KNO-007] 拒绝 Parent 小于 Child 或 overlap 不小于 Child 的分块预算', () => {
     expect(() =>
       loadAppConfig({
@@ -86,7 +104,7 @@ describe('[BASE-010] startup configuration', () => {
     ).toThrow(/乱码拒绝阈值/);
   });
 
-  it('[CFG-001] external-dev 默认使用自有 Node Parser、Docling OCR 与本地 Fixture 模型组合', () => {
+  it('[CFG-001][PAR-024] external-dev 默认使用已发布的 Node Parser revision、Docling OCR 与本地 Fixture 模型组合', () => {
     const config = loadAppConfig({
       APP_ENV: 'development',
       PROVIDER_PROFILE: 'external-dev',
@@ -95,6 +113,7 @@ describe('[BASE-010] startup configuration', () => {
     expect(config.providerProfile).toBe('external-dev');
     expect(config.fileProcessing.parser.adapter).toBe('http');
     expect(config.fileProcessing.parser.profileId).toBe('node-multi-parser-v1');
+    expect(config.fileProcessing.parser.revision).toBe('1.1.0');
     expect(config.fileProcessing.ocr.adapter).toBe('docling');
     expect(config.embedding.adapter).toBe('fixture');
     expect(config.reranker.adapter).toBe('fixture');
@@ -140,6 +159,12 @@ describe('[BASE-010] startup configuration', () => {
     expect(config.providerProfile).toBe('intranet-production');
     expect(config.fileProcessing.parser.adapter).toBe('http');
     expect(config.fileProcessing.ocr.adapter).toBe('http');
+    expect(config.fileProcessing.ocr.capabilities).toEqual([
+      'PAGE_SELECTIVE',
+      'REGION_TARGET',
+      'EMBEDDED_IMAGE_TARGET',
+      'WHOLE_IMAGE_TARGET',
+    ]);
     expect(config.llm.adapter).toBe('openai-compatible');
     expect(config.embedding).toMatchObject({
       adapter: 'http',
@@ -261,6 +286,7 @@ function validIntranetProductionEnvironment(): NodeJS.ProcessEnv {
     OCR_MODEL_ID: 'paddleocr-v4',
     OCR_PROFILE_ID: 'paddleocr-intranet-v1',
     OCR_REVISION: '2026.08.1',
+    OCR_CAPABILITIES: 'PAGE_SELECTIVE,REGION_TARGET,EMBEDDED_IMAGE_TARGET,WHOLE_IMAGE_TARGET',
     LLM_ADAPTER: 'openai-compatible',
     LLM_BASE_URL: 'http://llm-gateway.internal/v1',
     LLM_MODEL_ID: 'internal-llm',

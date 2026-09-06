@@ -134,7 +134,32 @@ pnpm security:audit:intranet
 4. 发现质量或协议问题时停止新实例接流量，恢复上一份环境注入和镜像 digest，再创建新 content revision 重处理；不要覆盖历史 Run。
 5. 索引构建与发布 建新 Collection/alias 后才能切换 Embedding 维度或输出模式，禁止把新维度写入旧 Collection。
 
-### 7.1 索引构建与发布 自动 rollout 实操
+### 7.1 Parser 1.1.0 重处理与发布
+
+Parser 1.1.0 改变了结构恢复语义，旧文档不会在应用重启时被原地覆盖。部署新镜像并设置
+`PARSER_REVISION=1.1.0` 后，按文档执行“重处理”：
+
+1. `POST /api/v1/document-versions/{versionId}/reprocess` 携带当前 `expectedVersion` 和原因；数据库在同一事务把 `contentRevision + 1`、新 Job 和 Outbox 建出来，旧 Run/Block/Chunk 保留。
+2. 新派生快照路径包含 `content-rN/parser-{profile}/revision-1.1.0`，快照 JSON 和 SHA 也包含冻结的 Parser Profile；1.0.0 对象不会被 HEAD 命中或覆盖。
+3. 解析与 Chunk 质量报告通过后才 `eligible_for_index=true`；需要人工审核的文档先批准，不能绕过质量门禁直接发布。
+4. 索引先写不可见 Manifest，再核对预期/实际向量数、主键和固定查询；只有 `VERIFIED` 才在 PostgreSQL 单事务中切换 `space_manifest_heads`。
+5. 发布异常时 Head 保持旧 Manifest。需要业务回退时选择仍保留向量的历史 Manifest；回退只是原子切 Head，不覆盖当前或历史 Parser 内容事实。
+
+健康检查必须看到新版本：
+
+```http
+GET http://document-parser-service:8104/v1/health/ready
+
+{
+  "status": "up",
+  "revision": "1.1.0",
+  "protocolVersion": "2"
+}
+```
+
+如果返回仍是 1.0.0，说明容器或 env 仍旧；不要先批量重处理。
+
+### 7.2 索引构建与发布 自动 rollout 实操
 
 先部署使用新 `EMBEDDING_PROFILE_ID` 的 ingestion-worker 与 scheduler-worker。启动兼容性检查通过后，由有空间 ADMIN 权限的用户创建请求：
 

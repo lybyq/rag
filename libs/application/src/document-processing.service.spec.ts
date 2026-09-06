@@ -246,9 +246,9 @@ function fixture(malwareVerdict: 'CLEAN' | 'INFECTED' = 'CLEAN'): {
 }
 
 describe('[CFG-007] DocumentProcessingService', () => {
-  it('[PAR-007][PAR-008][PAR-010][PAR-012] 只 OCR 低覆盖页并原子提交派生快照', async () => {
+  it('[PAR-016] 低置信 PAGE OCR 保留原生内容并停在人工审核', async () => {
     const { service, repository, storage, ocr } = fixture();
-    await expect(service.process('job-1', 'worker-1')).resolves.toBe('COMPLETED');
+    await expect(service.process('job-1', 'worker-1')).resolves.toBe('MANUAL_REVIEW');
     expect(repository.beginRun).toHaveBeenCalledWith(
       expect.objectContaining({ providerProfile: 'test' }),
     );
@@ -269,11 +269,141 @@ describe('[CFG-007] DocumentProcessingService', () => {
     const completed = repository.complete.mock.calls[0]?.[0];
     expect(completed?.blocks.map((block) => block.originalText)).toEqual([
       '可靠文字页',
-      'OCR  扫描页',
+      '错误的扫描页占位',
+    ]);
+    expect(completed).toMatchObject({ requiresManualReview: true });
+    expect(completed?.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'OCR_LOW_CONFIDENCE',
+          pageNo: 2,
+          severity: 'ERROR',
+        }),
+      ]),
+    );
+  });
+
+  it('[PAR-007][PAR-008][PAR-010][PAR-012][PAR-016][PAR-024] 可靠 PAGE OCR 才替换原生页并继续下游', async () => {
+    const { service, repository, ocr, storage } = fixture();
+    ocr.recognize.mockResolvedValue({
+      engine: 'test-ocr',
+      engineRevision: 'ocr-r1',
+      protocolVersion: '1',
+      results: [
+        {
+          targetId: 'page-2',
+          pageNo: 2,
+          averageConfidence: 0.9,
+          blocks: [
+            {
+              type: 'PARAGRAPH',
+              text: '可靠 OCR 扫描页',
+              originalText: '可靠 OCR 扫描页',
+              pageNo: 2,
+              sheetName: null,
+              slideNo: null,
+              bbox: null,
+              headingLevel: null,
+              confidence: 0.9,
+              table: null,
+              metadata: { extractionSource: 'OCR', sourceTargetId: 'page-2' },
+            },
+          ],
+        },
+      ],
+      durationMs: 8,
+      warnings: [],
+    });
+    await expect(service.process('job-1', 'worker-1')).resolves.toBe('COMPLETED');
+    const completed = repository.complete.mock.calls[0]?.[0];
+    expect(completed?.blocks.map((block) => block.text)).toEqual(['可靠文字页', '可靠 OCR 扫描页']);
+    expect(completed).toMatchObject({ requiresManualReview: false });
+    expect(storage.headObject).toHaveBeenCalledWith(
+      'rag-derived',
+      expect.stringContaining('/parser-parser-profile/revision-parser-r1/blocks.json'),
+      expect.anything(),
+    );
+  });
+
+  it.each([
+    ['缺失', [], 'OCR_RESULT_MISSING'],
+    [
+      '空结果',
+      [{ targetId: 'page-2', pageNo: 2, averageConfidence: 0.99, blocks: [] }],
+      'OCR_EMPTY_RESULT',
+    ],
+  ])('[PAR-016] OCR %s时保留原生页并记录问题', async (_name, results, issueCode) => {
+    const { service, repository, ocr } = fixture();
+    ocr.recognize.mockResolvedValue({
+      engine: 'test-ocr',
+      engineRevision: 'ocr-r1',
+      protocolVersion: '1',
+      results,
+      durationMs: 8,
+      warnings: [],
+    });
+    await expect(service.process('job-1', 'worker-1')).resolves.toBe('MANUAL_REVIEW');
+    const completed = repository.complete.mock.calls[0]?.[0];
+    expect(completed?.blocks.map((block) => block.text)).toContain('错误的扫描页占位');
+    expect(completed?.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: issueCode, pageNo: 2 })]),
+    );
+  });
+
+  it('[PAR-016] OCR 部分成功只替换成功页，缺失页保留原文并阻止进入 Chunk', async () => {
+    const { service, repository, parser, ocr } = fixture();
+    parser.parse.mockResolvedValue({
+      ...parserResult,
+      blocks: [
+        ...parserResult.blocks,
+        {
+          ...parserResult.blocks[1]!,
+          text: '第三页原生占位',
+          originalText: '第三页原生占位',
+          pageNo: 3,
+        },
+      ],
+      pages: [
+        ...parserResult.pages,
+        { pageNo: 3, textCharacterCount: 0, textCoverage: 0, imageOnly: true },
+      ],
+      inspection: { ...parserResult.inspection, pageCount: 3 },
+    });
+    ocr.recognize.mockResolvedValue({
+      engine: 'test-ocr',
+      engineRevision: 'ocr-r1',
+      protocolVersion: '1',
+      results: [
+        {
+          targetId: 'page-2',
+          pageNo: 2,
+          averageConfidence: 0.9,
+          blocks: [
+            {
+              ...parserResult.blocks[1]!,
+              text: '第二页可靠 OCR',
+              originalText: '第二页可靠 OCR',
+              confidence: 0.9,
+              metadata: { extractionSource: 'OCR', sourceTargetId: 'page-2' },
+            },
+          ],
+        },
+      ],
+      durationMs: 8,
+      warnings: [],
+    });
+
+    await expect(service.process('job-1', 'worker-1')).resolves.toBe('MANUAL_REVIEW');
+    const completed = repository.complete.mock.calls[0]?.[0];
+    expect(completed?.blocks.map((block) => block.text)).toEqual([
+      '可靠文字页',
+      '第二页可靠 OCR',
+      '第三页原生占位',
     ]);
     expect(completed?.issues).toEqual(
-      expect.arrayContaining([expect.objectContaining({ code: 'OCR_LOW_CONFIDENCE', pageNo: 2 })]),
+      expect.arrayContaining([expect.objectContaining({ code: 'OCR_RESULT_MISSING', pageNo: 3 })]),
     );
+    expect(completed?.ocrOutcomeCounts).toEqual({ SUCCESS: 1, MISSING: 1 });
   });
 
   it('[PAR-002][PAR-003] 命中恶意软件后拒绝，不写 derived Bucket', async () => {

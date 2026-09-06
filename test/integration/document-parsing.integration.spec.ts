@@ -26,7 +26,7 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] 文件解析与OCR PostgreSQL tra
     requestId: `document-parsing-integration-${suffix}`,
   };
   let spaceId = '';
-  let uploadSessionId = '';
+  const uploadSessionIds: string[] = [];
 
   beforeAll(async () => {
     const space = await spaces.create(context, {
@@ -98,8 +98,9 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] 文件解析与OCR PostgreSQL tra
       );
       await pool.query(
         `UPDATE upload_files SET ingestion_job_id = NULL, document_file_id = NULL,
-          document_version_id = NULL, document_id = NULL WHERE upload_session_id = $1`,
-        [uploadSessionId],
+          document_version_id = NULL, document_id = NULL
+          WHERE upload_session_id = ANY($1::uuid[])`,
+        [uploadSessionIds],
       );
       await pool.query(
         `DELETE FROM audit_logs WHERE resource_type = 'DOCUMENT'
@@ -127,8 +128,12 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] 文件解析与OCR PostgreSQL tra
       );
       await pool.query('DELETE FROM protected_resource_spaces WHERE space_id = $1', [spaceId]);
       await pool.query('DELETE FROM documents WHERE space_id = $1', [spaceId]);
-      await pool.query('DELETE FROM upload_files WHERE upload_session_id = $1', [uploadSessionId]);
-      await pool.query('DELETE FROM upload_sessions WHERE id = $1', [uploadSessionId]);
+      await pool.query('DELETE FROM upload_files WHERE upload_session_id = ANY($1::uuid[])', [
+        uploadSessionIds,
+      ]);
+      await pool.query('DELETE FROM upload_sessions WHERE id = ANY($1::uuid[])', [
+        uploadSessionIds,
+      ]);
       await pool.query('DELETE FROM knowledge_space_policies WHERE space_id = $1', [spaceId]);
       await pool.query('DELETE FROM resource_acl WHERE resource_id = $1', [spaceId]);
       await pool.query('DELETE FROM knowledge_spaces WHERE id = $1', [spaceId]);
@@ -138,7 +143,7 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] 文件解析与OCR PostgreSQL tra
 
   it('只有 lease owner 能原子写入 Block，完成后通过 Outbox 排队 知识加工与质量 CHUNK', async () => {
     const command = uploadCommand();
-    uploadSessionId = command.id;
+    uploadSessionIds.push(command.id);
     await ingestion.createUploadSession(context, command);
     const uploadFile = await ingestion.getUploadFile(context, command.files[0]!.id);
     const completed = await ingestion.completeUpload(context, {
@@ -257,6 +262,9 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] 文件解析与OCR PostgreSQL tra
         derivedSha256: 'b'.repeat(64),
         snapshotReused: false,
         durationMs: 50,
+        ocrOutcomeCounts: {},
+        requiresManualReview: false,
+        reviewReason: null,
       }),
     ).rejects.toThrow('租约已失效');
     await processing.complete({
@@ -272,6 +280,9 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] 文件解析与OCR PostgreSQL tra
       derivedSha256: 'b'.repeat(64),
       snapshotReused: false,
       durationMs: 50,
+      ocrOutcomeCounts: {},
+      requiresManualReview: false,
+      reviewReason: null,
     });
 
     await expect(ingestion.getJob(context, completed.job.id)).resolves.toEqual(
@@ -283,6 +294,126 @@ describeWithInfra('[PAR-012][PAR-013][PAR-015] 文件解析与OCR PostgreSQL tra
     expect(page.items[0]).toEqual(
       expect.objectContaining({ text: '统一 Block', originalText: '统一  Block', pageNo: 1 }),
     );
+  });
+
+  it('[PAR-016] 关键 OCR 不可用时原子保存 Block/Issue，但不投递 CHUNK', async () => {
+    const command = uploadCommand();
+    uploadSessionIds.push(command.id);
+    await ingestion.createUploadSession(context, command);
+    const uploadFile = await ingestion.getUploadFile(context, command.files[0]!.id);
+    const completed = await ingestion.completeUpload(context, {
+      uploadFile,
+      object: {
+        sizeBytes: uploadFile.sizeBytes,
+        contentType: uploadFile.contentType,
+        sha256: 'c'.repeat(64),
+      },
+    });
+    const workerId = `document-parsing-review-worker-${suffix}`;
+    await ingestion.acquireJobLease(completed.job.id, workerId, 120);
+    const input = await processing.loadInput(completed.job.id, workerId);
+    expect(input).toBeDefined();
+    const run = await processing.beginRun({
+      input: input!,
+      providerProfile: 'external-ci',
+      parserProfileId: 'parser-golden',
+      parserRevision: 'parser-r1',
+      ocrProfileId: 'ocr-golden',
+      ocrRevision: 'ocr-r1',
+    });
+    await processing.startStep(completed.job.id, workerId, 'NORMALIZE', '标准化中');
+    const parser = {
+      parserName: 'golden-parser',
+      parserRevision: 'parser-r1',
+      protocolVersion: '2',
+      blocks: [
+        {
+          type: 'PARAGRAPH' as const,
+          text: '扫描页原生占位',
+          originalText: '扫描页原生占位',
+          pageNo: 1,
+          sheetName: null,
+          slideNo: null,
+          bbox: null,
+          headingLevel: null,
+          confidence: null,
+          table: null,
+          metadata: { extractionSource: 'NATIVE' },
+        },
+      ],
+      pages: [{ pageNo: 1, textCharacterCount: 0, textCoverage: 0, imageOnly: true }],
+      ocrCandidates: [],
+      inspection: {
+        encrypted: false,
+        hasMacros: false,
+        embeddedObjectCount: 0,
+        externalLinkCount: 0,
+        archiveDepth: null,
+        compressedSizeBytes: null,
+        uncompressedSizeBytes: null,
+        pageCount: 1,
+        totalPixels: null,
+        tableCellCount: 0,
+      },
+      durationMs: 2,
+      warnings: [],
+    };
+    const blocks = buildDocumentBlocks({
+      parseRunId: run.id,
+      documentVersionId: completed.documentVersion.id,
+      contentRevision: 1,
+      parserName: parser.parserName,
+      parserRevision: parser.parserRevision,
+      candidates: parser.blocks,
+    });
+    await processing.complete({
+      jobId: completed.job.id,
+      workerId,
+      parseRunId: run.id,
+      parser,
+      ocr: null,
+      blocks,
+      issues: [
+        {
+          severity: 'ERROR',
+          code: 'OCR_RESULT_MISSING',
+          message: 'OCR 未返回该目标的结果，已保留原生内容',
+          pageNo: 1,
+          blockId: null,
+          metadata: { targetKind: 'PAGE' },
+        },
+      ],
+      derivedBucket: 'rag-derived',
+      derivedObjectKey: 'derived/golden/review-blocks.json',
+      derivedSha256: 'd'.repeat(64),
+      snapshotReused: false,
+      durationMs: 5,
+      ocrOutcomeCounts: { MISSING: 1 },
+      requiresManualReview: true,
+      reviewReason: '关键页面 OCR 结果不可用，已保留原生内容并等待人工审核',
+    });
+
+    await expect(ingestion.getJob(context, completed.job.id)).resolves.toEqual(
+      expect.objectContaining({ status: 'WAITING', currentStep: 'NORMALIZE' }),
+    );
+    const runs = await processing.listRuns(context, completed.documentVersion.id);
+    expect(runs[0]).toEqual(
+      expect.objectContaining({
+        status: 'WAITING',
+        blockCount: 1,
+        metrics: expect.objectContaining({ ocrOutcomeCounts: { MISSING: 1 } }),
+      }),
+    );
+    const detail = await processing.getRun(context, run.id);
+    expect(detail?.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'OCR_RESULT_MISSING' })]),
+    );
+    const outbox = await pool.query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM outbox_events
+        WHERE aggregate_id = $1 AND event_type = 'ingestion.knowledge_processing.requested'`,
+      [completed.job.id],
+    );
+    expect(outbox.rows[0]?.count).toBe('0');
   });
 
   function uploadCommand(): CreateUploadSessionCommand {

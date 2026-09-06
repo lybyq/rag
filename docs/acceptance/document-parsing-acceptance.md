@@ -10,11 +10,31 @@
 - [x] OOXML 重名条目、累计物化内存和 XLSX 远端稀疏单元格 DoS 门禁。
 - [x] PNG/JPEG/GIF/TIFF/BMP/WebP 自有有界头解析；无通用图片自动探测攻击面。
 - [x] Target 级 OCR 契约；可靠原生文本优先，PAGE 才替换整页，图片/区域只补充。
+- [x] OCR 空、缺失、重复、额外、错位、低置信和部分成功有独立结果；不可用 PAGE 保留原生内容并停在人工审核。
+- [x] OCR Provider 目标能力可通过 `OCR_CAPABILITIES` 收窄；PPTX 不再由字符覆盖率误生成通用 PAGE 目标。
+- [x] OCR 质量审核事务保存 Block/Issue/快照和低基数结果计数，且不会投递 CHUNK Outbox。
 - [x] `originalText`、稳定 ordinal/ID、页/Sheet/Slide/bbox/table/merged cell 契约。
 - [x] derived 版本化路径、SHA metadata 和重试复用。
 - [x] retryable/document/developer 三类失败与最大尝试次数。
 - [x] 九格式合成 Golden、Block Snapshot 和 Office 恶意结构样本。
 - [x] Parser HTTP Schema/protocol/revision/API Key/SSRF 白名单门禁。
+- [x] 九格式统一资源预算在扩容前检查，超限不截断；同步解析由可终止 Worker 隔离并限制并发。
+- [x] Parser 输出字符、真实/展开表格单元格和像素使用低基数 Prometheus 指标。
+- [x] HTML/Markdown 按 DOM 阅读顺序保留裸文本、br、代码、引用和层级列表，且不重复父子正文。
+- [x] HTML 表格补齐尾部跨度并隔离嵌套表，所有 merged cell 坐标落在矩阵内。
+- [x] XLSX 图片用真实 media index/name 关联字节，覆盖 imageId=0、image10、重复与非连续媒体名。
+- [x] XLSX 多区域、源行列、合并、公式缓存状态和关键显示格式可回溯。
+- [x] PPTX 按 presentation relationship 恢复重排后的真实页序，同段 Run、母版标题、组合坐标和合并表格可回溯。
+- [x] PPTX 备注、图表、SmartArt、隐藏页和复杂旋转不静默丢失，均返回稳定告警或明确近似语义。
+- [x] DOCX 图片按 drawing relationship 和正文 occurrence 关联；重复资产不合并出现位置，OCR 结果紧跟对应图片锚点。
+- [x] DOCX 不伪造物理页码/bbox，自定义 outline 标题、嵌套列表、合并表格和边界能力有回归或告警。
+- [x] PDF TextItem 字号/字体/真实坐标、行段、双栏、跨页连续和可解释标题进入统一 Block 与 Chunking 标题路径。
+- [x] PDF 重复页眉页脚、旋转、矢量表格去重、扫描/混合/空白/短文字页和附件/动作检查有回归。
+- [x] TXT 严格处理 UTF-8/UTF-16 BOM、非法编码和 CRLF/LF/CR；空白行分段并保留原始换行，不臆造标题。
+- [x] CSV 分隔符、引号/跨行字段、保守表头推断、空记录与不规则列有可审计事实，真实/展开单元格分别受限。
+- [x] 图片完整枚举页/帧并累计像素；多页 TIFF/动画明确拒绝，EXIF/TIFF 方向未应用时明确告警。
+- [x] Parser revision 统一升级为 `1.1.0`，derived Key 按 content revision、Profile 和 Parser revision 三重隔离，旧快照不能跨版本复用。
+- [x] 重处理保留旧解析事实，质量审核后才进入索引；候选索引对账后原子切换 ACTIVE Head，构建失败不切换且历史版本可回滚。
 - [x] 管理 API、OpenAPI、任务详情 UI 和无密钥 Profile 展示。
 - [x] Parser 只读、非 root、cap drop、PID/CPU/内存/tmpfs Compose 静态策略。
 - [x] 公网生产依赖审计 critical/high/moderate 均为 0。

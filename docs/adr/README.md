@@ -20,3 +20,4 @@ ADR 记录“当时为什么这样选”，避免半年后只剩代码、没人�
 | [013](./013-conversation-run-facts-and-event-projection.md)  | 会话运行与事件 PG Run 事实与 Redis 事件投影      | Accepted |
 | [014](./014-deterministic-langgraph-hybrid-retrieval.md)     | 查询规划与混合检索 确定性 LangGraph 混合检索子图 | Accepted |
 | [015](./015-evidence-first-structured-answer-validation.md)  | 证据优先结构化生成与严格答案发布门禁             | Accepted |
+| [016](./016-parser-correctness-structure-and-budget.md)      | Parser 内容正确性、结构恢复、OCR 合并与资源预算  | Accepted |

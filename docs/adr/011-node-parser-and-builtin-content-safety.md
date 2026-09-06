@@ -2,7 +2,7 @@
 
 ## 状态
 
-Accepted，2026-08-22。取代 ADR-008 中“外置病毒库服务是默认扫描器”和“Docling 是默认 Parser”的部分；ADR-008 的隔离 Bucket、端口边界、按需 OCR、统一 Block 和派生快照结论继续有效。
+Superseded in part by [ADR-016](./016-parser-correctness-structure-and-budget.md)，2026-09-05。自有 Node Parser、内置内容安全预检、隔离运行和供应商 Port 决策继续有效；PDF 结构恢复、OCR 替换条件、Office 图片定位和统一资源预算由 ADR-016 细化。
 
 ## 背景
 
