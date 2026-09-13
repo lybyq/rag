@@ -10,6 +10,7 @@
 | [01_MODULE_REQUIREMENTS.md](./01_MODULE_REQUIREMENTS.md)               | 全部语义模块的编号化需求、代码映射和验收门禁 |
 | [02_PROVIDER_CONFIGURATION.md](./02_PROVIDER_CONFIGURATION.md)         | 外网开发、内网切换、认证与模型能力配置基线   |
 | [03_LEARNING_AND_CODE_STANDARD.md](./03_LEARNING_AND_CODE_STANDARD.md) | 中文 JSDoc、代码讲解、学习路线和面试训练要求 |
+| [llm-wiki-implementation-plan.md](./llm-wiki-implementation-plan.md)   | 第一阶段 Wiki：第三方编译内核与企业集成计划  |
 
 ## 已确认约束
 
@@ -41,6 +42,7 @@
 身份权限与知识空间 + 索引构建与发布 + 会话运行与事件 → 查询规划与混合检索 → 证据与答案生成
 文档接入与任务 后并行开发管理端，会话运行与事件 后并行开发问答端
 全部后端能力 + 前端 → 评测与生产可靠性 → Web 产品与全链路验收
+现有 RAG 全链路验收 → LLM Wiki 知识投影 → 受控 Agentic RAG
 ```
 
 ## 需求追踪约定
