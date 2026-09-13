@@ -43,6 +43,7 @@ describe('[RUN-009] RagRunService stream fallback', () => {
         llmProfileId: 'llm-v1',
         llmRevision: '1',
         deadlineSeconds: 120,
+        slowNoticeSeconds: 12,
         eventRetentionSeconds: 600,
         contentRetentionDays: 30,
         streamTicketTtlSeconds: 60,

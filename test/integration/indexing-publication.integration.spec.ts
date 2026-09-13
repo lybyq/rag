@@ -11,6 +11,7 @@
  * @requirement IDX-012
  * @requirement IDX-013
  * @requirement PAR-024
+ * @requirement OPT-012
  */
 import {
   IndexingService,
@@ -134,6 +135,61 @@ describeWithInfra(
         [spaceId],
       );
       expect(publishEvents.rows[0]?.count).toBe(2);
+    });
+
+    it('[OPT-012] 同一空间多文件并发构建不会让后发布者覆盖先发布者', async () => {
+      const first = await seedKnowledgeProcessingPassedDocument(
+        pool,
+        spaceId,
+        owner.user.userId,
+        suffix,
+        101,
+        '并发上传文档甲的独立内容',
+      );
+      const second = await seedKnowledgeProcessingPassedDocument(
+        pool,
+        spaceId,
+        owner.user.userId,
+        suffix,
+        102,
+        '并发上传文档乙的独立内容',
+      );
+      let embeddingCalls = 0;
+      let releaseEmbedding!: () => void;
+      const bothRunsReachedEmbedding = new Promise<void>((resolve) => {
+        releaseEmbedding = resolve;
+      });
+      const concurrentEmbedding: EmbeddingPort = {
+        ...embeddingFixture(profile),
+        embedDocuments: async (inputs, options) => {
+          embeddingCalls += 1;
+          if (embeddingCalls === 2) releaseEmbedding();
+          await bothRunsReachedEmbedding;
+          return embeddingFixture(profile).embedDocuments(inputs, options);
+        },
+      };
+
+      const outcomes = await Promise.all([
+        runIndexing(first.jobId, vector, profile, concurrentEmbedding),
+        runIndexing(second.jobId, vector, profile, concurrentEmbedding),
+      ]);
+
+      // 两个 Run 都基于同一个旧 Head 构建时，只允许一个直接发布；另一个必须自动排队重建。
+      expect([...outcomes].sort()).toEqual(['PUBLISHED', 'REBASE_QUEUED'].sort());
+      const waitingJobId = outcomes[0] === 'REBASE_QUEUED' ? first.jobId : second.jobId;
+      await expect(runIndexing(waitingJobId, vector)).resolves.toBe('PUBLISHED');
+
+      const head = await activeHead(pool, spaceId);
+      const members = await pool.query<{ count: number }>(
+        `SELECT count(*)::int AS count
+           FROM manifest_document_members
+          WHERE manifest_id = $1
+            AND document_id IN (
+              SELECT id FROM documents WHERE space_id = $2 AND title IN ($3, $4)
+            )`,
+        [head.manifestId, spaceId, '索引构建与发布 合成文档 101', '索引构建与发布 合成文档 102'],
+      );
+      expect(members.rows[0]?.count).toBe(2);
     });
 
     it('Milvus 构建失败不会改变当前 ACTIVE Head，之后仍可一键回滚历史版本', async () => {
@@ -268,27 +324,23 @@ describeWithInfra(
       jobId: string,
       vectorIndex: VectorIndexPort,
       selectedProfile: EmbeddingProfile = profile,
+      selectedEmbedding: EmbeddingPort = embeddingFixture(selectedProfile),
     ): Promise<string> {
       const workerId = `indexing-publication-worker-${randomUUID()}`;
       const lease = await ingestion.acquireJobLease(jobId, workerId, 180);
       expect(lease?.currentStep).toBe('EMBED');
-      const service = new IndexingService(
-        indexing,
-        embeddingFixture(selectedProfile),
-        vectorIndex,
-        {
-          profile: selectedProfile,
-          requestTimeoutMs: 3_000,
-          overallDeadlineMs: 30_000,
-          maxBatchTokens: 2_048,
-          maxConcurrency: 2,
-          maxAttempts: 2,
-          retryBaseDelayMs: 1,
-          maxQueuedItems: 16,
-          vectorWriteBatchSize: 8,
-          vectorWriteMaxAttempts: 2,
-        },
-      );
+      const service = new IndexingService(indexing, selectedEmbedding, vectorIndex, {
+        profile: selectedProfile,
+        requestTimeoutMs: 3_000,
+        overallDeadlineMs: 30_000,
+        maxBatchTokens: 2_048,
+        maxConcurrency: 2,
+        maxAttempts: 2,
+        retryBaseDelayMs: 1,
+        maxQueuedItems: 16,
+        vectorWriteBatchSize: 8,
+        vectorWriteMaxAttempts: 2,
+      });
       return service.process(jobId, workerId);
     }
   },

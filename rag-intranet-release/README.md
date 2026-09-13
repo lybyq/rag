@@ -1,5 +1,7 @@
 # 企业 RAG 内网应用发布包
 
+> **本轮源码更新说明（2026-09-13）**：按要求没有重新构建镜像。当前目录中的 `rag-apps.tar` 是上一版镜像，**不包含**本轮回答正确性、真实时间线、批量同步和并发发布修复。源码方式运行时请合入根目录 `diff`；要用 Docker 部署本轮代码，后续必须重新执行本目录的构建脚本。`SHA256SUMS` 只证明文件传输完整，不代表旧镜像已包含新源码。
+
 这个目录同时支持两种落地方式：
 
 1. 在外网构建六个 Linux 镜像，带到无网内网后执行 `docker load` 并连接现有基础设施。
@@ -51,6 +53,7 @@
 | `start.*` / `status.*` / `stop.*`                | 启动、诊断、停止 Docker 部署                     |
 | `local-run.*`                                    | 内网源码方式启动                                 |
 | `provider-http-contracts.md`                     | 构建时复制，交给模型/OCR 服务团队联调            |
+| `EXTERNAL_API_QUICKSTART.md`                     | 外部业务批量导入、进度轮询和问答调用示例         |
 | `rag-apps.tar`                                   | 六个应用镜像的离线归档                           |
 | `IMAGE-MANIFEST.json` / `VERSION` / `SHA256SUMS` | 镜像元数据、版本和完整性摘要                     |
 
@@ -113,7 +116,7 @@ chmod +x ./*.sh
 - `LLM_BASE_URL` 通常以 `/v1` 结尾；应用会继续拼接 `/chat/completions`。GLM-4.7 网关必须支持 OpenAI-compatible JSON object 输出。
 - 默认使用纯 Dense 检索。只有 Embedding `/metadata` 明确返回 `sparse` 能力，且输出满足契约，才能把 `EMBEDDING_OUTPUT_MODE` 改成 `dense,sparse`、填写稀疏格式版本，并恢复 Dense/Sparse 权重。
 - `RUN_CONTENT_ENCRYPTION_KEY` 用随机 32 字节的 Base64；写入数据后必须长期保留，不能随意轮换。
-- PaddleOCR 原生接口通常不等于本项目 `/v1/ocr` 契约。若现有地址不匹配，需要在它前面部署一个很薄的适配网关。
+- PaddleOCR 可按 `OCR_RESPONSE_FORMAT` 明确选择项目结构化 JSON、HTTP 纯文本、JSON 字符串或 JSON 顶层文本字段。当前纯文本模式只支持一次请求对应一个识别目标；请求体格式仍需用内网真实样例确认。
 
 PowerShell 生成加密密钥：
 
@@ -230,13 +233,13 @@ Invoke-RestMethod http://localhost:8104/v1/health/ready
 
 ## 5. 模型服务最小契约
 
-| 服务           | 应用实际调用                                          |
-| -------------- | ----------------------------------------------------- |
-| GLM-4.7        | `POST {LLM_BASE_URL}/chat/completions`                |
-| Embedding      | `GET /health`、`GET /metadata`、`POST /v1/embeddings` |
-| Reranker       | `GET /health`、`GET /v1/metadata`、`POST /v1/rerank`  |
-| PaddleOCR 网关 | `POST /v1/ocr`，协议版本 2                            |
-| Milvus         | SDK 地址 `host:19530`，不是 Attu/网页地址             |
+| 服务           | 应用实际调用                                              |
+| -------------- | --------------------------------------------------------- |
+| GLM-4.7        | `POST {LLM_BASE_URL}/chat/completions`                    |
+| Embedding      | `GET /health`、`GET /metadata`、`POST /v1/embeddings`     |
+| Reranker       | `GET /health`、`GET /v1/metadata`、`POST /v1/rerank`      |
+| PaddleOCR 网关 | `POST /v1/ocr`；返回形状由 `OCR_RESPONSE_FORMAT` 明确选择 |
+| Milvus         | SDK 地址 `host:19530`，不是 Attu/网页地址                 |
 
 模型 ID、不可变 revision、协议版本、向量维度、是否归一化、Tokenizer revision 必须与服务真实元数据一致。这里采用 fail-closed：不一致就停止写索引，避免“接口返回 200，但向量维度或模型版本错了”悄悄污染知识库。
 
@@ -259,18 +262,19 @@ Invoke-RestMethod http://localhost:8104/v1/health/ready
 
 现有 Adapter 的选择：
 
-| 能力      | env 值                          | 对方必须返回什么                                                                           |
-| --------- | ------------------------------- | ------------------------------------------------------------------------------------------ |
-| LLM       | `LLM_ADAPTER=openai-compatible` | OpenAI Chat Completions 形状，答案在 `choices[0].message.content`，content 必须是合法 JSON |
-| LLM       | `LLM_ADAPTER=http`              | 本项目三个结构化接口：`v1/answer/generate`、`v1/answer/evidence-rerank`、`v1/answer/judge` |
-| Embedding | `EMBEDDING_ADAPTER=http`        | `/health`、`/metadata`、`/v1/embeddings`，响应满足本项目批量成功/部分失败契约              |
-| Reranker  | `RERANKER_ADAPTER=http`         | `/health`、`/v1/metadata`、`/v1/rerank`                                                    |
-| OCR       | `OCR_ADAPTER=http`              | `/v1/ocr`，包含 targetId、页码、0～1 bbox、置信度、引擎 revision                           |
+| 能力      | env 值                          | 对方必须返回什么                                                                                     |
+| --------- | ------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| LLM       | `LLM_ADAPTER=openai-compatible` | OpenAI Chat Completions 形状；只解析 `message.content` 中的答案 JSON，`reasoning_content` 不作为事实 |
+| LLM       | `LLM_ADAPTER=http`              | 本项目三个结构化接口：`v1/answer/generate`、`v1/answer/evidence-rerank`、`v1/answer/judge`           |
+| Embedding | `EMBEDDING_ADAPTER=http`        | `/health`、`/metadata`、`/v1/embeddings`，响应满足本项目批量成功/部分失败契约                        |
+| Reranker  | `RERANKER_ADAPTER=http`         | `/health`、`/v1/metadata`、`/v1/rerank`；原始 logit 与 0～1 probability 必须在 env 选准              |
+| OCR       | `OCR_ADAPTER=http`              | `/v1/ocr`；结构化或纯文本响应必须与 `OCR_RESPONSE_FORMAT` 一致                                       |
 
-PaddleOCR 原生服务通常只返回自己的字段，所以一般有两种做法：
+PaddleOCR 原生服务通常只返回自己的字段，所以一般有三种做法：
 
-1. 推荐：在 PaddleOCR 前放一个很薄的 Python/Java 网关，把原始结果转成 `provider-http-contracts.md` 的 `/v1/ocr`；RAG 代码不用改。
-2. 对方协议长期稳定且只能由本项目维护：在 TypeScript 中新增 OCR Adapter。
+1. 只返回整段文字且一次调用对应一个目标：配置 `OCR_RESPONSE_FORMAT=text`；bbox 和置信度会保持未知，不会伪造。
+2. 推荐的完整能力：在 PaddleOCR 前放一个很薄的 Python/Java 网关，把原始结果转成 `provider-http-contracts.md` 的 `/v1/ocr`。
+3. 对方协议长期稳定且只能由本项目维护：在 TypeScript 中新增 OCR Adapter。
 
 ### 5.2 加 Adapter 的固定套路
 
@@ -393,7 +397,7 @@ AUTH_MODE=trusted-header
 
 同时按 `.env.intranet-production.example` 补齐可信代理 CIDR、请求签名密钥、时间戳和用户/角色 Header 配置。另一种选择是 `AUTH_MODE=jwt`，配置企业 Issuer、Audience、JWKS URI 和角色映射。无论哪种，都只接受 `user_id + roles`，领域权限模型不用重写。
 
-生产 Profile 还会强制 TLS、非默认密钥、Sparse 能力等更严格规则。因此应先确认内网实际能力再切；如果 Embedding 只有 Dense，需要先通过 ADR 调整生产基线，不能靠伪造 Sparse 元数据绕过。
+生产 Profile 还会强制 TLS、非默认密钥等安全规则。Embedding 只有 Dense 时保持 `EMBEDDING_OUTPUT_MODE=dense`、`RETRIEVAL_DENSE_WEIGHT=1`、`RETRIEVAL_SPARSE_WEIGHT=0`；后续 Sparse 服务和历史索引都准备完成后，再用新 Profile 灰度发布，不能只打开查询权重。
 
 ## 8. 验收顺序
 
@@ -406,3 +410,5 @@ AUTH_MODE=trusted-header
 7. 发起真实问题，检查 Reranker、GLM、引用定位、拒答与 SSE；
 8. 重启 Worker，确认 BullMQ 任务没有丢失且幂等恢复；
 9. 最后切企业鉴权，再做越权、角色映射和审计验收。
+
+外部业务接入的可运行 PowerShell 示例见 `EXTERNAL_API_QUICKSTART.md`。

@@ -120,10 +120,33 @@ describe('[PAR-001][PAR-003][PAR-007][PAR-010][PAR-012] parser core', () => {
           averageConfidence: 0.5,
         },
       ],
+      [
+        {
+          targetId: target.targetId,
+          pageNo: 2,
+          blocks: [block('无置信度 OCR', 2, 'OCR')],
+          averageConfidence: null,
+        },
+      ],
     ]) {
       const assessments = assessOcrTargetResults([target], results, 0.75);
       expect(mergeOcrBlocks(native, assessments).map((item) => item.text)).toEqual(['原生占位']);
     }
+
+    expect(
+      assessOcrTargetResults(
+        [target],
+        [
+          {
+            targetId: target.targetId,
+            pageNo: 2,
+            blocks: [block('无置信度 OCR', 2, 'OCR')],
+            averageConfidence: null,
+          },
+        ],
+        0.75,
+      )[0]?.status,
+    ).toBe('UNKNOWN_CONFIDENCE');
 
     const assessments = assessOcrTargetResults(
       [target],

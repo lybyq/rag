@@ -99,6 +99,7 @@ function ocrAdapter(fetchImplementation: typeof fetch): HttpOcrAdapter {
       maxResponseBytes: 10_000,
       maxAttempts: 2,
       profileId: 'ocr-v1',
+      modelId: 'paddleocr',
       revision: '2026.08',
       protocolVersion: '2',
     },
@@ -338,5 +339,82 @@ describe('文件解析与OCR provider adapters', () => {
       ocrAdapter(cancelledFetch).recognize(source, [pageTarget], controller.signal),
     ).rejects.toBe(cancellation);
     expect(cancelledFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['text', 'OCR 纯文本', 'OCR 纯文本'],
+    ['json-string', JSON.stringify('JSON 字符串正文'), 'JSON 字符串正文'],
+    ['json-text-field', JSON.stringify({ text: 'JSON 字段正文' }), 'JSON 字段正文'],
+  ] as const)(
+    '[OPT-010] %s 响应只映射单一目标且未知质量保持 null',
+    async (format, body, expected) => {
+      const fetchMock = jest.fn().mockResolvedValue(
+        new Response(body, {
+          status: 200,
+          headers: { 'content-type': format === 'text' ? 'text/plain' : 'application/json' },
+        }),
+      ) as unknown as typeof fetch;
+      const plainAdapter = new HttpOcrAdapter(
+        {
+          baseUrl: 'http://ocr.test/',
+          timeoutMs: 1_000,
+          maxResponseBytes: 10_000,
+          maxAttempts: 2,
+          profileId: 'ocr-plain-v1',
+          modelId: 'paddleocr',
+          revision: '2026.08',
+          protocolVersion: '2',
+          responseFormat: format,
+          jsonTextField: 'text',
+        },
+        fetchMock,
+      );
+      const result = await plainAdapter.recognize(
+        source,
+        [pageTarget],
+        new AbortController().signal,
+      );
+      expect(result.results[0]).toMatchObject({
+        targetId: pageTarget.targetId,
+        pageNo: pageTarget.pageNo,
+        averageConfidence: null,
+        blocks: [{ text: expected, confidence: null, bbox: null }],
+      });
+      expect(result.warnings).toEqual(
+        expect.arrayContaining(['OCR_CONFIDENCE_UNAVAILABLE', 'OCR_FINE_LOCATION_UNAVAILABLE']),
+      );
+    },
+  );
+
+  it('[OPT-010] 纯文本多目标与 HTML 错误页必须在边界拒绝，不能复制或入库', async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue(
+        new Response('<html>upstream failed</html>', { status: 200 }),
+      ) as unknown as typeof fetch;
+    const plainAdapter = new HttpOcrAdapter(
+      {
+        baseUrl: 'http://ocr.test/',
+        timeoutMs: 1_000,
+        maxResponseBytes: 10_000,
+        profileId: 'ocr-plain-v1',
+        modelId: 'paddleocr',
+        revision: '2026.08',
+        protocolVersion: '2',
+        responseFormat: 'text',
+      },
+      fetchMock,
+    );
+    await expect(
+      plainAdapter.recognize(
+        source,
+        [pageTarget, { ...pageTarget, targetId: 'page-3', pageNo: 3 }],
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: 'OCR_PLAIN_TEXT_MULTI_TARGET_UNSUPPORTED' });
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(
+      plainAdapter.recognize(source, [pageTarget], new AbortController().signal),
+    ).rejects.toMatchObject({ code: 'OCR_HTML_ERROR_RESPONSE' });
   });
 });

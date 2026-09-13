@@ -176,6 +176,26 @@ describe('[BASE-010] startup configuration', () => {
     expect(config.vectorStore.adapter).toBe('milvus');
   });
 
+  it('[OPT-007] 内网生产允许显式 Dense-only，且拒绝继续配置虚假的 Sparse 权重', () => {
+    const denseOnly = {
+      ...validIntranetProductionEnvironment(),
+      EMBEDDING_PROFILE_ID: 'bge-m3-dense-intranet-production-v1',
+      EMBEDDING_OUTPUT_MODE: 'dense',
+      EMBEDDING_SPARSE_FORMAT_VERSION: '',
+      RETRIEVAL_PROFILE_ID: 'dense-medium-v1',
+      RETRIEVAL_DENSE_WEIGHT: '1',
+      RETRIEVAL_SPARSE_WEIGHT: '0',
+    };
+
+    expect(loadAppConfig(denseOnly).embedding).toMatchObject({
+      outputModes: ['dense'],
+      sparseFormatVersion: null,
+    });
+    expect(() => loadAppConfig({ ...denseOnly, RETRIEVAL_SPARSE_WEIGHT: '0.35' })).toThrow(
+      /Dense-only Profile 的 Sparse 检索权重必须为 0/,
+    );
+  });
+
   it('[CFG-003] 内网生产拒绝 Fixture、公网 Endpoint 与占位 revision，但允许配置实际模型维度', () => {
     expect(() =>
       loadAppConfig({

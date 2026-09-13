@@ -249,12 +249,12 @@ export const ParserResultSchema = z.object({
 });
 export type ParserResult = z.infer<typeof ParserResultSchema>;
 
-/** OCR 只返回调用方指定目标的 Block，并携带目标级平均置信度。 */
+/** OCR 只返回调用方指定目标的 Block；供应商未提供置信度时必须保持 null。 */
 export const OcrTargetResultSchema = z.object({
   targetId: z.string().min(1).max(200),
   pageNo: z.number().int().positive().nullable(),
   blocks: z.array(ParsedBlockCandidateSchema),
-  averageConfidence: z.number().min(0).max(1),
+  averageConfidence: z.number().min(0).max(1).nullable(),
 });
 export type OcrTargetResult = z.infer<typeof OcrTargetResultSchema>;
 

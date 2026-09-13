@@ -43,6 +43,8 @@ describeWithInfra(
 
     afterAll(async () => {
       if (spaceId) {
+        await pool.query('DELETE FROM external_document_bindings WHERE space_id = $1', [spaceId]);
+        await pool.query('DELETE FROM external_import_batches WHERE space_id = $1', [spaceId]);
         await pool.query(
           `DELETE FROM outbox_consumer_receipts WHERE event_id IN (
            SELECT id FROM outbox_events WHERE aggregate_id IN (
@@ -172,6 +174,133 @@ describeWithInfra(
         [spaceId, first.document.id, first.job.id],
       );
       expect(facts.rows[0]).toEqual({ documents: '1', jobs: '1', outbox: '1' });
+    });
+
+    it('[OPT-012] 同一会话两个文件并发完成时都创建独立文档和 Outbox', async () => {
+      const uploadId = randomUUID();
+      const fileIds = [randomUUID(), randomUUID()];
+      const command: CreateUploadSessionCommand = {
+        id: uploadId,
+        spaceId,
+        expiresAt: new Date(Date.now() + 60_000),
+        files: fileIds.map((fileId, index) => ({
+          id: fileId,
+          clientFileId: `parallel-${index}`,
+          originalFileName: `并发制度-${index}.pdf`,
+          strategy: 'SINGLE' as const,
+          bucket: 'rag-quarantine',
+          objectKey: createIsolatedObjectKey(spaceId, uploadId, fileId),
+          sizeBytes: 1024 + index,
+          contentType: 'application/pdf',
+          partSizeBytes: 8 * 1024 * 1024,
+          partCount: 1,
+        })),
+      };
+      createdUploadIds.push(uploadId);
+      await repository.createUploadSession(context, command);
+      const uploadFiles = await Promise.all(
+        fileIds.map((fileId) => repository.getUploadFile(context, fileId)),
+      );
+
+      const completed = await Promise.all(
+        uploadFiles.map((uploadFile, index) =>
+          repository.completeUpload(context, {
+            uploadFile,
+            object: {
+              sizeBytes: uploadFile.sizeBytes,
+              contentType: uploadFile.contentType,
+              etag: `parallel-etag-${index}`,
+              sha256: String(index + 1).repeat(64),
+            },
+          }),
+        ),
+      );
+
+      expect(new Set(completed.map((item) => item.document.id)).size).toBe(2);
+      expect(new Set(completed.map((item) => item.job.id)).size).toBe(2);
+      await expect(repository.getUploadSession(context, uploadId)).resolves.toEqual(
+        expect.objectContaining({ status: 'COMPLETED' }),
+      );
+      const facts = await pool.query<{ documents: string; jobs: string; outbox: string }>(
+        `SELECT
+         (SELECT count(*) FROM documents WHERE id = ANY($1::uuid[]))::text AS documents,
+         (SELECT count(*) FROM ingestion_jobs WHERE id = ANY($2::text[]))::text AS jobs,
+         (SELECT count(*) FROM outbox_events WHERE aggregate_id = ANY($2::text[]))::text AS outbox`,
+        [completed.map((item) => item.document.id), completed.map((item) => item.job.id)],
+      );
+      expect(facts.rows[0]).toEqual({ documents: '2', jobs: '2', outbox: '2' });
+    });
+
+    it('[OPT-013] 外部文档同内容重试复用事实，内容变化只创建新版本', async () => {
+      const sourceId = 'finance-system';
+      const externalDocumentId = `travel-policy-${suffix}`;
+      const firstCommand = externalUploadCommand(
+        '外部差旅制度-v1.pdf',
+        sourceId,
+        externalDocumentId,
+        'a'.repeat(64),
+      );
+      createdUploadIds.push(firstCommand.id);
+      await repository.createUploadSession(context, firstCommand);
+      const firstFile = await repository.getUploadFile(context, firstCommand.files[0]!.id);
+      const first = await repository.completeUpload(context, {
+        uploadFile: firstFile,
+        object: {
+          sizeBytes: firstFile.sizeBytes,
+          contentType: firstFile.contentType,
+          etag: 'external-v1',
+          sha256: 'a'.repeat(64),
+        },
+      });
+
+      const sameCommand = externalUploadCommand(
+        '外部差旅制度-v1-copy.pdf',
+        sourceId,
+        externalDocumentId,
+        'a'.repeat(64),
+      );
+      createdUploadIds.push(sameCommand.id);
+      await repository.createUploadSession(context, sameCommand);
+      const sameFile = await repository.getUploadFile(context, sameCommand.files[0]!.id);
+      const replayed = await repository.completeUpload(context, {
+        uploadFile: sameFile,
+        object: {
+          sizeBytes: sameFile.sizeBytes,
+          contentType: sameFile.contentType,
+          etag: 'external-v1-copy',
+          sha256: 'a'.repeat(64),
+        },
+      });
+      expect(replayed.document.id).toBe(first.document.id);
+      expect(replayed.documentVersion.id).toBe(first.documentVersion.id);
+      expect(replayed.job.id).toBe(first.job.id);
+
+      const changedCommand = externalUploadCommand(
+        '外部差旅制度-v2.pdf',
+        sourceId,
+        externalDocumentId,
+        'b'.repeat(64),
+      );
+      createdUploadIds.push(changedCommand.id);
+      await repository.createUploadSession(context, changedCommand);
+      const changedFile = await repository.getUploadFile(context, changedCommand.files[0]!.id);
+      const changed = await repository.completeUpload(context, {
+        uploadFile: changedFile,
+        object: {
+          sizeBytes: changedFile.sizeBytes,
+          contentType: changedFile.contentType,
+          etag: 'external-v2',
+          sha256: 'b'.repeat(64),
+        },
+      });
+      expect(changed.document.id).toBe(first.document.id);
+      expect(changed.documentVersion.id).not.toBe(first.documentVersion.id);
+      expect(changed.documentVersion.versionNumber).toBe(2);
+      const versions = await pool.query<{ version_number: number }>(
+        'SELECT version_number FROM document_versions WHERE document_id = $1 ORDER BY version_number',
+        [first.document.id],
+      );
+      expect(versions.rows.map((row) => row.version_number)).toEqual([1, 2]);
     });
 
     it('Outbox 领取有 lease，Inbox 重投只写一次收据但任务仍可领取', async () => {
@@ -308,6 +437,29 @@ describeWithInfra(
             partCount: 1,
           },
         ],
+      };
+    }
+
+    /** 构造带长期外部身份和内容 Hash 的单文件批次。 */
+    function externalUploadCommand(
+      fileName: string,
+      externalSourceId: string,
+      externalDocumentId: string,
+      sha256: string,
+    ): CreateUploadSessionCommand {
+      const command = uploadCommand(fileName);
+      return {
+        ...command,
+        externalBatch: {
+          idempotencyKey: `idem-${command.id}`,
+          requestSha256: sha256,
+        },
+        files: command.files.map((file) => ({
+          ...file,
+          sha256,
+          externalSourceId,
+          externalDocumentId,
+        })),
       };
     }
   },

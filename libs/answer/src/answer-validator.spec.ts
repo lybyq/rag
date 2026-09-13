@@ -80,6 +80,44 @@ describe('[ANS-010..014] deterministic answer validator', () => {
     expect(report.issues[0]?.code).toBe('CITATION_NOT_FOUND');
   });
 
+  it('[OPT-003] DIRECT 标签不能让引用窗口中不存在的结论通过', () => {
+    const report = validateAnswer({
+      draft: answerDraft('北京住宿标准提高到 500 元。', ids.source, 'DIRECT'),
+      bundle: evidenceBundle(),
+      calculations: [],
+      currentlyValidSourceIds: [ids.source],
+      validatorProfileId: 'validator-v1',
+    });
+
+    expect(report.outcome).toBe('REGENERATE');
+    expect(report.issues).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: 'DIRECT_CLAIM_TEXT_UNSUPPORTED' })]),
+    );
+  });
+
+  it('[OPT-005] Judge 关闭时 DIRECT 可通过，SEMANTIC 必须改写而不能冒充已核验', () => {
+    const direct = validateAnswer({
+      draft: answerDraft('北京住宿标准为 500 元。', ids.source, 'DIRECT'),
+      bundle: evidenceBundle(),
+      calculations: [],
+      currentlyValidSourceIds: [ids.source],
+      validatorProfileId: 'validator-v1',
+      semanticJudgeEnabled: false,
+    });
+    const semantic = validateAnswer({
+      draft: answerDraft('北京住宿标准为 500 元。', ids.source, 'SEMANTIC'),
+      bundle: evidenceBundle(),
+      calculations: [],
+      currentlyValidSourceIds: [ids.source],
+      validatorProfileId: 'validator-v1',
+      semanticJudgeEnabled: false,
+    });
+
+    expect(direct.outcome).toBe('PASS');
+    expect(semantic.outcome).toBe('REGENERATE');
+    expect(semantic.issues.map((item) => item.code)).toContain('SEMANTIC_JUDGE_DISABLED');
+  });
+
   it.each(validationGolden)('$name -> $expected', ({ mode, expected }) => {
     const bundle = evidenceBundle();
     if (mode === 'MISSING_COVERAGE') {
@@ -122,7 +160,27 @@ describe('[ANS-015][ANS-016] strict final answer', () => {
     const finalAnswer = finalizeAnswer({ route: 'ANSWER', bundle, draft, validation });
     const rendered = renderFinalAnswer(finalAnswer);
     expect(finalAnswer.status).toBe('ANSWERED');
+    expect(finalAnswer.summary).toBe('北京住宿标准为 500 元。');
     expect(rendered).toContain(`[${ids.source}]`);
+  });
+
+  it('[OPT-003] 最终摘要只由已校验 Claim 合成，不发布模型额外写入的结论', () => {
+    const bundle = evidenceBundle();
+    const draft = {
+      ...answerDraft('北京住宿标准为 500 元。', ids.source, 'DIRECT'),
+      summary: '北京住宿标准为 800 元。',
+    };
+    const validation = validateAnswer({
+      draft,
+      bundle,
+      calculations: [],
+      currentlyValidSourceIds: [ids.source],
+      validatorProfileId: 'validator-v1',
+    });
+
+    const finalAnswer = finalizeAnswer({ route: 'ANSWER', bundle, draft, validation });
+    expect(finalAnswer.summary).toBe('北京住宿标准为 500 元。');
+    expect(finalAnswer.summary).not.toContain('800');
   });
 
   it('冲突路线不泄漏未经校验 Draft', () => {

@@ -1,0 +1,282 @@
+[
+  {
+    "id": "OPT-001-001",
+    "title": "财务住宿",
+    "question": "北京住宿费用上限是多少？",
+    "content": "北京住宿费用上限为 500 元。",
+    "scenario": "ANSWERED"
+  },
+  {
+    "id": "OPT-001-002",
+    "title": "财务住宿",
+    "question": "北京住宿费用上限是多少？",
+    "content": "北京住宿费用上限为 500 元。",
+    "scenario": "NO_MATERIAL"
+  },
+  {
+    "id": "OPT-001-003",
+    "title": "财务住宿",
+    "question": "北京住宿费用上限是多少？",
+    "content": "北京住宿费用上限为 500 元。",
+    "scenario": "REVOKED"
+  },
+  {
+    "id": "OPT-001-004",
+    "title": "财务住宿",
+    "question": "北京住宿费用上限是多少？",
+    "content": "北京住宿费用上限为 500 元。",
+    "scenario": "TIMEOUT"
+  },
+  {
+    "id": "OPT-001-005",
+    "title": "人事年假",
+    "question": "新入职员工如何申请年假？",
+    "content": "新入职员工通过人事系统提交年假申请。",
+    "scenario": "ANSWERED"
+  },
+  {
+    "id": "OPT-001-006",
+    "title": "人事年假",
+    "question": "新入职员工如何申请年假？",
+    "content": "新入职员工通过人事系统提交年假申请。",
+    "scenario": "NO_MATERIAL"
+  },
+  {
+    "id": "OPT-001-007",
+    "title": "人事年假",
+    "question": "新入职员工如何申请年假？",
+    "content": "新入职员工通过人事系统提交年假申请。",
+    "scenario": "REVOKED"
+  },
+  {
+    "id": "OPT-001-008",
+    "title": "人事年假",
+    "question": "新入职员工如何申请年假？",
+    "content": "新入职员工通过人事系统提交年假申请。",
+    "scenario": "TIMEOUT"
+  },
+  {
+    "id": "OPT-001-009",
+    "title": "采购编号",
+    "question": "采购流程 CG-2026 适用哪些采购？",
+    "content": "采购流程 CG-2026 适用于办公设备采购。",
+    "scenario": "ANSWERED"
+  },
+  {
+    "id": "OPT-001-010",
+    "title": "采购编号",
+    "question": "采购流程 CG-2026 适用哪些采购？",
+    "content": "采购流程 CG-2026 适用于办公设备采购。",
+    "scenario": "NO_MATERIAL"
+  },
+  {
+    "id": "OPT-001-011",
+    "title": "采购编号",
+    "question": "采购流程 CG-2026 适用哪些采购？",
+    "content": "采购流程 CG-2026 适用于办公设备采购。",
+    "scenario": "REVOKED"
+  },
+  {
+    "id": "OPT-001-012",
+    "title": "采购编号",
+    "question": "采购流程 CG-2026 适用哪些采购？",
+    "content": "采购流程 CG-2026 适用于办公设备采购。",
+    "scenario": "TIMEOUT"
+  },
+  {
+    "id": "OPT-001-013",
+    "title": "版本政策",
+    "question": "版本 v2.1 的账号规则是什么？",
+    "content": "版本 v2.1 要求账号每季度复核一次。",
+    "scenario": "ANSWERED"
+  },
+  {
+    "id": "OPT-001-014",
+    "title": "版本政策",
+    "question": "版本 v2.1 的账号规则是什么？",
+    "content": "版本 v2.1 要求账号每季度复核一次。",
+    "scenario": "NO_MATERIAL"
+  },
+  {
+    "id": "OPT-001-015",
+    "title": "版本政策",
+    "question": "版本 v2.1 的账号规则是什么？",
+    "content": "版本 v2.1 要求账号每季度复核一次。",
+    "scenario": "REVOKED"
+  },
+  {
+    "id": "OPT-001-016",
+    "title": "版本政策",
+    "question": "版本 v2.1 的账号规则是什么？",
+    "content": "版本 v2.1 要求账号每季度复核一次。",
+    "scenario": "TIMEOUT"
+  },
+  {
+    "id": "OPT-001-017",
+    "title": "培训日期",
+    "question": "安全培训从哪天开始？",
+    "content": "安全培训从 2026-09-01 开始。",
+    "scenario": "ANSWERED"
+  },
+  {
+    "id": "OPT-001-018",
+    "title": "培训日期",
+    "question": "安全培训从哪天开始？",
+    "content": "安全培训从 2026-09-01 开始。",
+    "scenario": "NO_MATERIAL"
+  },
+  {
+    "id": "OPT-001-019",
+    "title": "培训日期",
+    "question": "安全培训从哪天开始？",
+    "content": "安全培训从 2026-09-01 开始。",
+    "scenario": "REVOKED"
+  },
+  {
+    "id": "OPT-001-020",
+    "title": "培训日期",
+    "question": "安全培训从哪天开始？",
+    "content": "安全培训从 2026-09-01 开始。",
+    "scenario": "TIMEOUT"
+  },
+  {
+    "id": "OPT-001-021",
+    "title": "表格差旅",
+    "question": "表格中上海出差的交通标准是什么？",
+    "content": "城市：上海；交通：按实际票据报销。",
+    "scenario": "ANSWERED"
+  },
+  {
+    "id": "OPT-001-022",
+    "title": "表格差旅",
+    "question": "表格中上海出差的交通标准是什么？",
+    "content": "城市：上海；交通：按实际票据报销。",
+    "scenario": "NO_MATERIAL"
+  },
+  {
+    "id": "OPT-001-023",
+    "title": "表格差旅",
+    "question": "表格中上海出差的交通标准是什么？",
+    "content": "城市：上海；交通：按实际票据报销。",
+    "scenario": "REVOKED"
+  },
+  {
+    "id": "OPT-001-024",
+    "title": "表格差旅",
+    "question": "表格中上海出差的交通标准是什么？",
+    "content": "城市：上海；交通：按实际票据报销。",
+    "scenario": "TIMEOUT"
+  },
+  {
+    "id": "OPT-001-025",
+    "title": "扫描档案",
+    "question": "扫描件中合同原件由谁保管？",
+    "content": "合同原件由档案管理员统一保管。",
+    "scenario": "ANSWERED"
+  },
+  {
+    "id": "OPT-001-026",
+    "title": "扫描档案",
+    "question": "扫描件中合同原件由谁保管？",
+    "content": "合同原件由档案管理员统一保管。",
+    "scenario": "NO_MATERIAL"
+  },
+  {
+    "id": "OPT-001-027",
+    "title": "扫描档案",
+    "question": "扫描件中合同原件由谁保管？",
+    "content": "合同原件由档案管理员统一保管。",
+    "scenario": "REVOKED"
+  },
+  {
+    "id": "OPT-001-028",
+    "title": "扫描档案",
+    "question": "扫描件中合同原件由谁保管？",
+    "content": "合同原件由档案管理员统一保管。",
+    "scenario": "TIMEOUT"
+  },
+  {
+    "id": "OPT-001-029",
+    "title": "同义报销",
+    "question": "垫付费用要交什么材料？",
+    "content": "员工报销垫付费用时应提交有效凭证。",
+    "scenario": "ANSWERED"
+  },
+  {
+    "id": "OPT-001-030",
+    "title": "同义报销",
+    "question": "垫付费用要交什么材料？",
+    "content": "员工报销垫付费用时应提交有效凭证。",
+    "scenario": "NO_MATERIAL"
+  },
+  {
+    "id": "OPT-001-031",
+    "title": "同义报销",
+    "question": "垫付费用要交什么材料？",
+    "content": "员工报销垫付费用时应提交有效凭证。",
+    "scenario": "REVOKED"
+  },
+  {
+    "id": "OPT-001-032",
+    "title": "同义报销",
+    "question": "垫付费用要交什么材料？",
+    "content": "员工报销垫付费用时应提交有效凭证。",
+    "scenario": "TIMEOUT"
+  },
+  {
+    "id": "OPT-001-033",
+    "title": "同名制度",
+    "question": "当前授权空间的管理制度由谁审批？",
+    "content": "当前管理制度由部门负责人审批。",
+    "scenario": "ANSWERED"
+  },
+  {
+    "id": "OPT-001-034",
+    "title": "同名制度",
+    "question": "当前授权空间的管理制度由谁审批？",
+    "content": "当前管理制度由部门负责人审批。",
+    "scenario": "NO_MATERIAL"
+  },
+  {
+    "id": "OPT-001-035",
+    "title": "同名制度",
+    "question": "当前授权空间的管理制度由谁审批？",
+    "content": "当前管理制度由部门负责人审批。",
+    "scenario": "REVOKED"
+  },
+  {
+    "id": "OPT-001-036",
+    "title": "同名制度",
+    "question": "当前授权空间的管理制度由谁审批？",
+    "content": "当前管理制度由部门负责人审批。",
+    "scenario": "TIMEOUT"
+  },
+  {
+    "id": "OPT-001-037",
+    "title": "适用条件",
+    "question": "异地员工能否申请远程办公？",
+    "content": "异地员工经主管批准后可申请远程办公。",
+    "scenario": "ANSWERED"
+  },
+  {
+    "id": "OPT-001-038",
+    "title": "适用条件",
+    "question": "异地员工能否申请远程办公？",
+    "content": "异地员工经主管批准后可申请远程办公。",
+    "scenario": "NO_MATERIAL"
+  },
+  {
+    "id": "OPT-001-039",
+    "title": "适用条件",
+    "question": "异地员工能否申请远程办公？",
+    "content": "异地员工经主管批准后可申请远程办公。",
+    "scenario": "REVOKED"
+  },
+  {
+    "id": "OPT-001-040",
+    "title": "适用条件",
+    "question": "异地员工能否申请远程办公？",
+    "content": "异地员工经主管批准后可申请远程办公。",
+    "scenario": "TIMEOUT"
+  }
+]

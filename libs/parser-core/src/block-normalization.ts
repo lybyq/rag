@@ -184,6 +184,7 @@ export type OcrTargetAssessmentStatus =
   | 'MISSING'
   | 'EMPTY'
   | 'LOW_CONFIDENCE'
+  | 'UNKNOWN_CONFIDENCE'
   | 'INVALID_LOCATION'
   | 'DUPLICATE_RESULT';
 
@@ -227,6 +228,9 @@ export function assessOcrTargetResults(
     }
     const nonEmptyBlocks = result.blocks.filter((block) => block.text.trim().length > 0);
     if (nonEmptyBlocks.length === 0) return assessment(target, result, 'EMPTY');
+    if (result.averageConfidence === null) {
+      return assessment(target, result, 'UNKNOWN_CONFIDENCE');
+    }
     if (result.averageConfidence < minimumConfidence) {
       return assessment(target, result, 'LOW_CONFIDENCE');
     }

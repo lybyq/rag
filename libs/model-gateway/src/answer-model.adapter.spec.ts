@@ -53,11 +53,13 @@ describe('[ANS-009] OpenAI-compatible structured answer adapter', () => {
           context: {
             text: '安全上下文',
             includedSourceIds: [sourceId],
+            sourceWindows: [{ sourceId, content: '差旅制度规定住宿上限为 500 元。' }],
             omittedSourceIds: [],
             estimatedTokens: 10,
             tokenBudget: 100,
           },
           calculations: [],
+          directEvidenceOnly: false,
         },
         options(),
       ),
@@ -95,11 +97,13 @@ describe('[ANS-009] OpenAI-compatible structured answer adapter', () => {
           context: {
             text: secret,
             includedSourceIds: [sourceId],
+            sourceWindows: [{ sourceId, content: '差旅制度规定住宿上限为 500 元。' }],
             omittedSourceIds: [],
             estimatedTokens: 10,
             tokenBudget: 100,
           },
           calculations: [],
+          directEvidenceOnly: false,
         },
         options(),
       )
@@ -193,6 +197,76 @@ describe('[ANS-009] OpenAI-compatible structured answer adapter', () => {
       ),
     ).resolves.toMatchObject({ modelId: 'deepseek-chat', revision: 'api-r1' });
   });
+
+  it('OPT-009 将 vLLM 截断与 reasoning-only 分开分类，且不把推理文本当答案 JSON', async () => {
+    const truncated = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit?]>(async () =>
+      openAiRaw({
+        finishReason: 'length',
+        content: '{"summary":"未完成',
+        reasoningContent: '内部推理不得外泄',
+      }),
+    );
+    await expect(
+      new HttpAnswerModelAdapter(config, truncated as typeof fetch).generateDraft(
+        draftInput(),
+        options(),
+      ),
+    ).rejects.toMatchObject({ code: 'PARTIAL_RESULT', retryable: false });
+
+    const reasoningOnly = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit?]>(async () =>
+      openAiRaw({
+        finishReason: 'stop',
+        content: null,
+        reasoningContent: JSON.stringify(draftContent()),
+      }),
+    );
+    await expect(
+      new HttpAnswerModelAdapter(config, reasoningOnly as typeof fetch).generateDraft(
+        draftInput(),
+        options(),
+      ),
+    ).rejects.toMatchObject({ code: 'SCHEMA_ERROR', retryable: false });
+  });
+
+  it('OPT-009 可关闭 response_format，并给生成、重排、Judge 使用不同输出预算', async () => {
+    const promptOnlyConfig = loadAppConfig({
+      APP_ENV: 'development',
+      PROVIDER_PROFILE: 'external-dev',
+      LLM_ADAPTER: 'openai-compatible',
+      LLM_BASE_URL: 'https://glm-vllm.internal/v1',
+      LLM_MODEL_ID: 'glm-4.7',
+      LLM_REVISION: 'served-r1',
+      LLM_JSON_MODE: 'prompt-only',
+      LLM_GENERATION_MAX_OUTPUT_TOKENS: '3000',
+      LLM_RERANK_MAX_OUTPUT_TOKENS: '700',
+      LLM_JUDGE_MAX_OUTPUT_TOKENS: '500',
+    });
+    const budgets: number[] = [];
+    const fetcher = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit?]>(
+      async (_request, init) => {
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        expect(body).not.toHaveProperty('response_format');
+        budgets.push(body['max_tokens'] as number);
+        const maxTokens = body['max_tokens'];
+        if (maxTokens === 3000) return openAi(draftContent(), 'glm-4.7');
+        if (maxTokens === 700) {
+          return openAi({ orderedSourceIds: [sourceId], reason: '已重排' }, 'glm-4.7');
+        }
+        return openAi(
+          { reason: '支持', supportedClaimIds: ['claim-1'], unsupportedClaimIds: [] },
+          'glm-4.7',
+        );
+      },
+    );
+    const adapter = new HttpAnswerModelAdapter(promptOnlyConfig, fetcher as typeof fetch);
+    await adapter.generateDraft(draftInput(), options());
+    await adapter.rerankEvidence({ question: '问题', bundle: bundle() }, options());
+    await adapter.judgeGrounding(
+      { draft: draftContent(), bundle: bundle(), claimIds: ['claim-1'], reason: '待判断' },
+      options(),
+    );
+    expect(budgets).toEqual([3000, 700, 500]);
+  });
 });
 
 function draftInput(): GenerateAnswerDraftInput {
@@ -202,11 +276,13 @@ function draftInput(): GenerateAnswerDraftInput {
     context: {
       text: '安全上下文',
       includedSourceIds: [sourceId],
+      sourceWindows: [{ sourceId, content: '差旅制度规定住宿上限为 500 元。' }],
       omittedSourceIds: [],
       estimatedTokens: 10,
       tokenBudget: 100,
     },
     calculations: [],
+    directEvidenceOnly: false,
   };
 }
 
@@ -264,11 +340,30 @@ function bundle(): EvidenceBundle {
   };
 }
 
-function openAi(content: unknown): Response {
+function openAi(content: unknown, model = 'deepseek-chat'): Response {
+  return new Response(
+    JSON.stringify({
+      model,
+      choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(content) } }],
+    }),
+    { status: 200, headers: { 'content-type': 'application/json' } },
+  );
+}
+
+function openAiRaw(input: {
+  readonly finishReason: string;
+  readonly content: string | null;
+  readonly reasoningContent?: string;
+}): Response {
   return new Response(
     JSON.stringify({
       model: 'deepseek-chat',
-      choices: [{ message: { content: JSON.stringify(content) } }],
+      choices: [
+        {
+          finish_reason: input.finishReason,
+          message: { content: input.content, reasoning_content: input.reasoningContent ?? null },
+        },
+      ],
     }),
     { status: 200, headers: { 'content-type': 'application/json' } },
   );

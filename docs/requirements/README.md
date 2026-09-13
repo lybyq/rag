@@ -13,6 +13,8 @@
 
 ## 已确认约束
 
+本轮已批准并实施：[内网 RAG 优化计划](./intranet-rag-optimization-plan.md)，覆盖正确性、性能、内网模型适配、真实处理时间线与外部业务接入。当前代码进度、验证结果和仍需内网实测的门禁见 [优化实施证据](../acceptance/intranet-rag-optimization-evidence.md)；未勾选项不代表已交付。
+
 1. 系统部署在单一企业内网，不建设多租户体系。
 2. 登录上下文只有 `userId` 和 `roles`；接入方式暂不确定，必须支持可配置适配。
 3. 外网先完成全部代码和集成验证，内网通过配置切换 Milvus、LLM、Embedding、Reranker 和 OCR。

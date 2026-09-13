@@ -42,6 +42,9 @@ function serviceFixture(): {
         completed: false,
       })),
     })),
+    findDocumentBatchByIdempotency: jest.fn().mockResolvedValue(undefined),
+    getUploadSession: jest.fn(),
+    listUploadFiles: jest.fn(),
     getCompletedUploadResult: jest.fn().mockResolvedValue(undefined),
     getUploadFile: jest.fn(),
     completeUpload: jest.fn(),
@@ -85,6 +88,176 @@ function serviceFixture(): {
 }
 
 describe('DocumentIngestionService', () => {
+  it('OPT-013 同一个批次幂等键和请求只创建一次，不同请求返回 409', async () => {
+    const { service, repository } = serviceFixture();
+    const spaceId = '0198a8f4-12f8-7000-8000-111111111111';
+    const request = {
+      files: [
+        {
+          clientFileId: 'external-file-1',
+          externalSourceId: 'finance-system',
+          externalDocumentId: 'policy-2026',
+          originalFileName: '差旅制度.pdf',
+          sizeBytes: 1024,
+          contentType: 'application/pdf',
+          sha256: 'a'.repeat(64),
+        },
+      ],
+    };
+
+    const created = await service.createDocumentBatch(
+      context,
+      spaceId,
+      'business-request-0001',
+      request,
+    );
+    const command = repository.createUploadSession.mock.calls[0]?.[1];
+    expect(created.replayed).toBe(false);
+    expect(command?.externalBatch).toEqual(
+      expect.objectContaining({ idempotencyKey: 'business-request-0001' }),
+    );
+    expect(command?.files[0]).toEqual(
+      expect.objectContaining({
+        externalSourceId: 'finance-system',
+        externalDocumentId: 'policy-2026',
+      }),
+    );
+
+    repository.findDocumentBatchByIdempotency.mockResolvedValue({
+      uploadSessionId: created.batchId,
+      requestSha256: command!.externalBatch!.requestSha256,
+    });
+    repository.getUploadSession.mockResolvedValue({
+      ...created.uploadSession,
+      status: 'COMPLETED',
+    });
+    await expect(
+      service.createDocumentBatch(context, spaceId, 'business-request-0001', request),
+    ).resolves.toEqual(expect.objectContaining({ batchId: created.batchId, replayed: true }));
+    expect(repository.createUploadSession).toHaveBeenCalledTimes(1);
+
+    await expect(
+      service.createDocumentBatch(context, spaceId, 'business-request-0001', {
+        files: [{ ...request.files[0]!, sizeBytes: 2048 }],
+      }),
+    ).rejects.toEqual(expect.objectContaining({ code: 'DUPLICATE_RESOURCE', httpStatus: 409 }));
+  });
+
+  it('OPT-013 批次状态按文件返回真实上传与 Job 进度，未完成文件不伪造 Job', async () => {
+    const { service, repository } = serviceFixture();
+    const batchId = '0198a8f4-12f8-7000-8000-777777777777';
+    const spaceId = '0198a8f4-12f8-7000-8000-111111111111';
+    const completedFileId = '0198a8f4-12f8-7000-8000-888888888888';
+    const pendingFileId = '0198a8f4-12f8-7000-8000-999999999999';
+    const expiresAt = new Date(Date.now() + 60_000);
+    const createdAt = new Date().toISOString();
+    repository.getUploadSession.mockResolvedValue({
+      id: batchId,
+      spaceId,
+      status: 'ACTIVE',
+      expiresAt: expiresAt.toISOString(),
+      createdAt,
+      files: [
+        {
+          fileId: completedFileId,
+          clientFileId: 'completed-file',
+          originalFileName: '已完成.pdf',
+          sizeBytes: 10,
+          contentType: 'application/pdf',
+          strategy: 'SINGLE',
+          partSizeBytes: 8 * 1024 * 1024,
+          partCount: 1,
+          uploadUrl: null,
+          expiresAt: expiresAt.toISOString(),
+          completed: true,
+        },
+        {
+          fileId: pendingFileId,
+          clientFileId: 'pending-file',
+          originalFileName: '上传中.pdf',
+          sizeBytes: 20 * 1024 * 1024,
+          contentType: 'application/pdf',
+          strategy: 'MULTIPART',
+          partSizeBytes: 8 * 1024 * 1024,
+          partCount: 3,
+          uploadUrl: null,
+          expiresAt: expiresAt.toISOString(),
+          completed: false,
+        },
+      ],
+    });
+    repository.listUploadFiles.mockResolvedValue([
+      {
+        id: completedFileId,
+        uploadSessionId: batchId,
+        spaceId,
+        clientFileId: 'completed-file',
+        externalSourceId: 'finance-system',
+        externalDocumentId: 'completed-policy',
+        originalFileName: '已完成.pdf',
+        strategy: 'SINGLE',
+        bucket: 'rag-quarantine',
+        objectKey: 'isolated/completed',
+        sizeBytes: 10,
+        contentType: 'application/pdf',
+        partSizeBytes: 8 * 1024 * 1024,
+        partCount: 1,
+        sessionStatus: 'ACTIVE',
+        fileStatus: 'COMPLETED',
+        expiresAt,
+      },
+      {
+        id: pendingFileId,
+        uploadSessionId: batchId,
+        spaceId,
+        clientFileId: 'pending-file',
+        externalSourceId: 'finance-system',
+        externalDocumentId: 'pending-policy',
+        originalFileName: '上传中.pdf',
+        strategy: 'MULTIPART',
+        bucket: 'rag-quarantine',
+        objectKey: 'isolated/pending',
+        multipartUploadId: 'multipart-pending',
+        sizeBytes: 20 * 1024 * 1024,
+        contentType: 'application/pdf',
+        partSizeBytes: 8 * 1024 * 1024,
+        partCount: 3,
+        sessionStatus: 'ACTIVE',
+        fileStatus: 'PENDING',
+        expiresAt,
+      },
+    ]);
+    repository.getCompletedUploadResult.mockResolvedValue({
+      document: { id: '0198a8f4-12f8-7000-8000-aaaaaaaaaaaa' },
+      documentVersion: { id: '0198a8f4-12f8-7000-8000-bbbbbbbbbbbb' },
+      job: {
+        id: 'job-completed-file',
+        status: 'RUNNING',
+        currentStep: 'PARSE',
+        overallPercent: 18,
+        publicMessage: '正在解析文件',
+      },
+    } as never);
+
+    const result = await service.getDocumentBatch(context, batchId);
+
+    expect(result.files).toEqual([
+      expect.objectContaining({
+        fileId: completedFileId,
+        documentId: '0198a8f4-12f8-7000-8000-aaaaaaaaaaaa',
+        jobId: 'job-completed-file',
+        overallPercent: 18,
+      }),
+      expect.objectContaining({
+        fileId: pendingFileId,
+        documentId: null,
+        jobId: null,
+        overallPercent: null,
+      }),
+    ]);
+    expect(repository.getCompletedUploadResult).toHaveBeenCalledTimes(1);
+  });
+
   it('200 MiB 只以元数据创建 Multipart，隔离路径不含原文件名', async () => {
     const { service, repository, storage } = serviceFixture();
     const session = await service.createUploadSession(context, {
@@ -136,6 +309,49 @@ describe('DocumentIngestionService', () => {
       }),
     ).rejects.toEqual(expect.objectContaining({ code: 'OBJECT_MISMATCH' }));
     expect(repository.completeUpload).not.toHaveBeenCalled();
+  });
+
+  it('OPT-013 相同外部内容复用原事实后尽力删除本次重复隔离对象', async () => {
+    const { service, repository, storage } = serviceFixture();
+    const fileId = '0198a8f4-12f8-7000-8000-cccccccccccc';
+    const uploadSessionId = '0198a8f4-12f8-7000-8000-dddddddddddd';
+    repository.getUploadFile.mockResolvedValue({
+      id: fileId,
+      uploadSessionId,
+      spaceId: '0198a8f4-12f8-7000-8000-111111111111',
+      clientFileId: 'external-duplicate',
+      externalSourceId: 'finance-system',
+      externalDocumentId: 'policy-2026',
+      originalFileName: '重复制度.pdf',
+      strategy: 'SINGLE',
+      bucket: 'rag-quarantine',
+      objectKey: 'isolated/new-duplicate',
+      sizeBytes: 100,
+      contentType: 'application/pdf',
+      sha256: 'a'.repeat(64),
+      partSizeBytes: 8 * 1024 * 1024,
+      partCount: 1,
+      sessionStatus: 'ACTIVE',
+      fileStatus: 'PENDING',
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    storage.headObject.mockResolvedValue({
+      sizeBytes: 100,
+      contentType: 'application/pdf',
+      sha256: 'a'.repeat(64),
+    });
+    repository.completeUpload.mockResolvedValue({
+      document: { id: '0198a8f4-12f8-7000-8000-eeeeeeeeeeee' },
+      file: { objectKey: 'isolated/original' },
+    } as never);
+
+    await service.completeUpload(context, uploadSessionId, { fileId, parts: [] });
+
+    expect(storage.removeObject).toHaveBeenCalledWith(
+      'rag-quarantine',
+      'isolated/new-duplicate',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
   });
 
   it('Multipart 已合并但 PG 未提交时，重试通过 HEAD 跳过第二次合并', async () => {

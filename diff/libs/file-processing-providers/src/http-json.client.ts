@@ -25,11 +25,65 @@ export async function postProviderJson(
   signal: AbortSignal,
   fetchImplementation: FetchImplementation = fetch,
 ): Promise<unknown> {
+  return postProvider(
+    config,
+    path,
+    body,
+    signal,
+    fetchImplementation,
+    'application/json',
+    (bytes) => {
+      try {
+        return JSON.parse(new TextDecoder().decode(bytes));
+      } catch (error) {
+        throw new ProcessingProviderError(
+          'DEVELOPER_DEFECT',
+          'PROVIDER_INVALID_JSON',
+          'Provider 返回了无效 JSON',
+          { cause: error },
+        );
+      }
+    },
+  );
+}
+
+/**
+ * 读取有界纯文本响应；重试、超时、取消、错误脱敏和 JSON 客户端完全共用一套实现。
+ * 该函数不根据 Content-Type 猜业务协议，调用方必须由显式配置决定何时使用。
+ */
+export async function postProviderText(
+  config: ProviderHttpClientConfig,
+  path: string,
+  body: unknown,
+  signal: AbortSignal,
+  fetchImplementation: FetchImplementation = fetch,
+): Promise<string> {
+  return postProvider(
+    config,
+    path,
+    body,
+    signal,
+    fetchImplementation,
+    'text/plain, application/json;q=0.9',
+    (bytes) => new TextDecoder().decode(bytes),
+  );
+}
+
+async function postProvider<T>(
+  config: ProviderHttpClientConfig,
+  path: string,
+  body: unknown,
+  signal: AbortSignal,
+  fetchImplementation: FetchImplementation,
+  accept: string,
+  decode: (bytes: Uint8Array) => T,
+): Promise<T> {
   const attempts = config.maxAttempts ?? 3;
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      return await postOnce(config, path, body, signal, fetchImplementation);
+      const bytes = await postOnce(config, path, body, signal, fetchImplementation, accept);
+      return decode(bytes);
     } catch (error) {
       lastError = error;
       if (signal.aborted || !isRetryable(error) || attempt === attempts) throw error;
@@ -45,7 +99,8 @@ async function postOnce(
   body: unknown,
   signal: AbortSignal,
   fetchImplementation: FetchImplementation,
-): Promise<unknown> {
+  accept: string,
+): Promise<Uint8Array> {
   const timeout = AbortSignal.timeout(config.timeoutMs);
   const combined = AbortSignal.any([signal, timeout]);
   let response: Response;
@@ -54,7 +109,7 @@ async function postOnce(
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        accept: 'application/json',
+        accept,
         ...(config.apiKey ? { authorization: `Bearer ${config.apiKey}` } : {}),
       },
       body: JSON.stringify(body),
@@ -102,16 +157,7 @@ async function postOnce(
       { cause: error },
     );
   }
-  try {
-    return JSON.parse(new TextDecoder().decode(bytes));
-  } catch (error) {
-    throw new ProcessingProviderError(
-      'DEVELOPER_DEFECT',
-      'PROVIDER_INVALID_JSON',
-      'Provider 返回了无效 JSON',
-      { cause: error },
-    );
-  }
+  return bytes;
 }
 
 /** 只读取平台公开错误的 code/retryable；不信任也不返回远端 message。 */

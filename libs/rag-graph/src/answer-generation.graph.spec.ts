@@ -17,6 +17,7 @@ import type {
   GenerateAnswerDraftInput,
   LlmEvidenceRerankInput,
   RerankerPort,
+  RagRunLifecycleService,
 } from '@rag/application';
 import type { EvidenceSource, RagRun, RetrievalCandidate } from '@rag/contracts';
 import { createTestUserContext } from '@rag/testing';
@@ -27,6 +28,8 @@ import {
 } from './answer-generation.graph';
 import type { HybridRetrievalService } from './hybrid-retrieval.graph';
 import degradationGolden from '../../../test/fixtures/answer-generation/golden-answer-degradations.json';
+import diagnosticBaseline from '../../../test/fixtures/answer-generation/intranet-diagnostic-baseline.json';
+import { AnswerGenerationExecutionService } from './answer-generation.execution.service';
 
 const spaceId = '11111111-1111-4111-8111-111111111111';
 const manifestId = '22222222-2222-4222-8222-222222222222';
@@ -35,6 +38,208 @@ const versionId = '44444444-4444-4444-8444-444444444444';
 const runId = '55555555-5555-4555-8555-555555555555';
 
 describe('[ANS-020] answer generation graph', () => {
+  it('[OPT-004] 首轮候选在 Evidence 回源后失效时真正执行受限第二轮再回答', async () => {
+    const dependencies = fixtures('KNOWLEDGE');
+    const firstExpanded = await dependencies.evidenceSource.expandAndRecheck(
+      {} as never,
+      {} as never,
+    );
+    dependencies.evidenceSource.expandAndRecheck
+      .mockResolvedValueOnce({ materials: [], removedByReason: { SOURCE_RECHECK_FAILED: 1 } })
+      .mockResolvedValueOnce(firstExpanded);
+
+    const state = await createAnswerGenerationGraph(dependencies).invoke(input());
+
+    expect(dependencies.retrieval.retryAfterEvidenceFailure).toHaveBeenCalledTimes(1);
+    expect(dependencies.reranker.rerank).toHaveBeenCalledTimes(2);
+    expect(dependencies.evidenceSource.expandAndRecheck).toHaveBeenCalledTimes(3);
+    expect(state.retrieval?.roundCount).toBe(2);
+    expect(state.finalAnswer?.status).toBe('ANSWERED');
+  });
+
+  it('[OPT-001] 节点模型逻辑调用数区分专用重排、生成与被关闭的可选调用', async () => {
+    const dependencies = fixtures('KNOWLEDGE');
+    const audit = { start: jest.fn(), finish: jest.fn() };
+    await createAnswerGenerationGraph({
+      ...dependencies,
+      audit,
+      config: { ...dependencies.config, minimumConfidence: 1, llmEvidenceRerankEnabled: false },
+    }).invoke(input());
+    const summary = (node: string): unknown =>
+      audit.finish.mock.calls.find((call) => call[1] === node)?.[4];
+    expect(summary('answer_rerank')).toMatchObject({ logicalModelCallCount: 1 });
+    expect(summary('answer_generate_draft')).toMatchObject({ logicalModelCallCount: 1 });
+    expect(summary('answer_llm_evidence_rerank')).toMatchObject({ logicalModelCallCount: 0 });
+  });
+
+  it('[OPT-001] 材料复核失败仅暴露固定原因，不暴露被拒文档数量或私有原因键', async () => {
+    const dependencies = fixtures('KNOWLEDGE');
+    const audit = { start: jest.fn(), finish: jest.fn() };
+    dependencies.evidenceSource.expandAndRecheck.mockResolvedValue({
+      materials: [],
+      removedByReason: { SOURCE_RECHECK_FAILED: 8, 'private-document-name': 99 },
+    });
+    await createAnswerGenerationGraph({ ...dependencies, audit }).invoke(input());
+    const summary = audit.finish.mock.calls.find(
+      (call) => call[1] === 'answer_expand_evidence',
+    )?.[4];
+    expect(summary).toMatchObject({
+      materialRemovalReasons: ['SOURCE_RECHECK_FAILED', 'OTHER'],
+      accessibleDocumentCount: 0,
+    });
+    expect(JSON.stringify(summary)).not.toMatch(/private-document-name|99/);
+  });
+
+  it('[OPT-001] 实际执行服务把白名单错误同时传到步骤顶层和摘要，终态仍为运行失败', async () => {
+    const dependencies = fixtures('KNOWLEDGE');
+    dependencies.model.generateDraft.mockRejectedValue({
+      code: 'TIMEOUT',
+      message: 'private-content',
+    });
+    const run = runFixture();
+    const lifecycle = {
+      start: jest.fn().mockResolvedValue({ run, signal: new AbortController().signal }),
+      startStep: jest.fn(),
+      finishStep: jest.fn(),
+      fail: jest.fn().mockResolvedValue({ ...run, status: 'FAILED' }),
+      complete: jest.fn(),
+    };
+    const service = new AnswerGenerationExecutionService(
+      dependencies,
+      lifecycle as unknown as RagRunLifecycleService,
+      { llmModelId: 'test-model' },
+    );
+    const result = await service.execute(input().context, {
+      run,
+      ownerUserId: 'reader-1',
+    } as Parameters<typeof service.execute>[1]);
+    expect(result.status).toBe('FAILED');
+    expect(lifecycle.finishStep).toHaveBeenCalledWith(
+      runId,
+      expect.objectContaining({
+        nodeKey: 'answer_generate_draft',
+        status: 'FAILED',
+        errorCode: 'TIMEOUT',
+        outputSummary: expect.objectContaining({ errorCode: 'TIMEOUT' }),
+      }),
+    );
+    expect(lifecycle.complete).not.toHaveBeenCalled();
+    expect(JSON.stringify(lifecycle.finishStep.mock.calls)).not.toContain('private-content');
+  });
+
+  it.each(diagnosticBaseline)(
+    '[OPT-001] $id $title / $scenario',
+    async ({ question, title, content, scenario }) => {
+      const dependencies = fixtures('KNOWLEDGE');
+      const audit = { start: jest.fn(), finish: jest.fn() };
+      const retrievalMock = dependencies.retrieval.retrieve as jest.Mock;
+      const retrieval = await retrievalMock();
+      retrievalMock.mockResolvedValue({
+        ...retrieval,
+        question,
+        plan: { ...retrieval.plan, subQuestions: [question] },
+      });
+      const expanded = await dependencies.evidenceSource.expandAndRecheck({} as never, {} as never);
+      dependencies.evidenceSource.expandAndRecheck.mockResolvedValue({
+        ...expanded,
+        materials:
+          scenario === 'NO_MATERIAL'
+            ? []
+            : expanded.materials.map((material) => ({ ...material, title, content })),
+      });
+      dependencies.model.generateDraft.mockImplementation(async (request) => ({
+        summary: content,
+        claims: [
+          {
+            claimId: 'claim-1',
+            kind: 'FACT',
+            text: content,
+            sourceIds: [request.context.includedSourceIds[0]!],
+            calculationId: null,
+            supportMode: 'DIRECT',
+          },
+        ],
+        caveats: [],
+        followUpQuestion: null,
+      }));
+      if (scenario === 'REVOKED')
+        dependencies.evidenceSource.revalidateSources.mockResolvedValue([]);
+      if (scenario === 'TIMEOUT')
+        dependencies.model.generateDraft.mockRejectedValue({ code: 'TIMEOUT' });
+      const execution = createAnswerGenerationGraph({ ...dependencies, audit }).invoke(input());
+      if (scenario === 'TIMEOUT') {
+        await expect(execution).rejects.toMatchObject({ code: 'TIMEOUT' });
+      } else {
+        const state = await execution;
+        expect(state.finalAnswer?.status).toBe(scenario === 'ANSWERED' ? 'ANSWERED' : 'REJECTED');
+        if (scenario === 'NO_MATERIAL')
+          expect(dependencies.model.generateDraft).not.toHaveBeenCalled();
+        if (scenario === 'REVOKED')
+          expect(state.validation?.issues.map((issue) => issue.code)).toContain(
+            'CITATION_REVALIDATION_FAILED',
+          );
+      }
+      const summaries = JSON.stringify(audit.finish.mock.calls);
+      expect(summaries).not.toContain(question);
+      expect(summaries).not.toContain(content);
+    },
+  );
+
+  it('[OPT-001] 阶段审计保留真实上下文计数和耗时，不包含问题、标题或正文', async () => {
+    const dependencies = fixtures('KNOWLEDGE');
+    const audit = { start: jest.fn(), finish: jest.fn() };
+    await createAnswerGenerationGraph({ ...dependencies, audit }).invoke(input());
+    const context = audit.finish.mock.calls.find((call) => call[1] === 'answer_build_context');
+    expect(context?.[4]).toMatchObject({
+      contextIncludedCount: 1,
+      contextOmittedCount: 0,
+      durationMs: expect.any(Number),
+    });
+    const generated = audit.finish.mock.calls.find((call) => call[1] === 'answer_generate_draft');
+    expect(generated?.[4]).toMatchObject({ generationAttempt: 1 });
+    expect(JSON.stringify(audit.finish.mock.calls)).not.toMatch(/报销制度|有效凭证/);
+  });
+
+  it.each(['TIMEOUT', 'SCHEMA_ERROR', 'AUTHENTICATION', 'UPSTREAM_5XX'])(
+    '[OPT-001] 保留允许的故障分类 %s 而不记录远端消息',
+    async (code) => {
+      const dependencies = fixtures('KNOWLEDGE');
+      const audit = { start: jest.fn(), finish: jest.fn() };
+      dependencies.model.generateDraft.mockRejectedValueOnce({
+        code,
+        message: 'secret-provider-content',
+      });
+      await expect(
+        createAnswerGenerationGraph({ ...dependencies, audit }).invoke(input()),
+      ).rejects.toBeDefined();
+      expect(audit.finish).toHaveBeenCalledWith(
+        runId,
+        'answer_generate_draft',
+        1,
+        'FAILED',
+        expect.objectContaining({ errorCode: code, durationMs: expect.any(Number) }),
+      );
+      expect(JSON.stringify(audit.finish.mock.calls)).not.toContain('secret-provider-content');
+    },
+  );
+
+  it('[OPT-001] 未知错误码可能携带正文，只写固定 UNKNOWN', async () => {
+    const dependencies = fixtures('KNOWLEDGE');
+    const audit = { start: jest.fn(), finish: jest.fn() };
+    dependencies.model.generateDraft.mockRejectedValueOnce({ code: 'secret-question' });
+    await expect(
+      createAnswerGenerationGraph({ ...dependencies, audit }).invoke(input()),
+    ).rejects.toBeDefined();
+    expect(audit.finish).toHaveBeenCalledWith(
+      runId,
+      'answer_generate_draft',
+      1,
+      'FAILED',
+      expect.objectContaining({ errorCode: 'UNKNOWN' }),
+    );
+    expect(JSON.stringify(audit.finish.mock.calls)).not.toContain('secret-question');
+  });
+
   it('只在引用最终复核通过后产生 ANSWERED', async () => {
     const dependencies = fixtures('KNOWLEDGE');
     const graph = createAnswerGenerationGraph(dependencies);
@@ -45,6 +250,62 @@ describe('[ANS-020] answer generation graph', () => {
     expect(dependencies.evidenceSource.revalidateSources).toHaveBeenCalledTimes(1);
     expect(dependencies.model.generateDraft).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    { llmRerank: false, judge: false, semanticClaim: false, rerankCalls: 0, judgeCalls: 0 },
+    { llmRerank: true, judge: false, semanticClaim: false, rerankCalls: 1, judgeCalls: 0 },
+    { llmRerank: false, judge: true, semanticClaim: true, rerankCalls: 0, judgeCalls: 1 },
+    { llmRerank: true, judge: true, semanticClaim: true, rerankCalls: 1, judgeCalls: 1 },
+  ])(
+    '[OPT-005] 双开关 llm=$llmRerank judge=$judge 只执行必要模型调用',
+    async ({ llmRerank, judge, semanticClaim, rerankCalls, judgeCalls }) => {
+      const dependencies = fixtures('KNOWLEDGE');
+      const graphDependencies: AnswerGenerationGraphDependencies = {
+        ...dependencies,
+        config: {
+          ...dependencies.config,
+          minimumConfidence: 1,
+          llmEvidenceRerankEnabled: llmRerank,
+          semanticJudgeEnabled: judge,
+        },
+      };
+      if (semanticClaim) {
+        dependencies.model.generateDraft.mockImplementation(async (request) => ({
+          summary: '员工应提交有效凭证。',
+          claims: [
+            {
+              claimId: 'claim-1',
+              kind: 'FACT',
+              text: '员工应提交有效凭证。',
+              sourceIds: [request.context.includedSourceIds[0]!],
+              calculationId: null,
+              supportMode: 'SEMANTIC',
+            },
+          ],
+          caveats: [],
+          followUpQuestion: null,
+        }));
+        dependencies.model.judgeGrounding.mockResolvedValue({
+          modelId: 'fixture-llm',
+          revision: '1',
+          reason: 'test',
+          supportedClaimIds: ['claim-1'],
+          unsupportedClaimIds: [],
+        });
+      }
+
+      const state = await createAnswerGenerationGraph(graphDependencies).invoke(input());
+
+      expect(state.finalAnswer?.status).toBe('ANSWERED');
+      expect(dependencies.model.rerankEvidence).toHaveBeenCalledTimes(rerankCalls);
+      expect(dependencies.model.judgeGrounding).toHaveBeenCalledTimes(judgeCalls);
+      expect(dependencies.model.generateDraft).toHaveBeenCalledTimes(1);
+      expect(dependencies.model.generateDraft).toHaveBeenCalledWith(
+        expect.objectContaining({ directEvidenceOnly: !judge }),
+        expect.any(Object),
+      );
+    },
+  );
 
   it('CLARIFY 路由不会调用生成模型', async () => {
     const dependencies = fixtures('CLARIFY');
@@ -121,28 +382,34 @@ function fixtures(route: 'KNOWLEDGE' | 'CLARIFY'): AnswerGenerationGraphDependen
 } {
   const run = runFixture();
   const candidate = candidateFixture();
+  const retrievalResult = {
+    question: '报销制度是什么？',
+    run,
+    allowedSpaceIds: [spaceId],
+    route,
+    ...(route === 'KNOWLEDGE'
+      ? {
+          plan: {
+            subQuestions: ['报销制度是什么？'],
+          },
+        }
+      : {}),
+    candidates: route === 'KNOWLEDGE' ? [candidate] : [],
+    roundCount: route === 'KNOWLEDGE' ? 1 : 0,
+    cacheHit: false,
+    degraded: false,
+    routeSummaries: [],
+    removedByReason: {},
+    exactLiteralKinds: [],
+    terminalPlanSha256: 'a'.repeat(64),
+  };
   const retrieval = {
-    retrieve: jest.fn().mockResolvedValue({
-      question: '报销制度是什么？',
-      run,
-      allowedSpaceIds: [spaceId],
-      route,
-      ...(route === 'KNOWLEDGE'
-        ? {
-            plan: {
-              subQuestions: ['报销制度是什么？'],
-            },
-          }
-        : {}),
-      candidates: route === 'KNOWLEDGE' ? [candidate] : [],
-      roundCount: route === 'KNOWLEDGE' ? 1 : 0,
-      cacheHit: false,
-      degraded: false,
-      routeSummaries: [],
-      removedByReason: {},
-      exactLiteralKinds: [],
-      terminalPlanSha256: 'a'.repeat(64),
-    }),
+    retrieve: jest.fn().mockResolvedValue(retrievalResult),
+    retryAfterEvidenceFailure: jest
+      .fn()
+      .mockImplementation((_context: unknown, _runId: string, previous: typeof retrievalResult) =>
+        Promise.resolve({ ...previous, roundCount: 2 }),
+      ),
   } as unknown as HybridRetrievalService;
   const reranker: jest.Mocked<RerankerPort> = {
     checkHealth: jest.fn().mockResolvedValue(undefined),

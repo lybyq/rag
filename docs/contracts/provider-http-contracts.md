@@ -8,7 +8,7 @@
 - 请求携带 `Authorization: Bearer <key>` 时不得把 Key 写日志。
 - 所有服务必须支持调用方断开；平台会通过 AbortSignal 取消 HTTP 请求。
 - 429 和 5xx 可被有限重试；400/401/403、Schema 和版本错误不会重试。
-- 返回 JSON，错误正文不会被平台透传给用户。
+- 除显式配置为纯文本的 OCR 外返回 JSON，错误正文不会被平台透传给用户。
 - revision 必须代表不可变制品版本，不能写 `latest/current` 后又静默换模型。
 - 日志不得记录完整文档、问题或证据正文。
 
@@ -22,21 +22,23 @@ Content-Type: application/json
 Authorization: Bearer {LLM_API_KEY}
 ```
 
-请求包含 `model`、`messages`、`temperature`、`max_tokens`，部分任务要求 JSON 输出。响应至少满足：
+请求包含 `model`、`messages`、`temperature`、`max_tokens`，部分任务要求 JSON 输出。`LLM_JSON_MODE=response-format` 会发送 OpenAI JSON response format；若内网 vLLM 明确不支持该参数才改为 `prompt-only`，但响应仍会做严格 Schema 校验。响应至少满足：
 
 ```json
 {
   "choices": [
     {
       "message": {
-        "content": "{\"结构化字段\":\"由具体任务约定\"}"
-      }
+        "content": "{\"结构化字段\":\"由具体任务约定\"}",
+        "reasoning_content": "可选推理文本，平台不会把它当答案或证据"
+      },
+      "finish_reason": "stop"
     }
   ]
 }
 ```
 
-平台会分别用于 Query Rewrite、Draft Generation、Evidence Rerank 和 Semantic Judge。模型网关必须保持 JSON 字符串完整，不得自动追加解释或 Markdown Fence。
+平台会分别用于 Query Rewrite、Draft Generation、Evidence Rerank 和 Semantic Judge。三类答案任务分别使用 `LLM_GENERATION_MAX_OUTPUT_TOKENS`、`LLM_RERANK_MAX_OUTPUT_TOKENS`、`LLM_JUDGE_MAX_OUTPUT_TOKENS`。模型网关必须保持 JSON 字符串完整，不得自动追加解释或 Markdown Fence。`content=null` 且只有 `reasoning_content`、或 `finish_reason` 表示截断时，平台会分别报 Schema/Partial 错误，不会伪装成“证据不足”。
 
 联调重点：模型 ID 是否存在、JSON 模式是否稳定、最大上下文、超时、并发、429、取消、中文数字与引用 ID 是否原样返回。
 
@@ -160,7 +162,9 @@ Content-Type: application/json
 }
 ```
 
-必须恰好返回 `min(topN, documents.length)` 个不重复且来自输入的 candidateId。不能漏一半让平台误以为“低分”，部分结果属于契约错误。
+必须恰好返回 `min(topN, documents.length)` 个不重复且来自输入的 candidateId，`rank` 必须恰好覆盖 1～N，响应数组可以乱序。不能漏一半让平台误以为“低分”，部分结果属于契约错误。
+
+`RERANKER_SCORE_TYPE=probability` 表示服务已经返回 0～1 分数，越界会拒绝；`logit` 表示原始实数分数，Adapter 会且只会做一次 Sigmoid。这个值填错会直接扭曲证据阈值，不能靠“看起来差不多”决定。
 
 ## 5. OCR
 
@@ -195,7 +199,7 @@ Content-Type: application/json
 }
 ```
 
-响应：
+`OCR_RESPONSE_FORMAT=platform-json` 时响应：
 
 ```json
 {
@@ -230,6 +234,14 @@ Content-Type: application/json
 ```
 
 OCR 只能返回调用方请求过的 targetId。bbox 归一化为左上原点的 0～1 坐标。表格应返回二维 rows、headerRowCount 和 mergedCells，而不是把表格粗暴拼成一行。
+
+内网服务只返回整段文本时，可显式选择以下模式，不能由平台无界猜测：
+
+- `text`：HTTP body 就是纯文本；
+- `json-string`：HTTP body 是 JSON 字符串，例如 `"识别正文"`；
+- `json-text-field`：HTTP body 是 JSON 对象，正文位于 `OCR_JSON_TEXT_FIELD` 指定的顶层字段。
+
+纯文本模式一次请求只能有一个 target。目标页/图片身份沿用请求事实；bbox、置信度保持 `null`，系统会产生“置信度不可用”告警而不是伪造 0 或 1。空白、HTML 错误页以及把整份多页文本复制给多个目标都会被拒绝。上述配置只解决响应形状，真实请求究竟是预签名 URL、文件还是 Base64，仍必须拿内网脱敏抓包确认。
 
 ## 6. 项目自带 Parser
 

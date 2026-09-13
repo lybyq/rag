@@ -2017,6 +2017,11 @@
                         ],
                         "additionalProperties": false
                       },
+                      "slowNoticeSeconds": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 3600
+                      },
                       "featureFlags": {
                         "maxItems": 200,
                         "type": "array",
@@ -2459,6 +2464,11 @@
                       "maxRounds"
                     ],
                     "additionalProperties": false
+                  },
+                  "slowNoticeSeconds": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3600
                   },
                   "featureFlags": {
                     "maxItems": 200,
@@ -3111,6 +3121,11 @@
                           "maxRounds"
                         ],
                         "additionalProperties": false
+                      },
+                      "slowNoticeSeconds": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 3600
                       },
                       "featureFlags": {
                         "maxItems": 200,

@@ -42,6 +42,43 @@ describe('[IDX-003][IDX-005][IDX-009][IDX-011][IDX-013] IndexingService', () => 
     expect(repository.fail).not.toHaveBeenCalled();
   });
 
+  it('[OPT-012] 发布基线过期时返回自动重建结果且不把它误记为失败', async () => {
+    const repository = createRepository();
+    repository.publish = jest.fn(async () => ({
+      outcome: 'REBASE_QUEUED' as const,
+      staleManifestId: spaceManifest().id,
+      activeManifestId: '99999999-9999-4999-8999-999999999999',
+    }));
+    const service = createService(repository, createEmbedding());
+
+    await expect(service.process('job-1', 'worker-1')).resolves.toBe('REBASE_QUEUED');
+
+    expect(repository.fail).not.toHaveBeenCalled();
+  });
+
+  it('[OPT-012] 自动重建同一 Manifest 前先清理不可见旧向量', async () => {
+    const repository = createRepository();
+    const originalInput = await repository.beginRun(
+      {} as Parameters<IndexingRepository['beginRun']>[0],
+    );
+    if (!originalInput) throw new Error('测试仓储必须返回索引构建快照');
+    repository.beginRun = jest.fn(async () => ({
+      ...originalInput,
+      resetVectorRecordsBeforeBuild: true,
+    }));
+    const vector = new MemoryVectorIndexAdapter();
+    vector.deleteManifestRecords = jest.fn(vector.deleteManifestRecords.bind(vector));
+    const service = createService(repository, createEmbedding(), vector);
+
+    await expect(service.process('job-1', 'worker-1')).resolves.toBe('PUBLISHED');
+
+    expect(vector.deleteManifestRecords).toHaveBeenCalledWith(
+      spaceManifest().collectionName,
+      spaceManifest().id,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
   it('相同 contentHash + Profile 复用事实，但仍保存当前 Chunk 来源关系', async () => {
     const repository = createRepository();
     repository.findEmbeddingFacts = jest.fn(async () => [fact()]);
@@ -202,6 +239,7 @@ function createRepository(): IndexingRepository & Record<string, jest.Mock> {
     markIndexed: jest.fn(async () => undefined),
     markVerified: jest.fn(async () => undefined),
     publish: jest.fn(async () => ({
+      outcome: 'PUBLISHED' as const,
       manifest: { ...manifest, status: 'ACTIVE' },
       supersededManifestId: null,
     })),

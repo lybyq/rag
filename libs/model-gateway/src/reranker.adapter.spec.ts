@@ -57,6 +57,65 @@ describe('[ANS-002][CFG-006] HTTP reranker adapter', () => {
     });
   });
 
+  it('OPT-008 按配置把 raw logit 只归一化一次，并按 rank 而非数组顺序输出', async () => {
+    const logitConfig = loadAppConfig({
+      APP_ENV: 'development',
+      PROVIDER_PROFILE: 'external-dev',
+      RERANKER_ADAPTER: 'http',
+      RERANKER_MODEL_ID: 'bge-reranker',
+      RERANKER_REVISION: 'r1',
+      RERANKER_PROTOCOL_VERSION: '1',
+      RERANKER_MAX_CANDIDATES: '2',
+      RERANKER_TOP_N: '2',
+      RERANKER_SCORE_TYPE: 'logit',
+    });
+    const fetcher = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit?]>(async () =>
+      json({
+        ...successPayload(),
+        scores: [
+          { candidateId: 'b', score: -2, rank: 2 },
+          { candidateId: 'a', score: 2, rank: 1 },
+        ],
+      }),
+    );
+    const response = await new HttpRerankerAdapter(logitConfig, fetcher as typeof fetch).rerank(
+      input,
+      options(),
+    );
+    expect(response.scores.map((score) => score.candidateId)).toEqual(['a', 'b']);
+    expect(response.scores[0]?.score).toBeCloseTo(0.880797, 5);
+    expect(response.scores[1]?.score).toBeCloseTo(0.119203, 5);
+  });
+
+  it('OPT-008 probability 越界与重复 rank 被稳定拒绝', async () => {
+    const invalidProbability = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit?]>(
+      async () =>
+        json({
+          ...successPayload(),
+          scores: [
+            { candidateId: 'a', score: 1.2, rank: 1 },
+            { candidateId: 'b', score: 0.2, rank: 2 },
+          ],
+        }),
+    );
+    await expect(
+      new HttpRerankerAdapter(config, invalidProbability as typeof fetch).rerank(input, options()),
+    ).rejects.toMatchObject({ code: 'SCHEMA_ERROR', retryable: false });
+
+    const duplicateRank = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit?]>(async () =>
+      json({
+        ...successPayload(),
+        scores: [
+          { candidateId: 'a', score: 0.9, rank: 1 },
+          { candidateId: 'b', score: 0.2, rank: 1 },
+        ],
+      }),
+    );
+    await expect(
+      new HttpRerankerAdapter(config, duplicateRank as typeof fetch).rerank(input, options()),
+    ).rejects.toMatchObject({ code: 'PARTIAL_RESULT', retryable: false });
+  });
+
   it('父级取消立即终止，不发起网络请求', async () => {
     const controller = new AbortController();
     controller.abort(new Error('cancelled'));

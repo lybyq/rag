@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import webPackage from '../../../package.json';
 import AiMessageList from './AiMessageList.vue';
 import AiSender from './AiSender.vue';
+import AiThinkingStatus from './AiThinkingStatus.vue';
 
 const XSenderStub = defineComponent({
   name: 'XSender',
@@ -38,6 +39,20 @@ const BubbleListStub = defineComponent({
         props.list.map((item) => slots.content?.({ item })),
       );
   },
+});
+
+const ThinkingStub = defineComponent({
+  name: 'ThinkingStub',
+  setup:
+    (_props, { slots }) =>
+    () =>
+      h('section', [slots.label?.(), slots.content?.()]),
+});
+
+const AlertStub = defineComponent({
+  name: 'ElAlert',
+  props: { title: { type: String, required: true } },
+  setup: (props) => () => h('div', { role: 'alert' }, props.title),
 });
 
 describe('AI Adapter', () => {
@@ -75,5 +90,37 @@ describe('AI Adapter', () => {
     expect(wrapper.html()).not.toContain('<script>');
     await wrapper.get('[data-citation-id]').trigger('click');
     expect(wrapper.emitted('citation')).toEqual([[citationId]]);
+  });
+
+  it('OPT-011 展示后端真实时间线、实际耗时和慢请求取消提示', () => {
+    const wrapper = mount(AiThinkingStatus, {
+      props: {
+        stage: '已保留 4 条证据，正在根据资料整理答案。',
+        state: 'running',
+        timeline: [
+          {
+            sequence: 8,
+            status: 'COMPLETED',
+            message: '已找到 2 份可访问的相关资料，正在筛选。',
+            occurredAt: '2026-09-13T01:02:03.000Z',
+            durationMs: 438,
+          },
+          {
+            sequence: 9,
+            status: 'RUNNING',
+            message: '正在根据已保留资料整理答案。',
+            occurredAt: '2026-09-13T01:02:04.000Z',
+          },
+        ],
+        elapsedSeconds: 13,
+        slowNotice: true,
+      },
+      global: { stubs: { StubThinking: ThinkingStub, ElAlert: AlertStub } },
+    });
+
+    expect(wrapper.get('[aria-label="真实处理说明时间线"]').text()).toContain('已等待 13 秒');
+    expect(wrapper.text()).toContain('已找到 2 份可访问的相关资料');
+    expect(wrapper.text()).toContain('本次等待较久，你可以取消运行');
+    expect(wrapper.text()).not.toContain('answer_expand_evidence');
   });
 });

@@ -84,6 +84,7 @@ describeWithInfra('[RUN-001..014] 会话运行与事件 conversation and run', (
     llmProfileId: 'conversation-runtime-llm',
     llmRevision: 'llm-r1',
     deadlineSeconds: 600,
+    slowNoticeSeconds: 12,
     eventRetentionSeconds: 600,
     contentRetentionDays: 30,
     streamTicketTtlSeconds: 60,

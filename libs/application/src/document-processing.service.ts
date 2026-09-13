@@ -385,6 +385,7 @@ function buildIssues(
       MISSING: 'OCR_RESULT_MISSING',
       EMPTY: 'OCR_EMPTY_RESULT',
       LOW_CONFIDENCE: 'OCR_LOW_CONFIDENCE',
+      UNKNOWN_CONFIDENCE: 'OCR_CONFIDENCE_UNAVAILABLE',
       INVALID_LOCATION: 'OCR_TARGET_LOCATION_MISMATCH',
       DUPLICATE_RESULT: 'OCR_DUPLICATE_TARGET_RESULT',
     };
@@ -446,6 +447,7 @@ function publicOcrAssessmentMessage(status: OcrTargetAssessment['status']): stri
     MISSING: 'OCR 未返回该目标的结果，已保留原生内容',
     EMPTY: 'OCR 返回空内容，已保留原生内容',
     LOW_CONFIDENCE: 'OCR 平均置信度低于配置阈值，已保留原生内容',
+    UNKNOWN_CONFIDENCE: 'OCR 未提供置信度，已保留识别文本并等待人工复核',
     INVALID_LOCATION: 'OCR 结果定位与请求目标不一致，已保留原生内容',
     DUPLICATE_RESULT: 'OCR 对同一目标返回重复结果，已保留原生内容',
   };

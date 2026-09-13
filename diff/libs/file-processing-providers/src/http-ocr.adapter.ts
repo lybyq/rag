@@ -9,7 +9,7 @@ import type { OcrPort, ProviderDocumentSource } from '@rag/application';
 import type { OcrResult, OcrTarget, ProcessingProviderProfile } from '@rag/contracts';
 import { OcrResultSchema } from '@rag/contracts';
 import type { FetchImplementation, ProviderHttpClientConfig } from './http-json.client';
-import { postProviderJson } from './http-json.client';
+import { postProviderJson, postProviderText } from './http-json.client';
 import { ProcessingProviderError } from './provider.error';
 
 /** 标准 OCR HTTP Adapter 的版本化连接配置。 */
@@ -17,6 +17,11 @@ export interface HttpOcrConfig extends ProviderHttpClientConfig {
   readonly profileId: string;
   readonly revision: string;
   readonly protocolVersion: string;
+  readonly modelId: string;
+  /** 响应形状由运维按实际接口选择；禁止运行时根据正文猜测。 */
+  readonly responseFormat?: 'platform-json' | 'text' | 'json-string' | 'json-text-field';
+  /** JSON 文本字段模式使用的顶层字段名。 */
+  readonly jsonTextField?: string;
   /** Provider 实际支持的目标类型；省略时保持旧配置的全能力行为。 */
   readonly capabilities?: readonly string[];
 }
@@ -56,13 +61,40 @@ export class HttpOcrAdapter implements OcrPort {
     signal: AbortSignal,
   ): Promise<OcrResult> {
     const requested = uniqueRequestedTargets(targets);
-    const raw = await postProviderJson(
-      this.config,
-      'v1/ocr',
-      { protocolVersion: this.config.protocolVersion, source, targets },
-      signal,
-      this.fetchImplementation,
-    );
+    const responseFormat = this.config.responseFormat ?? 'platform-json';
+    if (responseFormat !== 'platform-json' && requested.size !== 1) {
+      throw contractError(
+        'OCR_PLAIN_TEXT_MULTI_TARGET_UNSUPPORTED',
+        '纯文本 OCR 一次只能关联一个实际目标，禁止把整段结果复制到多个页面',
+      );
+    }
+    const startedAt = Date.now();
+    const requestBody = { protocolVersion: this.config.protocolVersion, source, targets };
+    const raw =
+      responseFormat === 'text'
+        ? await postProviderText(
+            this.config,
+            'v1/ocr',
+            requestBody,
+            signal,
+            this.fetchImplementation,
+          )
+        : await postProviderJson(
+            this.config,
+            'v1/ocr',
+            requestBody,
+            signal,
+            this.fetchImplementation,
+          );
+    if (responseFormat !== 'platform-json') {
+      return plainTextResult(
+        raw,
+        responseFormat,
+        this.config,
+        requested.values().next().value as OcrTarget,
+        Date.now() - startedAt,
+      );
+    }
     const parsed = OcrResultSchema.safeParse(raw);
     if (!parsed.success) {
       throw new ProcessingProviderError(
@@ -123,6 +155,75 @@ export class HttpOcrAdapter implements OcrPort {
       })),
     });
   }
+}
+
+/** 把显式配置的纯文本响应映射成单目标结果，未知坐标与置信度保持 null。 */
+function plainTextResult(
+  raw: unknown,
+  responseFormat: Exclude<NonNullable<HttpOcrConfig['responseFormat']>, 'platform-json'>,
+  config: HttpOcrConfig,
+  target: OcrTarget,
+  durationMs: number,
+): OcrResult {
+  const text = extractConfiguredText(raw, responseFormat, config.jsonTextField ?? 'text').trim();
+  if (!text) throw contractError('OCR_EMPTY_TEXT_RESPONSE', 'OCR 返回了空白纯文本');
+  if (/^\s*<(?:!doctype\s+html|html|body)\b/iu.test(text)) {
+    throw contractError('OCR_HTML_ERROR_RESPONSE', 'OCR 返回了 HTML 错误页而不是识别文本');
+  }
+  return OcrResultSchema.parse({
+    engine: config.modelId,
+    engineRevision: config.revision,
+    protocolVersion: config.protocolVersion,
+    results: [
+      {
+        targetId: target.targetId,
+        pageNo: target.pageNo,
+        averageConfidence: null,
+        blocks: [
+          {
+            type: 'PARAGRAPH',
+            text,
+            originalText: text,
+            pageNo: target.pageNo,
+            sheetName: target.sheetName,
+            slideNo: target.slideNo,
+            bbox: null,
+            headingLevel: null,
+            confidence: null,
+            table: null,
+            metadata: {
+              extractionSource: 'OCR',
+              sourceTargetId: target.targetId,
+              locationPrecision: 'TARGET_ONLY',
+            },
+          },
+        ],
+      },
+    ],
+    durationMs,
+    warnings: ['OCR_CONFIDENCE_UNAVAILABLE', 'OCR_FINE_LOCATION_UNAVAILABLE'],
+  });
+}
+
+/** 只接受所选响应形状，不在字符串、对象和嵌套字段之间做隐式兜底。 */
+function extractConfiguredText(
+  raw: unknown,
+  responseFormat: Exclude<NonNullable<HttpOcrConfig['responseFormat']>, 'platform-json'>,
+  jsonTextField: string,
+): string {
+  if ((responseFormat === 'text' || responseFormat === 'json-string') && typeof raw === 'string') {
+    return raw;
+  }
+  if (
+    responseFormat === 'json-text-field' &&
+    typeof raw === 'object' &&
+    raw !== null &&
+    jsonTextField in raw &&
+    typeof (raw as Record<string, unknown>)[jsonTextField] === 'string'
+  ) {
+    return (raw as Record<string, string>)[jsonTextField] ?? '';
+  }
+  throw contractError('OCR_TEXT_RESPONSE_SCHEMA_MISMATCH', 'OCR 纯文本响应与所选配置不一致');
 }
 
 /** 请求目标重复属于调用方缺陷；在发出网络请求前失败，避免 Provider 产生歧义结果。 */

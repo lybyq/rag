@@ -23,9 +23,12 @@ const ocrTargetCapabilities = [
 const tokenizerAdapters = ['cl100k'] as const;
 const dedupModes = ['RETAIN', 'SUPPRESS'] as const;
 const llmAdapters = ['openai-compatible', 'http', 'fixture'] as const;
+const llmJsonModes = ['response-format', 'prompt-only'] as const;
 const embeddingAdapters = ['openai-compatible', 'http', 'fixture'] as const;
 const rerankerAdapters = ['http', 'fixture'] as const;
+const rerankerScoreTypes = ['probability', 'logit'] as const;
 const vectorStoreAdapters = ['milvus', 'memory'] as const;
+const ocrResponseFormats = ['platform-json', 'text', 'json-string', 'json-text-field'] as const;
 const sensitiveContentStorageModes = ['AES_256_GCM', 'REDACTED', 'PLAIN'] as const;
 
 /** 开发身份预置的默认值；选择的是 presetId，而不是让浏览器提交任意角色。 */
@@ -244,6 +247,11 @@ export const AppEnvironmentSchema = z
     OCR_PROFILE_ID: z.string().min(1).max(100).default('docling-ocr-dev-v1'),
     OCR_REVISION: z.string().min(1).max(100).default('docling-serve-v1'),
     OCR_PROTOCOL_VERSION: z.string().min(1).max(40).default('1'),
+    OCR_RESPONSE_FORMAT: z.enum(ocrResponseFormats).default('platform-json'),
+    OCR_JSON_TEXT_FIELD: z
+      .string()
+      .regex(/^[A-Za-z_][A-Za-z0-9_]{0,63}$/u)
+      .default('text'),
     OCR_CAPABILITIES: csvSchema(ocrTargetCapabilities.join(',')).pipe(
       z.array(z.enum(ocrTargetCapabilities)).min(1),
     ),
@@ -305,6 +313,10 @@ export const AppEnvironmentSchema = z
     LLM_CONNECT_TIMEOUT_MS: z.coerce.number().int().min(100).max(60_000).default(3_000),
     LLM_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(900_000).default(60_000),
     LLM_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(65_536).default(4_096),
+    LLM_GENERATION_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(128).max(65_536).default(4_096),
+    LLM_RERANK_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(64).max(8_192).default(1_024),
+    LLM_JUDGE_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(64).max(8_192).default(1_024),
+    LLM_JSON_MODE: z.enum(llmJsonModes).default('response-format'),
     LLM_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.1),
 
     EMBEDDING_ADAPTER: z.enum(embeddingAdapters).default('fixture'),
@@ -387,8 +399,8 @@ export const AppEnvironmentSchema = z
     RETRIEVAL_INITIAL_TOP_K: z.coerce.number().int().min(1).max(100).default(40),
     RETRIEVAL_FINAL_TOP_K: z.coerce.number().int().min(1).max(50).default(12),
     RETRIEVAL_RRF_K: z.coerce.number().int().min(1).max(10_000).default(60),
-    RETRIEVAL_DENSE_WEIGHT: z.coerce.number().min(0).max(10).default(0.65),
-    RETRIEVAL_SPARSE_WEIGHT: z.coerce.number().min(0).max(10).default(0.35),
+    RETRIEVAL_DENSE_WEIGHT: z.coerce.number().min(0).max(10).default(1),
+    RETRIEVAL_SPARSE_WEIGHT: z.coerce.number().min(0).max(10).default(0),
     RETRIEVAL_MAX_PER_DOCUMENT: z.coerce.number().int().min(1).max(20).default(3),
     RETRIEVAL_MAX_PER_SECTION: z.coerce.number().int().min(1).max(20).default(2),
     RETRIEVAL_MINIMUM_RESULTS: z.coerce.number().int().min(1).max(20).default(3),
@@ -407,6 +419,7 @@ export const AppEnvironmentSchema = z
     RERANKER_MAX_CANDIDATES: z.coerce.number().int().min(1).max(1_000).default(50),
     RERANKER_TOP_N: z.coerce.number().int().min(1).max(1_000).default(10),
     RERANKER_MAX_INPUT_TOKENS: z.coerce.number().int().min(64).max(131_072).default(8_192),
+    RERANKER_SCORE_TYPE: z.enum(rerankerScoreTypes).default('probability'),
 
     ANSWER_CONTEXT_TOKEN_BUDGET: z.coerce.number().int().min(512).max(131_072).default(12_000),
     ANSWER_CONTEXT_MAX_PER_DOCUMENT: z.coerce.number().int().min(1).max(20).default(2),
@@ -414,6 +427,7 @@ export const AppEnvironmentSchema = z
     ANSWER_LLM_EVIDENCE_RERANK_ENABLED: z.enum(['true', 'false']).default('true'),
     ANSWER_SEMANTIC_JUDGE_ENABLED: z.enum(['true', 'false']).default('true'),
     ANSWER_RERANK_FALLBACK_ENABLED: z.enum(['true', 'false']).default('true'),
+    ANSWER_SLOW_NOTICE_SECONDS: z.coerce.number().int().min(1).max(3_600).default(12),
     ANSWER_STRICT_STREAMING: z.enum(['true', 'false']).default('true'),
     ANSWER_MAX_REGENERATIONS: z.coerce.number().int().min(1).max(1).default(1),
     ANSWER_EXECUTION_INTERVAL_MS: z.coerce.number().int().min(100).max(60_000).default(1_000),
@@ -616,6 +630,20 @@ export const AppEnvironmentSchema = z
         message: 'Dense 与 Sparse 权重不能同时为 0',
       });
     }
+    if (!value.EMBEDDING_OUTPUT_MODE.includes('dense')) {
+      context.addIssue({
+        code: 'custom',
+        path: ['EMBEDDING_OUTPUT_MODE'],
+        message: '当前索引与查询主链路必须提供 Dense 向量',
+      });
+    }
+    if (!value.EMBEDDING_OUTPUT_MODE.includes('sparse') && value.RETRIEVAL_SPARSE_WEIGHT !== 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['RETRIEVAL_SPARSE_WEIGHT'],
+        message: 'Dense-only Profile 的 Sparse 检索权重必须为 0，禁止伪造稀疏能力',
+      });
+    }
     if (value.RETRIEVAL_MAX_ROUNDS !== 2) {
       context.addIssue({
         code: 'custom',
@@ -715,10 +743,6 @@ export const AppEnvironmentSchema = z
       if (value.VECTOR_STORE_ADAPTER !== 'milvus') {
         unsafeIntranetFields.push('VECTOR_STORE_ADAPTER');
       }
-      if (!value.EMBEDDING_OUTPUT_MODE.includes('sparse')) {
-        unsafeIntranetFields.push('EMBEDDING_OUTPUT_MODE');
-      }
-
       const requiredIdentityFields = [
         ['SCANNER_PROFILE_ID', value.SCANNER_PROFILE_ID],
         ['SCANNER_REVISION', value.SCANNER_REVISION],
@@ -735,13 +759,15 @@ export const AppEnvironmentSchema = z
         ['EMBEDDING_PROFILE_ID', value.EMBEDDING_PROFILE_ID],
         ['EMBEDDING_REVISION', value.EMBEDDING_REVISION],
         ['EMBEDDING_TOKENIZER_REVISION', value.EMBEDDING_TOKENIZER_REVISION],
-        ['EMBEDDING_SPARSE_FORMAT_VERSION', value.EMBEDDING_SPARSE_FORMAT_VERSION],
         ['RERANKER_MODEL_ID', value.RERANKER_MODEL_ID],
         ['RERANKER_PROFILE_ID', value.RERANKER_PROFILE_ID],
         ['RERANKER_REVISION', value.RERANKER_REVISION],
         ['VECTOR_STORE_PROFILE_ID', value.VECTOR_STORE_PROFILE_ID],
       ] as const;
-      for (const [field, fieldValue] of requiredIdentityFields) {
+      const sparseIdentityFields = value.EMBEDDING_OUTPUT_MODE.includes('sparse')
+        ? ([['EMBEDDING_SPARSE_FORMAT_VERSION', value.EMBEDDING_SPARSE_FORMAT_VERSION]] as const)
+        : [];
+      for (const [field, fieldValue] of [...requiredIdentityFields, ...sparseIdentityFields]) {
         if (isPlaceholder(fieldValue)) unsafeIntranetFields.push(field);
       }
 
@@ -865,6 +891,10 @@ export interface AppConfig {
       profileId: string;
       revision: string;
       protocolVersion: string;
+      /** 内网响应形状必须显式选择，Adapter 不根据正文猜协议。 */
+      responseFormat: (typeof ocrResponseFormats)[number];
+      /** `json-text-field` 模式使用的顶层字段名。 */
+      jsonTextField: string;
       capabilities: readonly (typeof ocrTargetCapabilities)[number][];
       timeoutMs: number;
     };
@@ -913,6 +943,14 @@ export interface AppConfig {
     connectTimeoutMs: number;
     requestTimeoutMs: number;
     maxOutputTokens: number;
+    /** 长答案生成的独立输出预算。 */
+    generationMaxOutputTokens: number;
+    /** LLM 证据重排的独立输出预算。 */
+    rerankMaxOutputTokens: number;
+    /** 语义 Judge 的独立输出预算。 */
+    judgeMaxOutputTokens: number;
+    /** 不支持 `response_format` 的 vLLM 可切到 prompt-only。 */
+    jsonMode: (typeof llmJsonModes)[number];
     temperature: number;
   };
   embedding: {
@@ -1001,6 +1039,8 @@ export interface AppConfig {
     maxCandidates: number;
     topN: number;
     maxInputTokens: number;
+    /** 上游原始分数含义；平台边界统一输出 0..1 概率。 */
+    scoreType: (typeof rerankerScoreTypes)[number];
   };
   /** 证据构建、答案生成和发布门禁；这些开关不包含任何供应商专有配置。 */
   answer: {
@@ -1016,6 +1056,7 @@ export interface AppConfig {
     executionBatchSize: number;
     executionLeaseSeconds: number;
     citationPreviewChars: number;
+    slowNoticeSeconds: number;
   };
   /** 评测 Worker 的有限批量与数据库租约配置。 */
   evaluation: {
@@ -1174,6 +1215,8 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
         profileId: value.OCR_PROFILE_ID,
         revision: value.OCR_REVISION,
         protocolVersion: value.OCR_PROTOCOL_VERSION,
+        responseFormat: value.OCR_RESPONSE_FORMAT,
+        jsonTextField: value.OCR_JSON_TEXT_FIELD,
         capabilities: value.OCR_CAPABILITIES,
         timeoutMs: value.OCR_REQUEST_TIMEOUT_MS,
       }),
@@ -1222,6 +1265,10 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       connectTimeoutMs: value.LLM_CONNECT_TIMEOUT_MS,
       requestTimeoutMs: value.LLM_REQUEST_TIMEOUT_MS,
       maxOutputTokens: value.LLM_MAX_OUTPUT_TOKENS,
+      generationMaxOutputTokens: value.LLM_GENERATION_MAX_OUTPUT_TOKENS,
+      rerankMaxOutputTokens: value.LLM_RERANK_MAX_OUTPUT_TOKENS,
+      judgeMaxOutputTokens: value.LLM_JUDGE_MAX_OUTPUT_TOKENS,
+      jsonMode: value.LLM_JSON_MODE,
       temperature: value.LLM_TEMPERATURE,
     }),
     embedding: Object.freeze({
@@ -1310,6 +1357,7 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       maxCandidates: value.RERANKER_MAX_CANDIDATES,
       topN: value.RERANKER_TOP_N,
       maxInputTokens: value.RERANKER_MAX_INPUT_TOKENS,
+      scoreType: value.RERANKER_SCORE_TYPE,
     }),
     answer: Object.freeze({
       contextTokenBudget: value.ANSWER_CONTEXT_TOKEN_BUDGET,
@@ -1326,6 +1374,7 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       executionBatchSize: value.ANSWER_EXECUTION_BATCH_SIZE,
       executionLeaseSeconds: value.ANSWER_EXECUTION_LEASE_SECONDS,
       citationPreviewChars: value.ANSWER_CITATION_PREVIEW_CHARS,
+      slowNoticeSeconds: value.ANSWER_SLOW_NOTICE_SECONDS,
     }),
     evaluation: Object.freeze({
       workerIntervalMs: value.EVALUATION_WORKER_INTERVAL_MS,

@@ -11,7 +11,7 @@
 import type { ExpandedEvidenceMaterial } from '@rag/application';
 import type { EvidenceBundle, RetrievalCandidate } from '@rag/contracts';
 import routes from '../../../test/fixtures/answer-generation/golden-answer-routes.json';
-import { buildAnswerContext } from './context-builder';
+import { buildAnswerContext, evidenceBundleForAnswerContext } from './context-builder';
 import { calculateDeterministicFacts } from './deterministic-calculation';
 import { buildEvidenceBundle } from './evidence-builder';
 import { routeEvidence } from './evidence-router';
@@ -68,6 +68,41 @@ describe('[ANS-004] evidence bundle', () => {
 
     expect(bundle.conflicts).toEqual([]);
   });
+
+  it('[OPT-003] 单问题也必须有词面或高分双门槛依据，不能见到任意候选就判覆盖', () => {
+    const bundle = buildEvidenceBundle({
+      runId: ids.run,
+      subQuestions: ['北京住宿标准是多少'],
+      candidates: [candidate('chunk-a', '食堂本周供应早餐。')],
+      materials: [material('chunk-a', '食堂通知', '食堂本周供应早餐。')],
+      rerankScores: [{ candidateId: 'chunk-a', score: 0.2, rank: 1 }],
+      degraded: false,
+      createSourceId: sourceIdSequence(),
+    });
+
+    expect(bundle.sources[0]?.coverageBasis).toEqual([]);
+    expect(bundle.coverage[0]).toMatchObject({ status: 'MISSING', sourceIds: [] });
+  });
+
+  it('[OPT-003] 同章节但业务主体不同的金额不作为确定冲突', () => {
+    const bundle = buildEvidenceBundle({
+      runId: ids.run,
+      subQuestions: ['住宿标准是多少'],
+      candidates: [candidate('chunk-a', '北京住宿标准为 500 元。')],
+      materials: [
+        material('chunk-a', '差旅管理制度', '北京住宿标准为 500 元。'),
+        material('chunk-b', '差旅管理制度', '上海住宿标准为 600 元。', {
+          documentId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          documentVersionId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        }),
+      ],
+      rerankScores: [{ candidateId: 'chunk-a', score: 0.9, rank: 1 }],
+      degraded: false,
+      createSourceId: sourceIdSequence(),
+    });
+
+    expect(bundle.conflicts).toEqual([]);
+  });
 });
 
 describe('[ANS-005][ANS-020] evidence route golden', () => {
@@ -109,6 +144,35 @@ describe('[ANS-007][ANS-008][ANS-019] safe context and calculation', () => {
       expect.objectContaining({ expression: '100 + 20', result: '120', sourceIds: [ids.source] }),
     ]);
     expect(calculateDeterministicFacts('1000 + 20 等于多少？', bundle)).toEqual([]);
+  });
+
+  it('[OPT-003] 同文档高分父块不能挤掉原始命中 SELF，校验只读取实际截断窗口', () => {
+    const bundle = syntheticBundle(1, ['COVERED'], 0.9, 0);
+    const self = bundle.sources[0]!;
+    const parentId = '99999999-9999-4999-8999-999999999999';
+    bundle.sources = [
+      {
+        ...self,
+        sourceId: parentId,
+        chunkId: 'parent-high-score',
+        relation: 'PARENT',
+        content: '父块背景说明'.repeat(200),
+        rerankerScore: 1,
+      },
+      {
+        ...self,
+        content: `${'前置内容'.repeat(100)}北京住宿标准为 500 元。`,
+        rerankerScore: 0.8,
+      },
+    ];
+    bundle.coverage[0]!.sourceIds = [ids.source, parentId];
+
+    const context = buildAnswerContext(bundle, { tokenBudget: 100, maximumPerDocument: 1 });
+    const visible = evidenceBundleForAnswerContext(bundle, context);
+
+    expect(context.includedSourceIds).toEqual([ids.source]);
+    expect(visible.sources[0]?.sourceId).toBe(ids.source);
+    expect(visible.sources[0]?.content).not.toContain('500 元');
   });
 });
 
