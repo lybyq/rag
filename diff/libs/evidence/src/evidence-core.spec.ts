@@ -174,6 +174,54 @@ describe('[ANS-007][ANS-008][ANS-019] safe context and calculation', () => {
     expect(visible.sources[0]?.sourceId).toBe(ids.source);
     expect(visible.sources[0]?.content).not.toContain('500 元');
   });
+
+  it('[ANS-007] 同一文档承担多个子问题时动态放宽配额以保留每个覆盖代表', () => {
+    const bundle = syntheticBundle(1, ['COVERED'], 0.9, 0);
+    const sources = [0, 1, 2].map((index) => ({
+      ...bundle.sources[0]!,
+      sourceId: `${index + 1}6666666-6666-4666-8666-666666666666`,
+      chunkId: `chunk-${index}`,
+      content: `第 ${index + 1} 个条件必须满足。`,
+      subQuestionIndexes: [index],
+    }));
+    bundle.sources = sources;
+    bundle.coverage = sources.map((source, index) => ({
+      subQuestionIndex: index,
+      subQuestion: `条件 ${index + 1}`,
+      status: 'COVERED',
+      sourceIds: [source.sourceId],
+      confidence: 0.9,
+    }));
+
+    const context = buildAnswerContext(bundle, { tokenBudget: 2_000, maximumPerDocument: 1 });
+
+    expect(context.includedSourceIds).toEqual(sources.map((source) => source.sourceId));
+    expect(context.text).toContain('<heading_path>住宿</heading_path>');
+    expect(context.text).toContain('content_revision="1"');
+  });
+
+  it('[ANS-007] Parent 扩展只保留相对直接证据的新内容', () => {
+    const bundle = syntheticBundle(1, ['COVERED'], 0.9, 0);
+    const self = { ...bundle.sources[0]!, content: '住宿标准为 500 元。' };
+    const parent = {
+      ...self,
+      sourceId: '99999999-9999-4999-8999-999999999999',
+      chunkId: 'parent',
+      relation: 'PARENT' as const,
+      content: '住宿标准为 500 元。超标部分需个人承担。',
+      subQuestionIndexes: [],
+    };
+    bundle.sources = [self, parent];
+    bundle.coverage[0]!.sourceIds = [self.sourceId];
+
+    const context = buildAnswerContext(bundle, { tokenBudget: 2_000, maximumPerDocument: 2 });
+    const parentWindow = context.sourceWindows.find(
+      (window) => window.sourceId === parent.sourceId,
+    );
+
+    expect(parentWindow?.content).toBe('超标部分需个人承担。');
+    expect(context.text.match(/住宿标准为 500 元。/gu)).toHaveLength(1);
+  });
 });
 
 function candidate(chunkId: string, content: string): RetrievalCandidate {

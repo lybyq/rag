@@ -11,6 +11,8 @@
  * @requirement RET-008
  * @requirement RET-009
  * @requirement RET-015
+ * @requirement OPT-016
+ * @requirement OPT-017
  */
 import { END, START, StateGraph, StateSchema, type GraphNode } from '@langchain/langgraph';
 import {
@@ -48,12 +50,14 @@ import {
 } from '@rag/contracts';
 import {
   buildRetrievalPlan,
+  buildQueryEmbeddingCacheKey,
   buildSecondRoundQuestion,
   compileRetrievalFilter,
   diversifyCandidates,
   extractExactLiterals,
   routeQuery,
   shouldUseLlmRewrite,
+  secondRoundAddsNewQuery,
   weightedReciprocalRankFusion,
   type WeightedRetrievalList,
 } from '@rag/retrieval';
@@ -68,7 +72,6 @@ const RetrievalState = new StateSchema({
   manifests: z.custom<readonly RunManifestSnapshot[]>(),
   allowedSpaceIds: z.array(z.string()),
   profile: RetrievalProfileSnapshotSchema,
-  authScopeSha256: z.string(),
   asOf: z.date(),
   deadlineAt: z.date(),
   signal: z.custom<AbortSignal>(),
@@ -89,6 +92,8 @@ const RetrievalState = new StateSchema({
   cacheHit: z.boolean().default(false),
   degraded: z.boolean().default(false),
   retryNeeded: z.boolean().default(false),
+  /** 第二轮是否产生了首轮未执行过的新查询；false 时直接结束，避免相同请求重放。 */
+  retryPlanChanged: z.boolean().default(true),
   roundCount: z.number().int().min(0).max(2).default(0),
   terminalPlanSha256: z.string().default(''),
 });
@@ -104,7 +109,6 @@ export interface HybridRetrievalGraphInput {
   readonly manifests: readonly RunManifestSnapshot[];
   readonly allowedSpaceIds: string[];
   readonly profile: RetrievalProfileSnapshot;
-  readonly authScopeSha256: string;
   readonly asOf: Date;
   readonly deadlineAt: Date;
   readonly signal: AbortSignal;
@@ -127,12 +131,16 @@ export interface HybridRetrievalGraphDependencies {
   readonly telemetry: RetrievalTelemetryPort;
   readonly embeddingRequestTimeoutMs: number;
   readonly vectorRequestTimeoutMs: number;
-  readonly llmRequestTimeoutMs: number;
+  readonly rewriteRequestTimeoutMs: number;
   readonly embeddingMaxInputTokens: number;
   readonly queryCacheTtlSeconds: number;
   readonly expectedEmbeddingRevision: string;
   readonly expectedEmbeddingModelId: string;
   readonly expectedEmbeddingDimension: number;
+  readonly embeddingQueryTemplateVersion: string;
+  readonly embeddingNormalizeDense: boolean;
+  readonly embeddingOutputModes: readonly string[];
+  readonly embeddingSparseFormatVersion: string | null;
 }
 
 /** 证据与答案生成 可直接消费的 查询规划与混合检索 内部结果。 */
@@ -224,6 +232,15 @@ export function createHybridRetrievalGraph(
     dependencies.telemetry,
     async (state) => {
       const plan = requirePlan(state.plan);
+      if (!hasRemainingBudget(state.deadlineAt, dependencies.rewriteRequestTimeoutMs)) {
+        dependencies.telemetry.removed('REWRITE_BUDGET_EXHAUSTED', 1);
+        return {
+          degraded: true,
+          removedByReason: mergeCounts(state.removedByReason, {
+            REWRITE_BUDGET_EXHAUSTED: 1,
+          }),
+        };
+      }
       try {
         const suggestion = await dependencies.rewrite.rewrite(
           {
@@ -232,7 +249,7 @@ export function createHybridRetrievalGraph(
             historyEntities: state.historyEntities,
             maximumSubQuestions: 4,
           },
-          providerOptions(state, dependencies.llmRequestTimeoutMs),
+          providerOptions(state, dependencies.rewriteRequestTimeoutMs),
         );
         const rewritten = buildRetrievalPlan({
           question: state.question,
@@ -309,6 +326,14 @@ export function createHybridRetrievalGraph(
     dependencies.telemetry,
     (state) => {
       const previous = requirePlan(state.plan);
+      if (!secondRoundAddsNewQuery(previous)) {
+        dependencies.telemetry.removed('RETRY_QUERY_UNCHANGED', 1);
+        return {
+          retryNeeded: false,
+          retryPlanChanged: false,
+          removedByReason: mergeCounts(state.removedByReason, { RETRY_QUERY_UNCHANGED: 1 }),
+        };
+      }
       const retried = buildRetrievalPlan({
         question: buildSecondRoundQuestion(previous),
         route: previous.route,
@@ -321,6 +346,7 @@ export function createHybridRetrievalGraph(
       return {
         plan: retried,
         retryNeeded: false,
+        retryPlanChanged: true,
         terminalPlanSha256: retried.planSha256,
       };
     },
@@ -334,7 +360,8 @@ export function createHybridRetrievalGraph(
       if (!plan) return { candidates: [] };
       return {
         candidates: diversifyCandidates(state.accumulated, {
-          limit: plan.profile.finalTopK,
+          // RET-014：这里保留受控候选池给专用 Reranker；最终 TopK 只能在精排之后裁剪。
+          limit: plan.profile.candidatePoolTopK ?? plan.profile.finalTopK,
           maxPerDocument: plan.profile.maxPerDocument,
           maxPerSection: plan.profile.maxPerSection,
         }),
@@ -366,7 +393,9 @@ export function createHybridRetrievalGraph(
     .addConditionalEdges('assess_retrieval', (state) =>
       state.retryNeeded ? 'retry_plan' : 'diversify',
     )
-    .addEdge('retry_plan', 'query_embedding')
+    .addConditionalEdges('retry_plan', (state) =>
+      state.retryPlanChanged ? 'query_embedding' : 'diversify',
+    )
     .addEdge('diversify', END)
     .compile() as unknown as CompiledHybridRetrievalGraph;
 }
@@ -408,6 +437,12 @@ export class HybridRetrievalService {
     if (!previous.plan || previous.roundCount >= previous.run.snapshot.retrieval.maxRounds) {
       return previous;
     }
+    if (!secondRoundAddsNewQuery(previous.plan)) {
+      return {
+        ...previous,
+        removedByReason: mergeCounts(previous.removedByReason, { RETRY_QUERY_UNCHANGED: 1 }),
+      };
+    }
     return this.execute(context, runId, previous.plan);
   }
 
@@ -439,7 +474,6 @@ export class HybridRetrievalService {
       manifests: input.run.snapshot.manifests,
       profile: input.run.snapshot.retrieval,
       allowedSpaceIds: [...allowedSpaceIds],
-      authScopeSha256: authorizationScopeHash(context, allowedSpaceIds),
       asOf: new Date(input.run.createdAt),
       deadlineAt,
       signal: this.cancellation.signal(runId),
@@ -504,11 +538,16 @@ async function embedPlanQueries(
 ): Promise<Partial<RetrievalStateValue>> {
   const plan = requirePlan(state.plan);
   const cacheKeys = plan.subQuestions.map((query) =>
-    createHash('sha256')
-      .update(
-        `${state.manifests[0]?.embeddingProfileId ?? 'missing'}:${plan.profile.profileId}:${dependencies.expectedEmbeddingRevision}:${plan.planSha256}:${state.authScopeSha256}:${createHash('sha256').update(query).digest('hex')}`,
-      )
-      .digest('hex'),
+    buildQueryEmbeddingCacheKey({
+      text: query,
+      modelId: dependencies.expectedEmbeddingModelId,
+      revision: dependencies.expectedEmbeddingRevision,
+      denseDimension: dependencies.expectedEmbeddingDimension,
+      queryTemplateVersion: dependencies.embeddingQueryTemplateVersion,
+      normalizeDense: dependencies.embeddingNormalizeDense,
+      outputModes: dependencies.embeddingOutputModes,
+      sparseFormatVersion: dependencies.embeddingSparseFormatVersion,
+    }),
   );
   const cached = (
     await Promise.all(cacheKeys.map((key) => dependencies.cache.getQueryEmbedding(key)))
@@ -585,58 +624,69 @@ async function hybridRetrieve(
   const visibleManifests = state.manifests.filter((manifest) =>
     state.allowedSpaceIds.includes(manifest.spaceId),
   );
-  const densePromise = Promise.all(
-    combinations(state.embeddings, visibleManifests).map(
-      async ({ embedding, manifest, queryIndex }) => ({
-        manifest,
-        queryIndex,
-        hits: await dependencies.vectorIndex.searchManifestDense(
-          manifest.collectionName,
-          manifest.manifestId,
-          embedding.dense,
-          plan.profile.initialTopK,
-          providerOptions(state, dependencies.vectorRequestTimeoutMs),
-        ),
-      }),
-    ),
-  );
-  const sparseAvailable = state.embeddings.some((embedding) => embedding.sparse !== null);
-  const sparsePromise = sparseAvailable
-    ? Promise.all(
-        combinations(state.embeddings, visibleManifests)
+  const searchCombinations = combinations(state.embeddings, visibleManifests);
+  const sparseVectorAvailable = state.embeddings.some((embedding) => embedding.sparse !== null);
+  // Profile 权重为 0 表示显式关闭该路线；即使 Provider 顺带返回 Sparse，也不发无收益请求。
+  const sparseAvailable = plan.profile.sparseWeight > 0 && sparseVectorAvailable;
+  const tasks: SearchTask[] = [
+    ...searchCombinations.map((combination) => ({ route: 'DENSE' as const, ...combination })),
+    ...(sparseAvailable
+      ? searchCombinations
           .filter(({ embedding }) => embedding.sparse !== null)
-          .map(async ({ embedding, manifest, queryIndex }) => ({
-            manifest,
-            queryIndex,
-            hits: await dependencies.vectorIndex.searchManifestSparse(
-              manifest.collectionName,
-              manifest.manifestId,
-              requireSparse(embedding),
-              plan.profile.initialTopK,
-              providerOptions(state, dependencies.vectorRequestTimeoutMs),
-            ),
-          })),
-      )
-    : undefined;
-  const [denseResult, sparseResult] = await Promise.allSettled([
-    densePromise,
-    sparsePromise ?? Promise.resolve(undefined),
-  ]);
+          .map((combination) => ({ route: 'SPARSE' as const, ...combination }))
+      : []),
+  ];
+  const failedRoutes = new Set<SearchTask['route']>();
+  const outcomes = await mapWithConcurrency(
+    tasks,
+    plan.profile.maxConcurrency ?? 8,
+    async (task): Promise<SearchTaskOutcome> => {
+      // 某一路已经失败后，不再启动该路线排队中的同类请求；另一条路线仍可独立完成并降级服务。
+      if (failedRoutes.has(task.route)) return { route: task.route, status: 'SKIPPED' };
+      try {
+        const hits =
+          task.route === 'DENSE'
+            ? await dependencies.vectorIndex.searchManifestDense(
+                task.manifest.collectionName,
+                task.manifest.manifestId,
+                task.embedding.dense,
+                plan.profile.initialTopK,
+                providerOptions(state, dependencies.vectorRequestTimeoutMs),
+              )
+            : await dependencies.vectorIndex.searchManifestSparse(
+                task.manifest.collectionName,
+                task.manifest.manifestId,
+                requireSparse(task.embedding),
+                plan.profile.initialTopK,
+                providerOptions(state, dependencies.vectorRequestTimeoutMs),
+              );
+        return { route: task.route, status: 'SUCCEEDED', task, hits };
+      } catch {
+        failedRoutes.add(task.route);
+        return { route: task.route, status: 'FAILED' };
+      }
+    },
+    state.signal,
+  );
   if (state.signal.aborted) throw state.signal.reason;
   const summaries: RetrievalRouteSummary[] = [];
   const lists: WeightedRetrievalList[] = [];
-  if (denseResult.status === 'fulfilled') {
-    const hitCount = denseResult.value.reduce((sum, item) => sum + item.hits.length, 0);
+  const denseItems = outcomes.filter(
+    (outcome): outcome is SearchTaskSuccess =>
+      outcome.route === 'DENSE' && outcome.status === 'SUCCEEDED',
+  );
+  if (!failedRoutes.has('DENSE')) {
+    const hitCount = denseItems.reduce((sum, item) => sum + item.hits.length, 0);
     summaries.push({ route: 'DENSE', status: 'SUCCEEDED', hitCount, errorCode: null });
     dependencies.telemetry.retrievalRoute('DENSE', 'success');
-    for (const item of denseResult.value) {
+    for (const item of denseItems) {
       lists.push({
         route: 'DENSE',
         weight: plan.profile.denseWeight / Math.max(1, plan.subQuestions.length),
         hits: item.hits.map((hit, index) => ({
           ...hit,
-          manifestId: item.manifest.manifestId,
-          spaceId: item.manifest.spaceId,
+          manifestId: item.task.manifest.manifestId,
+          spaceId: item.task.manifest.spaceId,
           route: 'DENSE' as const,
           rank: index + 1,
         })),
@@ -651,21 +701,26 @@ async function hybridRetrieve(
       route: 'SPARSE',
       status: 'UNAVAILABLE',
       hitCount: 0,
-      errorCode: 'SPARSE_NOT_CONFIGURED',
+      errorCode:
+        plan.profile.sparseWeight === 0 ? 'SPARSE_DISABLED_BY_PROFILE' : 'SPARSE_NOT_CONFIGURED',
     });
     dependencies.telemetry.retrievalRoute('SPARSE', 'degraded');
-  } else if (sparseResult.status === 'fulfilled' && sparseResult.value) {
-    const hitCount = sparseResult.value.reduce((sum, item) => sum + item.hits.length, 0);
+  } else if (!failedRoutes.has('SPARSE')) {
+    const sparseItems = outcomes.filter(
+      (outcome): outcome is SearchTaskSuccess =>
+        outcome.route === 'SPARSE' && outcome.status === 'SUCCEEDED',
+    );
+    const hitCount = sparseItems.reduce((sum, item) => sum + item.hits.length, 0);
     summaries.push({ route: 'SPARSE', status: 'SUCCEEDED', hitCount, errorCode: null });
     dependencies.telemetry.retrievalRoute('SPARSE', 'success');
-    for (const item of sparseResult.value) {
+    for (const item of sparseItems) {
       lists.push({
         route: 'SPARSE',
         weight: plan.profile.sparseWeight / Math.max(1, plan.subQuestions.length),
         hits: item.hits.map((hit, index) => ({
           ...hit,
-          manifestId: item.manifest.manifestId,
-          spaceId: item.manifest.spaceId,
+          manifestId: item.task.manifest.manifestId,
+          spaceId: item.task.manifest.spaceId,
           route: 'SPARSE' as const,
           rank: index + 1,
         })),
@@ -701,6 +756,51 @@ function combinations(
   return embeddings.flatMap((embedding, queryIndex) =>
     manifests.map((manifest) => ({ embedding, manifest, queryIndex })),
   );
+}
+
+type SearchCombination = ReturnType<typeof combinations>[number];
+
+/** 一次受并发上限控制的 Milvus 查询任务。 */
+type SearchTask = SearchCombination & { readonly route: 'DENSE' | 'SPARSE' };
+
+/** 单个成功任务；失败只暴露稳定路线状态，不传播供应商正文。 */
+type SearchTaskSuccess = {
+  readonly route: 'DENSE' | 'SPARSE';
+  readonly status: 'SUCCEEDED';
+  readonly task: SearchTask;
+  readonly hits: Awaited<ReturnType<VectorIndexPort['searchManifestDense']>>;
+};
+
+type SearchTaskOutcome =
+  | SearchTaskSuccess
+  | { readonly route: 'DENSE' | 'SPARSE'; readonly status: 'FAILED' | 'SKIPPED' };
+
+/**
+ * 用固定数量 worker 消费任务，限制“子问题 × 空间 × 路线”的瞬时远程请求数。
+ * AbortSignal 在领取下一项前再次检查，Run 取消后不会继续发起排队请求。
+ *
+ * @requirement RET-009
+ */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  maximumConcurrency: number,
+  mapper: (item: T) => Promise<R>,
+  signal: AbortSignal,
+): Promise<readonly R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const worker = async (): Promise<void> => {
+    while (cursor < items.length) {
+      if (signal.aborted) throw signal.reason;
+      const index = cursor;
+      cursor += 1;
+      const item = items[index];
+      if (item !== undefined) results[index] = await mapper(item);
+    }
+  };
+  const workerCount = Math.min(items.length, Math.max(1, maximumConcurrency));
+  await Promise.all(Array.from({ length: workerCount }, worker));
+  return results;
 }
 
 function requireSparse(
@@ -782,20 +882,8 @@ function mergeCounts(
   return merged;
 }
 
-function authorizationScopeHash(
-  context: AccessContext,
-  allowedSpaceIds: readonly string[],
-): string {
-  return createHash('sha256')
-    .update(
-      JSON.stringify({
-        userId: context.user.userId,
-        roles: [...context.user.roles].sort(),
-        authzVersion: context.user.authzVersion,
-        spaces: [...allowedSpaceIds].sort(),
-      }),
-    )
-    .digest('hex');
+function hasRemainingBudget(deadlineAt: Date, requiredMs: number): boolean {
+  return deadlineAt.getTime() - Date.now() >= requiredMs;
 }
 
 function timedNode(

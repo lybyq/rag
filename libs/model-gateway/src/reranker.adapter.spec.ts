@@ -18,6 +18,8 @@ const config = loadAppConfig({
   RERANKER_PROTOCOL_VERSION: '1',
   RERANKER_MAX_CANDIDATES: '2',
   RERANKER_TOP_N: '2',
+  RETRIEVAL_CANDIDATE_POOL_TOP_K: '2',
+  RETRIEVAL_FINAL_TOP_K: '2',
 });
 const input = {
   query: '差旅标准',
@@ -67,6 +69,8 @@ describe('[ANS-002][CFG-006] HTTP reranker adapter', () => {
       RERANKER_PROTOCOL_VERSION: '1',
       RERANKER_MAX_CANDIDATES: '2',
       RERANKER_TOP_N: '2',
+      RETRIEVAL_CANDIDATE_POOL_TOP_K: '2',
+      RETRIEVAL_FINAL_TOP_K: '2',
       RERANKER_SCORE_TYPE: 'logit',
     });
     const fetcher = jest.fn<Promise<Response>, [RequestInfo | URL, RequestInit?]>(async () =>

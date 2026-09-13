@@ -326,6 +326,82 @@ describe('[ANS-020] answer generation graph', () => {
     expect(state.finalAnswer?.validation.outcome).toBe('PASS');
   });
 
+  it('[ANS-002] 专用 Reranker 看到候选池，最终候选只在精排后按 finalTopK 收敛', async () => {
+    const dependencies = fixtures('KNOWLEDGE');
+    const retrievalMock = dependencies.retrieval.retrieve as jest.Mock;
+    const retrieval = await retrievalMock();
+    const pool = Array.from({ length: 15 }, (_, index) => ({
+      ...candidateFixture(),
+      vectorId: index.toString(16).repeat(64),
+      chunkId: `candidate-${index}`,
+      documentId: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+    }));
+    retrievalMock.mockResolvedValue({ ...retrieval, candidates: pool });
+    dependencies.reranker.rerank.mockResolvedValue({
+      modelId: 'fixture-reranker',
+      revision: '1',
+      scores: pool.slice(0, 10).map((candidate, index) => ({
+        candidateId: candidate.chunkId,
+        score: 1 - index / 20,
+        rank: index + 1,
+      })),
+    });
+
+    const state = await createAnswerGenerationGraph(dependencies).invoke(input());
+
+    expect(dependencies.reranker.rerank).toHaveBeenCalledWith(
+      expect.objectContaining({ documents: expect.arrayContaining([expect.any(Object)]) }),
+      expect.any(Object),
+    );
+    expect(dependencies.reranker.rerank.mock.calls[0]?.[0].documents).toHaveLength(15);
+    expect(dependencies.reranker.rerank.mock.calls[0]?.[0].topN).toBe(10);
+    expect(state.candidates).toHaveLength(10);
+  });
+
+  it('[ANS-014] 剩余时间不足时跳过可选 LLM 证据重排', async () => {
+    const dependencies = fixtures('KNOWLEDGE');
+    const state = await createAnswerGenerationGraph({
+      ...dependencies,
+      config: { ...dependencies.config, minimumConfidence: 1 },
+    }).invoke({ ...input(), deadlineAt: new Date(Date.now() + 100) });
+
+    expect(dependencies.model.rerankEvidence).not.toHaveBeenCalled();
+    expect(dependencies.telemetry.degradation).toHaveBeenCalledWith(
+      'LLM_EVIDENCE_RERANK_BUDGET_SKIPPED',
+    );
+    expect(state.degraded).toBe(true);
+  });
+
+  it('[ANS-014] 修复生成预算不足时拒答，不发布需要修复的草稿', async () => {
+    const dependencies = fixtures('KNOWLEDGE');
+    dependencies.model.generateDraft.mockImplementation(async (request) => ({
+      summary: '没有来源支持的新结论。',
+      claims: [
+        {
+          claimId: 'claim-unsupported',
+          kind: 'FACT',
+          text: '没有来源支持的新结论。',
+          sourceIds: [request.context.includedSourceIds[0]!],
+          calculationId: null,
+          supportMode: 'DIRECT',
+        },
+      ],
+      caveats: [],
+      followUpQuestion: null,
+    }));
+
+    const state = await createAnswerGenerationGraph(dependencies).invoke({
+      ...input(),
+      deadlineAt: new Date(Date.now() + 100),
+    });
+
+    expect(dependencies.model.generateDraft).toHaveBeenCalledTimes(1);
+    expect(state.validation?.issues.map((issue) => issue.code)).toContain(
+      'REGENERATION_BUDGET_EXHAUSTED',
+    );
+    expect(state.finalAnswer?.status).toBe('REJECTED');
+  });
+
   it('Reranker revision 错配不能被 fallback 掩盖', async () => {
     const dependencies = fixtures('KNOWLEDGE');
     dependencies.reranker.rerank.mockResolvedValueOnce({
@@ -492,7 +568,10 @@ function fixtures(route: 'KNOWLEDGE' | 'CLARIFY'): AnswerGenerationGraphDependen
     telemetry,
     config: {
       rerankerTimeoutMs: 1_000,
-      llmTimeoutMs: 1_000,
+      generationTimeoutMs: 1_000,
+      evidenceRerankTimeoutMs: 1_000,
+      judgeTimeoutMs: 1_000,
+      regenerationMinimumRemainingMs: 1_000,
       rerankerMaximumCandidates: 20,
       rerankerTopN: 10,
       rerankFallbackEnabled: true,

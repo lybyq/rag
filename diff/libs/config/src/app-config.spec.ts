@@ -271,6 +271,55 @@ describe('[BASE-010] startup configuration', () => {
     expect(() => loadAppConfig({ RETRIEVAL_MAX_ROUNDS: '1' })).toThrow(/最多两轮/);
   });
 
+  it('[RET-014] 候选池、最终 TopK 与 Reranker 容量保持有序', () => {
+    const config = loadAppConfig({
+      RETRIEVAL_INITIAL_TOP_K: '40',
+      RETRIEVAL_CANDIDATE_POOL_TOP_K: '30',
+      RETRIEVAL_FINAL_TOP_K: '12',
+      RETRIEVAL_MAX_CONCURRENCY: '6',
+    });
+    expect(config.retrieval).toMatchObject({
+      initialTopK: 40,
+      candidatePoolTopK: 30,
+      finalTopK: 12,
+      maxConcurrency: 6,
+    });
+    expect(() =>
+      loadAppConfig({ RETRIEVAL_CANDIDATE_POOL_TOP_K: '10', RETRIEVAL_FINAL_TOP_K: '12' }),
+    ).toThrow(/候选池不能小于/);
+    expect(() =>
+      loadAppConfig({ RETRIEVAL_INITIAL_TOP_K: '20', RETRIEVAL_CANDIDATE_POOL_TOP_K: '21' }),
+    ).toThrow(/候选池不能大于/);
+    expect(() =>
+      loadAppConfig({
+        RETRIEVAL_INITIAL_TOP_K: '60',
+        RETRIEVAL_CANDIDATE_POOL_TOP_K: '60',
+        RERANKER_MAX_CANDIDATES: '50',
+      }),
+    ).toThrow(/最大候选数不能小于/);
+  });
+
+  it('[ANS-014] 分阶段 LLM 超时可独立配置但不能突破 Provider 总超时', () => {
+    const config = loadAppConfig({
+      LLM_REQUEST_TIMEOUT_MS: '60000',
+      LLM_REWRITE_REQUEST_TIMEOUT_MS: '8000',
+      LLM_GENERATION_REQUEST_TIMEOUT_MS: '55000',
+      LLM_RERANK_REQUEST_TIMEOUT_MS: '7000',
+      LLM_JUDGE_REQUEST_TIMEOUT_MS: '9000',
+      ANSWER_REGENERATION_MIN_REMAINING_MS: '12000',
+    });
+    expect(config.llm).toMatchObject({
+      rewriteRequestTimeoutMs: 8000,
+      generationRequestTimeoutMs: 55000,
+      rerankRequestTimeoutMs: 7000,
+      judgeRequestTimeoutMs: 9000,
+    });
+    expect(config.answer.regenerationMinimumRemainingMs).toBe(12000);
+    expect(() =>
+      loadAppConfig({ LLM_REQUEST_TIMEOUT_MS: '5000', LLM_JUDGE_REQUEST_TIMEOUT_MS: '6000' }),
+    ).toThrow(/分阶段 LLM 超时/);
+  });
+
   it('[CFG-002][CFG-003][CFG-012] 仓库环境模板与启动契约保持同步', () => {
     for (const fileName of ['.env.external-dev.example', '.env.external-ci.example']) {
       expect(() => loadAppConfig(readExampleEnvironment(fileName))).not.toThrow();

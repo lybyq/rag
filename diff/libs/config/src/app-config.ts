@@ -312,6 +312,15 @@ export const AppEnvironmentSchema = z
     LLM_PROTOCOL_VERSION: z.string().min(1).max(40).default('1'),
     LLM_CONNECT_TIMEOUT_MS: z.coerce.number().int().min(100).max(60_000).default(3_000),
     LLM_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(900_000).default(60_000),
+    LLM_REWRITE_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(10_000),
+    LLM_GENERATION_REQUEST_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(900_000)
+      .default(60_000),
+    LLM_RERANK_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(10_000),
+    LLM_JUDGE_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(10_000),
     LLM_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(1).max(65_536).default(4_096),
     LLM_GENERATION_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(128).max(65_536).default(4_096),
     LLM_RERANK_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(64).max(8_192).default(1_024),
@@ -397,7 +406,9 @@ export const AppEnvironmentSchema = z
 
     RETRIEVAL_PROFILE_ID: z.string().min(1).max(100).default('hybrid-medium-v1'),
     RETRIEVAL_INITIAL_TOP_K: z.coerce.number().int().min(1).max(100).default(40),
+    RETRIEVAL_CANDIDATE_POOL_TOP_K: z.coerce.number().int().min(1).max(100).default(40),
     RETRIEVAL_FINAL_TOP_K: z.coerce.number().int().min(1).max(50).default(12),
+    RETRIEVAL_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(8),
     RETRIEVAL_RRF_K: z.coerce.number().int().min(1).max(10_000).default(60),
     RETRIEVAL_DENSE_WEIGHT: z.coerce.number().min(0).max(10).default(1),
     RETRIEVAL_SPARSE_WEIGHT: z.coerce.number().min(0).max(10).default(0),
@@ -430,6 +441,12 @@ export const AppEnvironmentSchema = z
     ANSWER_SLOW_NOTICE_SECONDS: z.coerce.number().int().min(1).max(3_600).default(12),
     ANSWER_STRICT_STREAMING: z.enum(['true', 'false']).default('true'),
     ANSWER_MAX_REGENERATIONS: z.coerce.number().int().min(1).max(1).default(1),
+    ANSWER_REGENERATION_MIN_REMAINING_MS: z.coerce
+      .number()
+      .int()
+      .min(1_000)
+      .max(900_000)
+      .default(15_000),
     ANSWER_EXECUTION_INTERVAL_MS: z.coerce.number().int().min(100).max(60_000).default(1_000),
     ANSWER_EXECUTION_BATCH_SIZE: z.coerce.number().int().min(1).max(100).default(10),
     ANSWER_EXECUTION_LEASE_SECONDS: z.coerce.number().int().min(10).max(900).default(60),
@@ -622,6 +639,41 @@ export const AppEnvironmentSchema = z
         path: ['RETRIEVAL_FINAL_TOP_K'],
         message: '检索最终 TopK 不能大于初始召回 TopK',
       });
+    }
+    if (value.RETRIEVAL_FINAL_TOP_K > value.RETRIEVAL_CANDIDATE_POOL_TOP_K) {
+      context.addIssue({
+        code: 'custom',
+        path: ['RETRIEVAL_CANDIDATE_POOL_TOP_K'],
+        message: 'Reranker 候选池不能小于检索最终 TopK',
+      });
+    }
+    if (value.RETRIEVAL_CANDIDATE_POOL_TOP_K > value.RETRIEVAL_INITIAL_TOP_K) {
+      context.addIssue({
+        code: 'custom',
+        path: ['RETRIEVAL_CANDIDATE_POOL_TOP_K'],
+        message: 'Reranker 候选池不能大于初始召回 TopK',
+      });
+    }
+    if (value.RERANKER_MAX_CANDIDATES < value.RETRIEVAL_CANDIDATE_POOL_TOP_K) {
+      context.addIssue({
+        code: 'custom',
+        path: ['RERANKER_MAX_CANDIDATES'],
+        message: 'Reranker 最大候选数不能小于检索候选池',
+      });
+    }
+    for (const key of [
+      'LLM_REWRITE_REQUEST_TIMEOUT_MS',
+      'LLM_GENERATION_REQUEST_TIMEOUT_MS',
+      'LLM_RERANK_REQUEST_TIMEOUT_MS',
+      'LLM_JUDGE_REQUEST_TIMEOUT_MS',
+    ] as const) {
+      if (value[key] > value.LLM_REQUEST_TIMEOUT_MS) {
+        context.addIssue({
+          code: 'custom',
+          path: [key],
+          message: '分阶段 LLM 超时不能大于 Provider 总请求超时',
+        });
+      }
     }
     if (value.RETRIEVAL_DENSE_WEIGHT + value.RETRIEVAL_SPARSE_WEIGHT <= 0) {
       context.addIssue({
@@ -942,6 +994,14 @@ export interface AppConfig {
     protocolVersion: string;
     connectTimeoutMs: number;
     requestTimeoutMs: number;
+    /** 指代消解与问题拆解的单次预算。 */
+    rewriteRequestTimeoutMs: number;
+    /** 首次/修复答案生成的单次预算。 */
+    generationRequestTimeoutMs: number;
+    /** 可选 LLM 证据重排的单次预算。 */
+    rerankRequestTimeoutMs: number;
+    /** Semantic Judge 的单次预算。 */
+    judgeRequestTimeoutMs: number;
     maxOutputTokens: number;
     /** 长答案生成的独立输出预算。 */
     generationMaxOutputTokens: number;
@@ -1016,7 +1076,9 @@ export interface AppConfig {
   retrieval: {
     profileId: string;
     initialTopK: number;
+    candidatePoolTopK: number;
     finalTopK: number;
+    maxConcurrency: number;
     rrfK: number;
     denseWeight: number;
     sparseWeight: number;
@@ -1052,6 +1114,7 @@ export interface AppConfig {
     rerankFallbackEnabled: boolean;
     strictStreaming: true;
     maxRegenerations: 1;
+    regenerationMinimumRemainingMs: number;
     executionIntervalMs: number;
     executionBatchSize: number;
     executionLeaseSeconds: number;
@@ -1264,6 +1327,10 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       protocolVersion: value.LLM_PROTOCOL_VERSION,
       connectTimeoutMs: value.LLM_CONNECT_TIMEOUT_MS,
       requestTimeoutMs: value.LLM_REQUEST_TIMEOUT_MS,
+      rewriteRequestTimeoutMs: value.LLM_REWRITE_REQUEST_TIMEOUT_MS,
+      generationRequestTimeoutMs: value.LLM_GENERATION_REQUEST_TIMEOUT_MS,
+      rerankRequestTimeoutMs: value.LLM_RERANK_REQUEST_TIMEOUT_MS,
+      judgeRequestTimeoutMs: value.LLM_JUDGE_REQUEST_TIMEOUT_MS,
       maxOutputTokens: value.LLM_MAX_OUTPUT_TOKENS,
       generationMaxOutputTokens: value.LLM_GENERATION_MAX_OUTPUT_TOKENS,
       rerankMaxOutputTokens: value.LLM_RERANK_MAX_OUTPUT_TOKENS,
@@ -1334,7 +1401,9 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
     retrieval: Object.freeze({
       profileId: value.RETRIEVAL_PROFILE_ID,
       initialTopK: value.RETRIEVAL_INITIAL_TOP_K,
+      candidatePoolTopK: value.RETRIEVAL_CANDIDATE_POOL_TOP_K,
       finalTopK: value.RETRIEVAL_FINAL_TOP_K,
+      maxConcurrency: value.RETRIEVAL_MAX_CONCURRENCY,
       rrfK: value.RETRIEVAL_RRF_K,
       denseWeight: value.RETRIEVAL_DENSE_WEIGHT,
       sparseWeight: value.RETRIEVAL_SPARSE_WEIGHT,
@@ -1370,6 +1439,7 @@ export function loadAppConfig(environment: NodeJS.ProcessEnv): AppConfig {
       strictStreaming: true,
       // ANS-014：最多重生成一次，防止模型失败后形成无界循环和费用失控。
       maxRegenerations: 1,
+      regenerationMinimumRemainingMs: value.ANSWER_REGENERATION_MIN_REMAINING_MS,
       executionIntervalMs: value.ANSWER_EXECUTION_INTERVAL_MS,
       executionBatchSize: value.ANSWER_EXECUTION_BATCH_SIZE,
       executionLeaseSeconds: value.ANSWER_EXECUTION_LEASE_SECONDS,

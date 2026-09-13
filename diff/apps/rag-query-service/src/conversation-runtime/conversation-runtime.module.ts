@@ -140,7 +140,9 @@ import { RunsController, RunTicketStreamController } from './runs.controller';
             retrieval: {
               profileId: config.retrieval.profileId,
               initialTopK: config.retrieval.initialTopK,
+              candidatePoolTopK: config.retrieval.candidatePoolTopK,
               finalTopK: config.retrieval.finalTopK,
+              maxConcurrency: config.retrieval.maxConcurrency,
               rrfK: config.retrieval.rrfK,
               denseWeight: config.retrieval.denseWeight,
               sparseWeight: config.retrieval.sparseWeight,

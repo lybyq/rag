@@ -12,6 +12,7 @@
  * @requirement ANS-009
  * @requirement ANS-014
  * @requirement ANS-015
+ * @requirement OPT-018
  */
 import { END, START, StateGraph, StateSchema, type GraphNode } from '@langchain/langgraph';
 import {
@@ -111,7 +112,10 @@ export interface AnswerGenerationStageAudit {
 /** 答案图策略参数；Provider 地址不属于本配置。 */
 export interface AnswerGenerationGraphConfig {
   readonly rerankerTimeoutMs: number;
-  readonly llmTimeoutMs: number;
+  readonly generationTimeoutMs: number;
+  readonly evidenceRerankTimeoutMs: number;
+  readonly judgeTimeoutMs: number;
+  readonly regenerationMinimumRemainingMs: number;
   readonly rerankerMaximumCandidates: number;
   readonly rerankerTopN: number;
   readonly rerankFallbackEnabled: boolean;
@@ -168,7 +172,8 @@ export function createAnswerGenerationGraph(
             title: candidate.title,
             content: candidate.displayContent,
           })),
-          topN: Math.min(dependencies.config.rerankerTopN, candidates.length),
+          // ANS-002：检索图交付候选池；只有专用 Reranker 完成后才按最终 TopK 收敛。
+          topN: finalRerankerTopN(run, dependencies.config, candidates.length),
         },
         providerOptions(state, dependencies.config.rerankerTimeoutMs),
       );
@@ -204,7 +209,10 @@ export function createAnswerGenerationGraph(
         throw error;
       }
       dependencies.telemetry.degradation('RERANKER_UNAVAILABLE');
-      const fallback = candidates.slice(0, dependencies.config.rerankerTopN);
+      const fallback = candidates.slice(
+        0,
+        finalRerankerTopN(run, dependencies.config, candidates.length),
+      );
       return {
         candidates: fallback,
         rerankScores: fallback.map((candidate, index) => ({
@@ -303,10 +311,14 @@ export function createAnswerGenerationGraph(
       dependencies.telemetry.degradation('LLM_EVIDENCE_RERANK_DISABLED');
       return { llmRerankUsed: true, degraded: true, logicalModelCallCount: 0 };
     }
+    if (!hasRemainingBudget(state.deadlineAt, dependencies.config.evidenceRerankTimeoutMs)) {
+      dependencies.telemetry.degradation('LLM_EVIDENCE_RERANK_BUDGET_SKIPPED');
+      return { llmRerankUsed: true, degraded: true, logicalModelCallCount: 0 };
+    }
     try {
       const result = await dependencies.model.rerankEvidence(
         { question: state.question, bundle },
-        providerOptions(state, dependencies.config.llmTimeoutMs),
+        providerOptions(state, dependencies.config.evidenceRerankTimeoutMs),
       );
       return {
         bundle: reorderBundle(bundle, result.orderedSourceIds),
@@ -355,7 +367,7 @@ export function createAnswerGenerationGraph(
             ? { repairInstructions: state.validation.issues.map((issue) => issue.code) }
             : {}),
         },
-        providerOptions(state, dependencies.config.llmTimeoutMs),
+        providerOptions(state, dependencies.config.generationTimeoutMs),
       );
       return {
         draft,
@@ -404,6 +416,10 @@ export function createAnswerGenerationGraph(
       claimIds.length === 0
     )
       return { logicalModelCallCount: 0 };
+    if (!hasRemainingBudget(state.deadlineAt, dependencies.config.judgeTimeoutMs)) {
+      dependencies.telemetry.degradation('SEMANTIC_JUDGE_BUDGET_SKIPPED');
+      return { logicalModelCallCount: 0, degraded: true };
+    }
     const semanticJudge = await dependencies.model.judgeGrounding(
       {
         draft,
@@ -411,7 +427,7 @@ export function createAnswerGenerationGraph(
         claimIds,
         reason: 'DETERMINISTIC_RULE_CANNOT_DECIDE_SEMANTIC_SUPPORT',
       },
-      providerOptions(state, dependencies.config.llmTimeoutMs),
+      providerOptions(state, dependencies.config.judgeTimeoutMs),
     );
     return { semanticJudge, logicalModelCallCount: 1 };
   });
@@ -433,6 +449,25 @@ export function createAnswerGenerationGraph(
     // ANS-014：第二份草稿仍需修复时停止循环，绝不能把 REGENERATE 当作通过。
     if (validation.outcome === 'REGENERATE' && state.generationAttempt >= 2) {
       validation = { ...validation, outcome: 'REJECT' };
+    }
+    if (
+      validation.outcome === 'REGENERATE' &&
+      !hasRemainingBudget(state.deadlineAt, dependencies.config.regenerationMinimumRemainingMs)
+    ) {
+      dependencies.telemetry.degradation('REGENERATION_BUDGET_EXHAUSTED');
+      validation = {
+        ...validation,
+        outcome: 'REJECT',
+        issues: [
+          ...validation.issues,
+          {
+            code: 'REGENERATION_BUDGET_EXHAUSTED',
+            severity: 'BLOCKING',
+            claimId: null,
+            description: 'Run 剩余时间不足，未启动可能无法完成校验的修复生成',
+          },
+        ],
+      };
     }
     dependencies.telemetry.validation(validation.outcome);
     return { validation };
@@ -514,6 +549,18 @@ function providerOptions(
   timeoutMs: number,
 ): ProviderCallOptions {
   return { signal: state.signal, deadlineAt: state.deadlineAt, timeoutMs };
+}
+
+function finalRerankerTopN(
+  run: RagRun,
+  config: AnswerGenerationGraphConfig,
+  candidateCount: number,
+): number {
+  return Math.min(config.rerankerTopN, run.snapshot.retrieval.finalTopK, candidateCount);
+}
+
+function hasRemainingBudget(deadlineAt: Date, requiredMs: number): boolean {
+  return deadlineAt.getTime() - Date.now() >= requiredMs;
 }
 
 function isOperationalRerankerFailure(error: unknown): boolean {

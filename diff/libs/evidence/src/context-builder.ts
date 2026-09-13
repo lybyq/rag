@@ -6,6 +6,7 @@
  *
  * @requirement ANS-007
  * @requirement ANS-019
+ * @requirement OPT-019
  */
 import {
   AnswerContextSchema,
@@ -31,14 +32,30 @@ export function buildAnswerContext(
   let used = 24;
   // OPT-003：先覆盖各子问题的原始命中 SELF，再补其余 SELF，最后才加入父块/相邻块。
   // 这样高分父块不会耗尽同文档配额并把真正命中的短 Chunk 挤出模型上下文。
-  const orderedSources = coverageAwareOrder(bundle);
+  const representativeIds = coverageRepresentativeIds(bundle);
+  const compacted = compactOverlappingSources(
+    coverageAwareOrder(bundle, representativeIds),
+    representativeIds,
+  );
+  const orderedSources = compacted.sources;
+  omitted.push(...compacted.omittedSourceIds);
+  const requiredPerDocument = coverageRequiredPerDocument(orderedSources, representativeIds);
   for (const source of orderedSources) {
     const documentCount = perDocument.get(source.documentId) ?? 0;
-    if (documentCount >= options.maximumPerDocument) {
+    // ANS-007：配置值是普通上限；同一文档确实承担多个子问题时，为覆盖代表证据动态放宽。
+    const documentLimit = Math.max(
+      options.maximumPerDocument,
+      requiredPerDocument.get(source.documentId) ?? 0,
+    );
+    if (documentCount >= documentLimit) {
       omitted.push(source.sourceId);
       continue;
     }
-    const sourceTokens = estimateTokens(source.title) + estimateTokens(source.content) + 40;
+    const sourceTokens =
+      estimateTokens(source.title) +
+      estimateTokens(source.headingPath.join(' > ')) +
+      estimateTokens(source.content) +
+      60;
     if (used + sourceTokens > options.tokenBudget) {
       omitted.push(source.sourceId);
       continue;
@@ -62,6 +79,8 @@ export function buildAnswerContext(
     (source) =>
       `<evidence source_id="${source.sourceId}" authority="${source.authority}" relation="${source.relation}">\n` +
       `<title>${escapeBoundary(source.title)}</title>\n` +
+      `<heading_path>${escapeBoundary(source.headingPath.join(' > '))}</heading_path>\n` +
+      `<applicability content_revision="${source.contentRevision}" effective_from="${source.effectiveFrom}" effective_to="${source.effectiveTo ?? ''}" />\n` +
       `<content role="untrusted_data">${escapeBoundary(source.content)}</content>\n` +
       `</evidence>`,
   );
@@ -143,13 +162,17 @@ export function estimateTokens(value: string): number {
 }
 
 function escapeBoundary(value: string): string {
-  return value.replace(/<\/?(?:evidence|content|title|context_policy)\b/giu, (token) =>
-    token.replace('<', '&lt;'),
+  return value.replace(
+    /<\/?(?:evidence|content|title|heading_path|applicability|context_policy)\b/giu,
+    (token) => token.replace('<', '&lt;'),
   );
 }
 
 /** 以“先覆盖、再相关性”的稳定顺序选择上下文，不修改 EvidenceBundle 的持久化排名。 */
-function coverageAwareOrder(bundle: EvidenceBundle): readonly EvidenceSource[] {
+function coverageAwareOrder(
+  bundle: EvidenceBundle,
+  representativeIds: ReadonlySet<string>,
+): readonly EvidenceSource[] {
   const selectedIds = new Set<string>();
   const ordered: EvidenceSource[] = [];
   const append = (source: EvidenceSource | undefined): void => {
@@ -157,16 +180,115 @@ function coverageAwareOrder(bundle: EvidenceBundle): readonly EvidenceSource[] {
     selectedIds.add(source.sourceId);
     ordered.push(source);
   };
+  for (const sourceId of representativeIds)
+    append(bundle.sources.find((source) => source.sourceId === sourceId));
+  for (const source of bundle.sources) if (source.relation === 'SELF') append(source);
+  for (const source of bundle.sources) append(source);
+  return ordered;
+}
+
+/** 每个已覆盖子问题选择一个直接来源，后续压缩绝不能删除这些代表证据。 */
+function coverageRepresentativeIds(bundle: EvidenceBundle): ReadonlySet<string> {
+  const representatives = new Set<string>();
   for (const coverage of bundle.coverage) {
-    append(
+    const candidates = bundle.sources.filter((source) =>
+      coverage.sourceIds.includes(source.sourceId),
+    );
+    const representative =
+      candidates.find((source) => source.relation === 'SELF') ??
+      candidates[0] ??
       bundle.sources.find(
         (source) =>
           source.relation === 'SELF' &&
           source.subQuestionIndexes.includes(coverage.subQuestionIndex),
-      ),
-    );
+      );
+    if (representative) representatives.add(representative.sourceId);
   }
-  for (const source of bundle.sources) if (source.relation === 'SELF') append(source);
-  for (const source of bundle.sources) append(source);
-  return ordered;
+  return representatives;
+}
+
+/** 计算每份文档为覆盖所有子问题至少要保留的不同来源数量。 */
+function coverageRequiredPerDocument(
+  sources: readonly EvidenceSource[],
+  representativeIds: ReadonlySet<string>,
+): ReadonlyMap<string, number> {
+  const required = new Map<string, number>();
+  for (const source of sources) {
+    if (!representativeIds.has(source.sourceId)) continue;
+    required.set(source.documentId, (required.get(source.documentId) ?? 0) + 1);
+  }
+  return required;
+}
+
+/** 上下文压缩结果；来源 ID 不变，便于引用与最终再鉴权继续闭环。 */
+interface CompactedEvidenceSources {
+  readonly sources: readonly EvidenceSource[];
+  readonly omittedSourceIds: readonly string[];
+}
+
+/**
+ * 压缩 Parent/Neighbor 与已选窗口的重复正文。
+ *
+ * 覆盖代表证据原样保留；辅助来源先删除已经逐字出现的窗口，再按句子过滤 85% 以上字符
+ * 三元组重叠。只保留新增信息，避免相邻 Chunk 的 overlap 和 Parent 扩展重复消耗 Token。
+ */
+function compactOverlappingSources(
+  ordered: readonly EvidenceSource[],
+  protectedSourceIds: ReadonlySet<string>,
+): CompactedEvidenceSources {
+  const selected: EvidenceSource[] = [];
+  const omitted: string[] = [];
+  for (const source of ordered) {
+    if (protectedSourceIds.has(source.sourceId) || source.relation === 'SELF') {
+      selected.push(source);
+      continue;
+    }
+    const sameDocument = selected.filter((item) => item.documentId === source.documentId);
+    const content = removeCoveredText(
+      source.content,
+      sameDocument.map((item) => item.content),
+    );
+    if (normalizeForOverlap(content).length < 8) {
+      omitted.push(source.sourceId);
+      continue;
+    }
+    selected.push({ ...source, content });
+  }
+  return { sources: selected, omittedSourceIds: omitted };
+}
+
+function removeCoveredText(content: string, existingContents: readonly string[]): string {
+  let withoutExactWindows = content;
+  for (const existing of existingContents) {
+    if (existing.trim().length >= 8)
+      withoutExactWindows = withoutExactWindows.replaceAll(existing, '');
+  }
+  return withoutExactWindows
+    .split(/(?<=[。！？；\n])/u)
+    .filter((segment) =>
+      existingContents.every((existing) => characterTrigramContainment(segment, existing) < 0.85),
+    )
+    .join('')
+    .replace(/\n{3,}/gu, '\n\n')
+    .trim();
+}
+
+function characterTrigramContainment(candidate: string, existing: string): number {
+  const candidateGrams = trigrams(normalizeForOverlap(candidate));
+  if (candidateGrams.size === 0) return 0;
+  const existingGrams = trigrams(normalizeForOverlap(existing));
+  let overlap = 0;
+  for (const gram of candidateGrams) if (existingGrams.has(gram)) overlap += 1;
+  return overlap / candidateGrams.size;
+}
+
+function trigrams(value: string): ReadonlySet<string> {
+  if (value.length < 3) return new Set(value ? [value] : []);
+  return new Set(
+    Array.from({ length: value.length - 2 }, (_, index) => value.slice(index, index + 3)),
+  );
+}
+
+function normalizeForOverlap(value: string): string {
+  return value.normalize('NFKC').replace(/\s+/gu, '').toLocaleLowerCase();
 }
