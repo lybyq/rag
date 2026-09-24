@@ -1,0 +1,16 @@
+{
+  "schema_version":1,
+  "diagram_type":"workflow",
+  "meta":{"title":"回溯链：答案为什么引用了这段内容","locale":"zh-CN","quality_profile":"showcase"},
+  "lanes":[{"id":"answer","label":"用户可见结果"},{"id":"runtime","label":"运行与证据事实"},{"id":"origin","label":"不可混淆的来源身份"}],
+  "nodes":[
+    {"id":"claim","lane":"answer","col":0,"type":"frontend","label":"答案中的结论","sublabel":"不是只看整篇是否通顺"},
+    {"id":"citation","lane":"answer","col":2,"type":"backend","label":"sourceId 引用","sublabel":"打开时再次鉴权"},
+    {"id":"bundle","lane":"runtime","col":2,"type":"backend","label":"runId 与证据包","sublabel":"策略与节点执行快照","width":130},
+    {"id":"chunk","lane":"runtime","col":4,"type":"database","label":"Chunk 与 Manifest","sublabel":"本次运行使用的检索版本","width":145},
+    {"id":"block","lane":"origin","col":4,"type":"database","label":"DocumentBlock","sublabel":"位置 / parserRevision"},
+    {"id":"document","lane":"origin","col":2,"type":"external","label":"原始文档版本","sublabel":"文件 Hash / 内容修订"}
+  ],
+  "edges":[{"from":"claim","to":"citation","role":"main"},{"from":"citation","to":"bundle","role":"main"},{"from":"bundle","to":"chunk","role":"main"},{"from":"chunk","to":"block","role":"main"},{"from":"block","to":"document","role":"main"}],
+  "cards":[{"dot":"violet","title":"追溯不等于存全文日志","items":["日志放 ID、耗时、原因码；正文受控保存","有页码/bbox 才定位，缺失不能伪造"]},{"dot":"amber","title":"重放不等于字节级复现","items":["模型版本、索引版本与参数需记录","随机性与后端版本仍可能改变结果"]}]
+}

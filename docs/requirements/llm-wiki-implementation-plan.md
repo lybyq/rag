@@ -1,5 +1,7 @@
 # LLM Wiki 实施计划：第三方编译内核与企业集成
 
+> 2026-09-24 顺序更新：先实施受控 Agentic RAG Auto，再评估本 Wiki 计划。下文“第一/第二大阶段”为原先顺序，当前执行顺序以需求 README、ADR-017 和 agentic-rag-auto-implementation-plan.md 为准；Wiki 不再是 Agentic 的前置依赖。
+
 - 修订：2026-09-13，第二版，替代同文件第一版的自研编译方案。
 - 决策：用户已确认第三方编译器优先；本文为实施计划，所有功能尚未验收。
 - 第一大阶段：LLM Wiki，包括内网 Wiki 平台作为来源和发布目标。

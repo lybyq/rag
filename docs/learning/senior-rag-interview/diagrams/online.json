@@ -1,0 +1,27 @@
+{
+  "schema_version":1,
+  "diagram_type":"workflow",
+  "meta":{"title":"在线链路：召回、融合、精排不是一回事","locale":"zh-CN","quality_profile":"showcase"},
+  "lanes":[{"id":"input","label":"问题与范围"},{"id":"retrieve","label":"内网双路召回"},{"id":"lexical","label":"词法补充路线"},{"id":"evidence","label":"证据与答案"}],
+  "nodes":[
+    {"id":"question","lane":"input","col":0,"type":"frontend","label":"用户问题","sublabel":"userId / roles / 空间","height":56},
+    {"id":"plan","lane":"input","col":2,"type":"backend","label":"路由与受限计划","sublabel":"改写保留精确条件","height":56},
+    {"id":"dense","lane":"retrieve","col":2,"type":"database","label":"Dense 检索","sublabel":"Embedding 语义匹配"},
+    {"id":"bm25","lane":"lexical","col":2,"type":"database","label":"BM25 检索","sublabel":"Milvus 词项匹配"},
+    {"id":"fusion","lane":"retrieve","col":4,"type":"backend","label":"RRF 融合","sublabel":"按排名形成候选池"},
+    {"id":"source","lane":"evidence","col":4,"type":"security","label":"PG 回源复核","sublabel":"权限 / Manifest / 版本"},
+    {"id":"rank","lane":"evidence","col":2,"type":"backend","label":"精排与证据扩展","sublabel":"Reranker / 父块 / 条件"},
+    {"id":"answer","lane":"evidence","col":0,"type":"backend","label":"生成并校验","sublabel":"引用 / 规则 / 最终输出"}
+  ],
+  "edges":[
+    {"from":"question","to":"plan","role":"main","route":"straight"},
+    {"from":"plan","to":"dense","role":"main"},
+    {"from":"plan","to":"bm25","role":"branch","fromSide":"left","toSide":"left","route":"return-left"},
+    {"from":"dense","to":"fusion","role":"main","route":"straight"},
+    {"from":"bm25","to":"fusion","role":"branch","fromSide":"right","toSide":"bottom"},
+    {"from":"fusion","to":"source","role":"main","route":"straight"},
+    {"from":"source","to":"rank","role":"main"},
+    {"from":"rank","to":"answer","role":"main"}
+  ],
+  "cards":[{"dot":"cyan","title":"图示范围","items":["展示主链；省略已有有限重检索分支","不把 Agentic、联网搜索画成已上线"]},{"dot":"emerald","title":"四级诊断","items":["没召回、融合丢失、精排误杀、生成失真","逐级查证，不能都归因于 LLM"]}]
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {"title":"离线链路：从文件事实到可检索版本","locale":"zh-CN","quality_profile":"showcase"},
+  "lanes": [{"id":"parse","label":"解析事实"},{"id":"knowledge","label":"知识加工"},{"id":"publish","label":"索引发布"}],
+  "nodes":[
+    {"id":"source","lane":"parse","col":0,"type":"external","label":"原始文件","sublabel":"版本 / 文件 Hash"},
+    {"id":"blocks","lane":"parse","col":2,"type":"backend","label":"DocumentBlock","sublabel":"结构 / 位置 / OCR 来源"},
+    {"id":"chunks","lane":"knowledge","col":2,"type":"backend","label":"父子 Chunk","sublabel":"标题路径 / 表头 / Token"},
+    {"id":"quality","lane":"knowledge","col":4,"type":"security","label":"质量与审核","sublabel":"通过 / 人审 / 拒绝"},
+    {"id":"vectors","lane":"publish","col":4,"type":"database","label":"候选索引","sublabel":"向量写入与可见性检查"},
+    {"id":"visible","lane":"publish","col":2,"type":"database","label":"Manifest 发布","sublabel":"PG 原子切换当前版本"}
+  ],
+  "edges":[
+    {"from":"source","to":"blocks","label":"格式解析与按需 OCR","role":"main"},
+    {"from":"blocks","to":"chunks","role":"main"},
+    {"from":"chunks","to":"quality","role":"main"},
+    {"from":"quality","to":"vectors","role":"main"},
+    {"from":"vectors","to":"visible","role":"main"}
+  ],
+  "cards":[{"dot":"cyan","title":"三种不同事实","items":["Block 是解析事实，Chunk 是检索单元","索引写完不等于业务发布完成"]},{"dot":"amber","title":"内网 BM25 边界","items":["内网：Dense + Milvus BM25","本地 BM25 Adapter 差异需单独核对"]}]
+}
